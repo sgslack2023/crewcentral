@@ -231,15 +231,19 @@ class EstimateDocumentSerializer(serializers.ModelSerializer):
     document_title = serializers.SerializerMethodField()
     document_url = serializers.SerializerMethodField()
     document_type = serializers.SerializerMethodField()
+    processed_content = serializers.SerializerMethodField()
+    signature_count = serializers.SerializerMethodField()
+    signatures_required = serializers.SerializerMethodField()
     
     class Meta:
         model = EstimateDocument
         fields = [
             'id', 'estimate', 'document', 'document_title', 'document_url', 'document_type',
             'requires_signature', 'customer_viewed', 'customer_viewed_at',
-            'customer_signed', 'customer_signed_at', 'customer_signature', 'created_at'
+            'customer_signed', 'customer_signed_at', 'customer_signature', 'created_at',
+            'processed_content', 'signature_count', 'signatures_required'
         ]
-        read_only_fields = ['created_at', 'customer_viewed', 'customer_viewed_at', 'customer_signed', 'customer_signed_at']
+        read_only_fields = ['created_at', 'customer_viewed', 'customer_viewed_at', 'customer_signed', 'customer_signed_at', 'processed_content', 'signature_count', 'signatures_required']
     
     def get_document_title(self, obj):
         return obj.document.title if obj.document else None
@@ -257,6 +261,77 @@ class EstimateDocumentSerializer(serializers.ModelSerializer):
     
     def get_document_type(self, obj):
         return obj.document.document_type if obj.document else None
+    
+    def get_signature_count(self, obj):
+        """Return how many signatures have been filled"""
+        if not obj.customer_signature:
+            return 0
+        try:
+            import json
+            signatures = json.loads(obj.customer_signature)
+            return len(signatures)
+        except:
+            return 0
+    
+    def get_signatures_required(self, obj):
+        """Return total number of signature fields in document"""
+        if not obj.document or not obj.document.file:
+            return 0
+        
+        try:
+            # Count {{signature}} tags in document
+            with obj.document.file.open('rb') as file:
+                html_bytes = file.read()
+                html_content = html_bytes.decode('utf-8')
+            
+            import re
+            # Count all {{signature}} occurrences
+            count = len(re.findall(r'\{\{signature\}\}', html_content))
+            return count
+        except:
+            return 0
+    
+    def get_processed_content(self, obj):
+        """
+        Return document content with template tags replaced
+        """
+        if not obj.document or not obj.document.file:
+            return None
+        
+        # Only process HTML documents
+        if not (obj.document.document_type == 'HTML Document' or 
+                str(obj.document.file).endswith('.html')):
+            return None
+        
+        try:
+            # Read document content
+            with obj.document.file.open('rb') as file:
+                html_bytes = file.read()
+                html_content = html_bytes.decode('utf-8')
+            
+            # Extract body if it's a full HTML document
+            import re
+            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+            if body_match:
+                html_content = body_match.group(1)
+            
+            # Process template tags
+            from .utils import process_document_template
+            
+            # Pass customer_signature (JSON string with indexed signatures)
+            processed = process_document_template(
+                html_content,
+                customer=obj.estimate.customer if obj.estimate else None,
+                estimate=obj.estimate,
+                signatures=obj.customer_signature  # This is JSON string like {"0": "base64...", "1": "base64..."}
+            )
+            
+            return processed
+        except Exception as e:
+            print(f"Error processing document content: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 
 class DocumentSigningBatchSerializer(serializers.ModelSerializer):

@@ -13,7 +13,7 @@ from .serializers import (
     ChargeCategorySimpleSerializer, ChargeDefinitionSimpleSerializer, EstimateTemplateSimpleSerializer,
     CustomerActivitySerializer, EstimateDocumentSerializer
 )
-from .utils import create_estimate_from_template, calculate_estimate
+from .utils import create_estimate_from_template, calculate_estimate, process_document_template
 from .email_utils import send_estimate_email, send_document_signature_email
 from masterdata.models import Customer
 from django.utils import timezone
@@ -686,8 +686,8 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        # Allow public access for by_token and sign_document actions
-        if self.action in ['by_token', 'sign_document']:
+        # Allow public access for by_token, sign_document, and submit_document actions
+        if self.action in ['by_token', 'sign_document', 'submit_document']:
             return [AllowAny()]
         return super().get_permissions()
     
@@ -713,12 +713,13 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[AllowAny])
     def sign_document(self, request, pk=None):
         """
-        Customer signs a document
+        Customer signs a single signature field in a document (supports multiple signatures)
         POST /estimate-documents/{id}/sign_document/
-        {"signature": "base64_image_data", "token": "xxx"}
+        {"signature": "base64_image_data", "signature_index": 0, "token": "xxx"}
         """
         estimate_document = self.get_object()
         signature = request.data.get('signature')
+        signature_index = request.data.get('signature_index', 0)
         token = request.data.get('token')
         
         if not signature:
@@ -730,13 +731,50 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         except DocumentSigningBatch.DoesNotExist:
             return Response({'error': 'Invalid or expired token'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Save signature
-        estimate_document.customer_signature = signature
-        estimate_document.customer_signed = True
-        estimate_document.customer_signed_at = timezone.now()
+        # Load existing signatures (stored as JSON)
+        import json
+        signatures = {}
+        if estimate_document.customer_signature:
+            try:
+                signatures = json.loads(estimate_document.customer_signature)
+            except:
+                signatures = {}
+        
+        # Add/update this signature
+        signatures[str(signature_index)] = signature
+        
+        # Save signatures as JSON
+        estimate_document.customer_signature = json.dumps(signatures)
+        
+        # Mark as viewed if first time
         if not estimate_document.customer_viewed:
             estimate_document.customer_viewed = True
             estimate_document.customer_viewed_at = timezone.now()
+        
+        estimate_document.save()
+        
+        serializer = self.get_serializer(estimate_document)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny])
+    def submit_document(self, request, pk=None):
+        """
+        Final submit after all signatures are filled
+        POST /estimate-documents/{id}/submit_document/
+        {"token": "xxx"}
+        """
+        estimate_document = self.get_object()
+        token = request.data.get('token')
+        
+        # Verify token
+        try:
+            batch = DocumentSigningBatch.objects.get(estimate=estimate_document.estimate, signing_token=token, link_active=True)
+        except DocumentSigningBatch.DoesNotExist:
+            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Mark as signed
+        estimate_document.customer_signed = True
+        estimate_document.customer_signed_at = timezone.now()
         estimate_document.save()
         
         # Create activity
@@ -745,7 +783,7 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
             estimate=estimate_document.estimate,
             activity_type='other',
             title=f'Document Signed: {estimate_document.document.title}',
-            description=f'Customer signed {estimate_document.document.title}',
+            description=f'Customer completed all signatures for {estimate_document.document.title}',
             created_by=None
         )
         

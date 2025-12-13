@@ -353,12 +353,15 @@ export interface EstimateDocumentProps {
     document_title?: string;
     document_url?: string;
     document_type?: string;
+    processed_content?: string;
     requires_signature?: boolean;
     customer_viewed?: boolean;
     customer_viewed_at?: string;
     customer_signed?: boolean;
     customer_signed_at?: string;
     customer_signature?: string;
+    signature_count?: number;
+    signatures_required?: number;
     created_at?: string;
 }
  

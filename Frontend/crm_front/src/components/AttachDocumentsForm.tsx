@@ -3,7 +3,8 @@ import { Modal, notification, Button, List, Checkbox, Tag, Space } from "antd";
 import { 
   FileTextOutlined,
   PlusOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  EyeOutlined
 } from "@ant-design/icons";
 import { AuthTokenType, EstimateDocumentProps, DocumentProps } from "../utils/types";
 import { getAuthToken, getDocuments } from "../utils/functions";
@@ -30,6 +31,8 @@ const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [availableDocuments, setAvailableDocuments] = useState<DocumentProps[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+  const [viewingDoc, setViewingDoc] = useState<EstimateDocumentProps | null>(null);
+  const [viewingBlobUrl, setViewingBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isVisible && serviceTypeId) {
@@ -107,7 +110,61 @@ const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
     return attachedDocuments.find(ad => ad.document === docId)?.id;
   };
 
+  const handleViewDocument = (doc: EstimateDocumentProps) => {
+    if (!doc.processed_content) {
+      notification.warning({
+        message: 'View Not Available',
+        description: 'Document preview is not available.',
+        title: 'Warning'
+      });
+      return;
+    }
+
+    // Create HTML blob for viewing
+    const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>${doc.document_title}</title>
+    <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          max-width: 850px; 
+          margin: 40px auto; 
+          padding: 20px; 
+          line-height: 1.6;
+          background: #fff;
+        }
+        h1, h2, h3, h4, h5, h6 { color: #333; margin: 20px 0 10px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        td, th { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; font-weight: bold; }
+        p { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    ${doc.processed_content}
+</body>
+</html>
+    `;
+    
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const blobUrl = URL.createObjectURL(blob);
+    setViewingBlobUrl(blobUrl);
+    setViewingDoc(doc);
+  };
+
+  const handleCloseViewer = () => {
+    if (viewingBlobUrl) {
+      URL.revokeObjectURL(viewingBlobUrl);
+    }
+    setViewingBlobUrl(null);
+    setViewingDoc(null);
+  };
+
   return (
+    <>
     <Modal
       title="Manage Estimate Documents"
       open={isVisible}
@@ -140,6 +197,16 @@ const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
                   <Tag key="signed" color={doc.customer_signed ? 'green' : 'orange'}>
                     {doc.customer_signed ? 'Signed' : 'Awaiting Signature'}
                   </Tag>,
+                  doc.customer_signed && (
+                    <Button 
+                      key="view"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => handleViewDocument(doc)}
+                    >
+                      View
+                    </Button>
+                  ),
                   <Button 
                     key="remove"
                     size="small" 
@@ -227,6 +294,40 @@ const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
         )}
       </div>
     </Modal>
+
+    {/* Document Viewer Modal */}
+    <Modal
+      title={`View: ${viewingDoc?.document_title || 'Document'}`}
+      open={viewingDoc !== null}
+      onCancel={handleCloseViewer}
+      width={900}
+      footer={[
+        <Button key="close" onClick={handleCloseViewer}>
+          Close
+        </Button>
+      ]}
+      style={{ top: 20 }}
+    >
+      {viewingBlobUrl && (
+        <div style={{ 
+          border: '1px solid #f0f0f0', 
+          borderRadius: '8px',
+          overflow: 'hidden',
+          backgroundColor: '#fafafa'
+        }}>
+          <iframe
+            src={viewingBlobUrl}
+            style={{
+              width: '100%',
+              height: '600px',
+              border: 'none'
+            }}
+            title="Document Viewer"
+          />
+        </div>
+      )}
+    </Modal>
+  </>
   );
 };
 

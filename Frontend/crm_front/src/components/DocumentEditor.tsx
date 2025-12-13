@@ -1,9 +1,14 @@
 import React, { FC, useState, useEffect, useRef } from "react";
-import { Modal, notification, Input, Button } from "antd";
+import { Modal, notification, Input, Button, Dropdown } from "antd";
 import { 
   FileTextOutlined,
   SaveOutlined,
-  DownloadOutlined
+  DownloadOutlined,
+  TagsOutlined,
+  UserOutlined,
+  DollarOutlined,
+  TableOutlined,
+  EditOutlined
 } from "@ant-design/icons";
 import suneditor from 'suneditor';
 import 'suneditor/dist/css/suneditor.min.css';
@@ -201,6 +206,34 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
     onClose?.();
   };
 
+  const insertTag = (tag: string) => {
+    if (editorRef.current) {
+      const tagHtml = `<span style="background-color: #e6f7ff; padding: 2px 6px; border-radius: 3px; color: #1890ff; font-weight: 600; font-family: monospace;">${tag}</span>&nbsp;`;
+      editorRef.current.insertHTML(tagHtml);
+    }
+  };
+
+  const insertSignatureField = () => {
+    if (editorRef.current) {
+      const signatureHtml = `
+        <span
+          class="signature-box-container"
+          style="display: inline-block; border: 2px dashed #1890ff; background-color: #f0f9ff; border-radius: 6px; padding: 4px 8px; font-weight: 600; color: #1890ff; white-space: nowrap;"
+        >
+          {{signature}}
+        </span>
+        &nbsp;
+      `;
+      editorRef.current.insertHTML(signatureHtml);
+      
+      notification.success({
+        message: 'Signature Box Added',
+        description: 'Customer can click this field in the document to sign.',
+        title: 'Success'
+      });
+    }
+  };
+
   const handleSave = async () => {
     // Get current content from editor
     const currentContent = editorRef.current ? editorRef.current.getContents() : content;
@@ -353,6 +386,79 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
       bodyStyle={{ padding: '24px' }}
       destroyOnClose={false}
       footer={[
+        <Dropdown
+          key="insert-fields"
+          menu={{
+            items: [
+              {
+                key: 'customer',
+                label: 'Customer Fields',
+                icon: <UserOutlined />,
+                children: [
+                  { key: 'customer_name', label: 'Customer Name', onClick: () => insertTag('{{customer_name}}') },
+                  { key: 'customer_email', label: 'Email', onClick: () => insertTag('{{customer_email}}') },
+                  { key: 'customer_phone', label: 'Phone', onClick: () => insertTag('{{customer_phone}}') },
+                  { key: 'customer_company', label: 'Company', onClick: () => insertTag('{{customer_company}}') },
+                  { key: 'customer_address', label: 'Address', onClick: () => insertTag('{{customer_address}}') },
+                  { key: 'customer_city', label: 'City', onClick: () => insertTag('{{customer_city}}') },
+                  { key: 'customer_state', label: 'State', onClick: () => insertTag('{{customer_state}}') }
+                ]
+              },
+              {
+                key: 'estimate',
+                label: 'Estimate Fields',
+                icon: <DollarOutlined />,
+                children: [
+                  { key: 'estimate_id', label: 'Estimate ID', onClick: () => insertTag('{{estimate_id}}') },
+                  { key: 'estimate_date', label: 'Estimate Date', onClick: () => insertTag('{{estimate_date}}') },
+                  { key: 'estimate_subtotal', label: 'Subtotal', onClick: () => insertTag('{{estimate_subtotal}}') },
+                  { key: 'estimate_tax', label: 'Tax Amount', onClick: () => insertTag('{{estimate_tax}}') },
+                  { key: 'estimate_tax_percent', label: 'Tax %', onClick: () => insertTag('{{estimate_tax_percent}}') },
+                  { key: 'estimate_total', label: 'Total Amount', onClick: () => insertTag('{{estimate_total}}') },
+                  { key: 'service_type', label: 'Service Type', onClick: () => insertTag('{{service_type}}') },
+                  { key: 'move_date', label: 'Move Date', onClick: () => insertTag('{{move_date}}') },
+                  { key: 'weight', label: 'Weight', onClick: () => insertTag('{{weight}}') },
+                  { key: 'labour_hours', label: 'Labour Hours', onClick: () => insertTag('{{labour_hours}}') }
+                ]
+              },
+              {
+                key: 'table',
+                label: 'Line Items Table',
+                icon: <TableOutlined />,
+                children: [
+                  { 
+                    key: 'line_items_table', 
+                    label: (
+                      <span>
+                        <strong>Full Line Items Table</strong>
+                        <div style={{ fontSize: '11px', color: '#999' }}>Auto-generates complete table</div>
+                      </span>
+                    ),
+                    onClick: () => insertTag('{{estimate_line_items_table}}')
+                  }
+                ]
+              },
+              {
+                type: 'divider'
+              },
+              {
+                key: 'signature_box', 
+                label: (
+                  <span>
+                    <strong>📝 Signature Box</strong>
+                    <div style={{ fontSize: '11px', color: '#999' }}>Clickable field for customer signature</div>
+                  </span>
+                ),
+                icon: <EditOutlined />,
+                onClick: () => insertSignatureField()
+              }
+            ]
+          }}
+        >
+          <Button icon={<TagsOutlined />}>
+            Insert Field
+          </Button>
+        </Dropdown>,
         <Button key="download" icon={<DownloadOutlined />} onClick={handleDownload}>
           Download
         </Button>,
@@ -401,9 +507,9 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
           borderRadius: '6px',
           border: '1px solid #bae6fd'
         }}>
-          <div style={{ fontSize: '12px', color: '#0284c7' }}>
-            💡 <strong>Tips:</strong> Click the <strong>Table</strong> button in toolbar to insert tables with full border controls • Right-click tables for merge/split cells • Drag column borders to resize • Use full-screen mode for distraction-free editing • All table features work natively!
-          </div>
+           <div style={{ fontSize: '12px', color: '#0284c7' }}>
+             💡 <strong>Tips:</strong> Click <strong>"Insert Field"</strong> to add customer/estimate data • Insert <strong>Line Items Table</strong> for automatic pricing • Add <strong>Signature Box</strong> for customer to sign • All fields auto-populate when document is sent to customer!
+           </div>
         </div>
       </div>
     </Modal>

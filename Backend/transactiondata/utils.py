@@ -1,5 +1,6 @@
 from decimal import Decimal
 from .models import Estimate, EstimateLineItem, ChargeType
+from datetime import datetime
 
 
 def create_estimate_from_template(template, customer, weight=None, labour_hours=None, created_by=None):
@@ -93,3 +94,160 @@ def calculate_estimate(estimate):
     estimate.save()
     
     return estimate
+
+
+def process_document_template(html_content, customer=None, estimate=None, signatures=None):
+    """
+    Replace template tags with actual customer and estimate data
+    signatures: dict like {'customer': 'base64_signature_data', 'witness': '...'}
+    """
+    if not html_content:
+        return html_content
+    
+    # Customer tags
+    if customer:
+        html_content = html_content.replace('{{customer_name}}', customer.full_name or '')
+        html_content = html_content.replace('{{customer_email}}', customer.email or '')
+        html_content = html_content.replace('{{customer_phone}}', customer.phone or '')
+        html_content = html_content.replace('{{customer_company}}', customer.company or '')
+        html_content = html_content.replace('{{customer_address}}', customer.address or '')
+        html_content = html_content.replace('{{customer_city}}', customer.city or '')
+        html_content = html_content.replace('{{customer_state}}', customer.state or '')
+    
+    # Estimate tags
+    if estimate:
+        html_content = html_content.replace('{{estimate_id}}', str(estimate.id))
+        html_content = html_content.replace('{{estimate_date}}', estimate.created_at.strftime('%B %d, %Y'))
+        html_content = html_content.replace('{{estimate_subtotal}}', f'${estimate.subtotal:,.2f}')
+        html_content = html_content.replace('{{estimate_tax}}', f'${estimate.tax_amount:,.2f}')
+        html_content = html_content.replace('{{estimate_tax_percent}}', f'{estimate.tax_percentage:.2f}%')
+        html_content = html_content.replace('{{estimate_total}}', f'${estimate.total_amount:,.2f}')
+        html_content = html_content.replace('{{service_type}}', estimate.service_type.service_type if estimate.service_type else '')
+        html_content = html_content.replace('{{move_date}}', estimate.customer.move_date.strftime('%B %d, %Y') if estimate.customer.move_date else '')
+        html_content = html_content.replace('{{weight}}', f'{estimate.weight_lbs} lbs' if estimate.weight_lbs else '')
+        html_content = html_content.replace('{{labour_hours}}', f'{estimate.labour_hours} hours' if estimate.labour_hours else '')
+        
+        # Generate line items table
+        if '{{estimate_line_items_table}}' in html_content:
+            table_html = generate_line_items_table(estimate)
+            html_content = html_content.replace('{{estimate_line_items_table}}', table_html)
+    
+    # Signature fields - handle multiple signatures with unique IDs
+    import re
+    import json
+    
+    # Parse signatures if provided as JSON string
+    signature_dict = {}
+    if signatures:
+        if isinstance(signatures, str):
+            try:
+                signature_dict = json.loads(signatures)
+            except:
+                signature_dict = {}
+        elif isinstance(signatures, dict):
+            signature_dict = signatures
+    
+    # Find all {{signature}} tags and assign unique indices
+    signature_index = 0
+    
+    def replace_signature_tag(match):
+        nonlocal signature_index
+        current_index = signature_index
+        signature_index += 1
+        
+        # Check if this signature is filled
+        sig_data = signature_dict.get(str(current_index))
+        
+        if sig_data:
+            # Signed - show signature image
+            inner = f'<img src="{sig_data}" style="max-width: 140px; max-height: 40px; height: auto; vertical-align: middle; display: inline-block;" alt="Signature"/>'
+        else:
+            # Not signed - show placeholder
+            inner = 'Sign'
+        
+        # Return with data-signature-index attribute
+        return f'<span class="signature-box-container" data-signature-index="{current_index}" style="display: inline-block; border: 2px dashed #1890ff; background-color: #f0f9ff; border-radius: 6px; padding: 4px 8px; font-weight: 600; color: #1890ff; white-space: nowrap; cursor: pointer;">{inner}</span>'
+    
+    # Replace all {{signature}} tags
+    html_content = re.sub(r'\{\{signature\}\}', replace_signature_tag, html_content)
+    
+    return html_content
+
+
+def generate_line_items_table(estimate):
+    """
+    Generate a professional HTML table with all estimate line items
+    """
+    rows_html = ''
+    
+    for item in estimate.items.all():
+        # Build details column based on charge type
+        details = ''
+        if item.charge_type == ChargeType.PER_LB:
+            details = f'${item.rate:.2f}/lb × {estimate.weight_lbs or 0} lbs'
+        elif item.charge_type == ChargeType.HOURLY:
+            details = f'${item.rate:.2f}/hour × {estimate.labour_hours or 0} hours'
+        elif item.charge_type == ChargeType.FLAT:
+            details = f'${item.rate:.2f} × {item.quantity}'
+        elif item.charge_type == ChargeType.PERCENT:
+            details = f'{item.percentage:.2f}%'
+        
+        rows_html += f'''
+        <tr>
+            <td style="border: 1px solid #000; padding: 10px;">{item.charge_name}</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center;">{item.get_charge_type_display()}</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: center;">{details}</td>
+            <td style="border: 1px solid #000; padding: 10px; text-align: right;">${item.amount:,.2f}</td>
+        </tr>
+        '''
+    
+    # Build tax row conditionally
+    tax_row = ''
+    if estimate.tax_percentage and estimate.tax_percentage > 0:
+        tax_row = f'''
+            <tr style="background-color: #fff7e6;">
+                <td colspan="3" style="border: 1px solid #000; padding: 12px; text-align: right;">
+                    <strong>Sales Tax ({estimate.tax_percentage:.2f}%):</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 12px; text-align: right;">
+                    <strong>${estimate.tax_amount:,.2f}</strong>
+                </td>
+            </tr>
+        '''
+    
+    table_html = f'''
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 2px solid #000;">
+        <thead>
+            <tr style="background-color: #f4f4f4;">
+                <th style="border: 1px solid #000; padding: 12px; text-align: left;">Charge Description</th>
+                <th style="border: 1px solid #000; padding: 12px; text-align: center;">Type</th>
+                <th style="border: 1px solid #000; padding: 12px; text-align: center;">Details</th>
+                <th style="border: 1px solid #000; padding: 12px; text-align: right;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #f0f9ff;">
+                <td colspan="3" style="border: 1px solid #000; padding: 12px; text-align: right;">
+                    <strong>Subtotal:</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 12px; text-align: right;">
+                    <strong>${estimate.subtotal:,.2f}</strong>
+                </td>
+            </tr>
+            {tax_row}
+            <tr style="background-color: #f6ffed;">
+                <td colspan="3" style="border: 1px solid #000; padding: 12px; text-align: right;">
+                    <strong>TOTAL AMOUNT:</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 12px; text-align: right;">
+                    <strong style="font-size: 16px;">${estimate.total_amount:,.2f}</strong>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    '''
+    
+    return table_html

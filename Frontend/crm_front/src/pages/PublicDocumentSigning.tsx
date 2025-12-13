@@ -19,9 +19,12 @@ const PublicDocumentSigning: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signingDocId, setSigningDocId] = useState<number | null>(null);
+  const [signatureIndex, setSignatureIndex] = useState<number>(0);
   const [viewingDocUrl, setViewingDocUrl] = useState<string | null>(null);
   const [viewingBlobUrl, setViewingBlobUrl] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<EstimateDocumentProps | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -29,6 +32,21 @@ const PublicDocumentSigning: React.FC = () => {
       fetchDocuments();
     }
   }, [token]);
+
+  // Allow clicking signature boxes inside the HTML preview iframe (blob document)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event?.data?.type === 'SIGNATURE_CLICK' && typeof event.data.docId === 'number' && typeof event.data.signatureIndex === 'number') {
+        setSigningDocId(event.data.docId);
+        setSignatureIndex(event.data.signatureIndex);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const fetchEstimate = async () => {
     try {
@@ -60,26 +78,146 @@ const PublicDocumentSigning: React.FC = () => {
   const handleSaveSignature = async (signature: string) => {
     if (!signingDocId) return;
     
+    const wasViewingDoc = viewingDoc?.id === signingDocId;
+    
     try {
       await axios.post(`${EstimateDocumentsUrl}/${signingDocId}/sign_document`, {
         signature,
+        signature_index: signatureIndex,
         token
       });
       
       notification.success({
-        message: 'Document Signed',
-        description: 'Your signature has been saved successfully.',
+        message: 'Signature Saved',
+        description: 'Your signature has been saved. Continue signing remaining fields.',
+        duration: 2,
         title: 'Success'
       });
       
       setSigningDocId(null);
-      fetchDocuments(); // Refresh to show updated status
+      
+      // Refresh documents to get updated signature data
+      const response = await axios.get(`${EstimateDocumentsUrl}/by_token?token=${token}`);
+      const updatedDocs = response.data;
+      setDocuments(updatedDocs);
+      
+      // If we were viewing this document, update the view in place without closing
+      if (wasViewingDoc) {
+        const updatedDoc = updatedDocs.find((d: EstimateDocumentProps) => d.id === signingDocId);
+        if (updatedDoc && updatedDoc.processed_content) {
+          // Update the blob URL in place
+          if (viewingBlobUrl) {
+            URL.revokeObjectURL(viewingBlobUrl);
+          }
+          
+          const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Document Preview</title>
+    <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          max-width: 850px; 
+          margin: 40px auto; 
+          padding: 20px; 
+          line-height: 1.6;
+          background: #fff;
+        }
+        h1, h2, h3, h4, h5, h6 { color: #333; margin: 20px 0 10px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        td, th { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; font-weight: bold; }
+        p { margin: 10px 0; }
+        .signature-box-container { cursor: pointer !important; }
+        .signature-box-container:hover { opacity: 0.9; transform: scale(1.01); transition: all 0.2s; }
+        /* Make the container reliably clickable even if inner elements capture events */
+        .signature-box-container * { pointer-events: none; }
+    </style>
+    <script>
+      (function() {
+        function setupSignatureClicks() {
+          try {
+            var boxes = document.querySelectorAll('.signature-box-container');
+            for (var i = 0; i < boxes.length; i++) {
+              var box = boxes[i];
+              if (box.__signatureBound) continue;
+              box.__signatureBound = true;
+              
+              var signatureIndex = box.getAttribute('data-signature-index');
+              if (!signatureIndex) continue;
+              
+              (function(currentBox, currentIndex) {
+                currentBox.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  var docId = ${updatedDoc.id};
+                  if (docId !== null) {
+                    window.parent.postMessage({ 
+                      type: 'SIGNATURE_CLICK', 
+                      docId: docId, 
+                      signatureIndex: parseInt(currentIndex) 
+                    }, '*');
+                  }
+                }, true);
+                currentBox.style.cursor = 'pointer';
+              })(box, signatureIndex);
+            }
+          } catch (err) {
+            // ignore
+          }
+        }
+        window.addEventListener('load', setupSignatureClicks);
+        setTimeout(setupSignatureClicks, 50);
+        setTimeout(setupSignatureClicks, 250);
+        setTimeout(setupSignatureClicks, 800);
+      })();
+    </script>
+</head>
+<body>
+    ${updatedDoc.processed_content}
+</body>
+</html>
+          `;
+          
+          const blob = new Blob([fullHtml], { type: 'text/html' });
+          const newBlobUrl = URL.createObjectURL(blob);
+          setViewingBlobUrl(newBlobUrl);
+          setViewingDoc(updatedDoc);
+        }
+      }
     } catch (error: any) {
       notification.error({
         message: 'Signature Error',
         description: error.response?.data?.error || 'Failed to save signature',
         title: 'Error'
       });
+    }
+  };
+
+  const handleSubmitDocument = async (docId: number) => {
+    setSubmitting(true);
+    try {
+      await axios.post(`${EstimateDocumentsUrl}/${docId}/submit_document`, {
+        token
+      });
+      
+      notification.success({
+        message: 'Document Submitted',
+        description: 'All signatures completed and document submitted successfully!',
+        title: 'Success'
+      });
+      
+      fetchDocuments(); // Refresh to show updated status
+    } catch (error: any) {
+      notification.error({
+        message: 'Submit Error',
+        description: error.response?.data?.error || 'Failed to submit document',
+        title: 'Error'
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -106,13 +244,93 @@ const PublicDocumentSigning: React.FC = () => {
     }
   };
 
-  const handleViewDocument = async (docUrl: string) => {
+  const handleViewDocument = async (docUrl: string, processedContent?: string, docId?: number, doc?: EstimateDocumentProps) => {
     setViewingDocUrl(docUrl);
+    setViewingDoc(doc || null);
+    const signatureDocId = (doc?.id ?? docId) ?? null;
     
-    // Fetch blob
-    const blobUrl = await fetchPdfBlob(docUrl);
-    if (blobUrl) {
+    // If we have processed content (HTML with tags replaced), use it
+    if (processedContent) {
+      // Wrap processed content in complete HTML document with click handler script
+      const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Document Preview</title>
+    <style>
+        body { 
+          font-family: Arial, sans-serif; 
+          max-width: 850px; 
+          margin: 40px auto; 
+          padding: 20px; 
+          line-height: 1.6;
+          background: #fff;
+        }
+        h1, h2, h3, h4, h5, h6 { color: #333; margin: 20px 0 10px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        td, th { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background-color: #f4f4f4; font-weight: bold; }
+        p { margin: 10px 0; }
+        .signature-box-container { cursor: pointer !important; }
+        .signature-box-container:hover { opacity: 0.9; transform: scale(1.01); transition: all 0.2s; }
+        /* Make the container reliably clickable even if inner elements capture events */
+        .signature-box-container * { pointer-events: none; }
+    </style>
+    <script>
+      (function() {
+        function setupSignatureClicks() {
+          try {
+            var boxes = document.querySelectorAll('.signature-box-container');
+            for (var i = 0; i < boxes.length; i++) {
+              var box = boxes[i];
+              if (box.__signatureBound) continue;
+              box.__signatureBound = true;
+              
+              var signatureIndex = box.getAttribute('data-signature-index');
+              if (!signatureIndex) continue;
+              
+              (function(currentBox, currentIndex) {
+                currentBox.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  var docId = ${signatureDocId === null ? 'null' : String(signatureDocId)};
+                  if (docId !== null) {
+                    window.parent.postMessage({ 
+                      type: 'SIGNATURE_CLICK', 
+                      docId: docId, 
+                      signatureIndex: parseInt(currentIndex) 
+                    }, '*');
+                  }
+                }, true);
+                currentBox.style.cursor = 'pointer';
+              })(box, signatureIndex);
+            }
+          } catch (err) {
+            // ignore
+          }
+        }
+        window.addEventListener('load', setupSignatureClicks);
+        setTimeout(setupSignatureClicks, 50);
+        setTimeout(setupSignatureClicks, 250);
+        setTimeout(setupSignatureClicks, 800);
+      })();
+    </script>
+</head>
+<body>
+    ${processedContent}
+</body>
+</html>
+      `;
+      const blob = new Blob([fullHtml], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
       setViewingBlobUrl(blobUrl);
+    } else {
+      // Otherwise fetch the original file
+      const blobUrl = await fetchPdfBlob(docUrl);
+      if (blobUrl) {
+        setViewingBlobUrl(blobUrl);
+      }
     }
   };
 
@@ -123,6 +341,7 @@ const PublicDocumentSigning: React.FC = () => {
     }
     setViewingDocUrl(null);
     setViewingBlobUrl(null);
+    setViewingDoc(null);
   };
 
   if (loading && documents.length === 0) {
@@ -214,6 +433,33 @@ const PublicDocumentSigning: React.FC = () => {
                       </div>
                     </div>
                     
+                    {!doc.customer_signed && doc.signatures_required && doc.signatures_required > 0 && (
+                      <div style={{ 
+                        marginTop: '12px',
+                        padding: '12px',
+                        backgroundColor: '#e6f7ff',
+                        borderRadius: '6px',
+                        border: '1px solid #91d5ff'
+                      }}>
+                        <div style={{ fontSize: '13px', color: '#1890ff', fontWeight: 600 }}>
+                          ✍️ Signatures: {doc.signature_count || 0} of {doc.signatures_required} completed
+                        </div>
+                        {doc.signature_count === doc.signatures_required && (
+                          <div style={{ marginTop: '8px' }}>
+                            <Button 
+                              type="primary" 
+                              size="small"
+                              loading={submitting}
+                              onClick={() => handleSubmitDocument(doc.id!)}
+                              style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                            >
+                              ✓ Submit Document
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     {doc.customer_signed && (
                       <div style={{ 
                         marginTop: '12px',
@@ -232,22 +478,13 @@ const PublicDocumentSigning: React.FC = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <Button
                       icon={<EyeOutlined />}
-                      onClick={() => doc.document_url && handleViewDocument(doc.document_url)}
+                      onClick={() => doc.document_url && handleViewDocument(doc.document_url, doc.processed_content, doc.id, doc)}
                     >
                       View
                     </Button>
-                    {!doc.customer_signed && (
-                      <Button
-                        type="primary"
-                        icon={<EditOutlined />}
-                        onClick={() => setSigningDocId(doc.id!)}
-                      >
-                        Sign
-                      </Button>
-                    )}
                     {doc.customer_signed && (
                       <Tag icon={<CheckCircleOutlined />} color="success">
-                        Signed
+                        Submitted
                       </Tag>
                     )}
                   </div>
@@ -275,21 +512,26 @@ const PublicDocumentSigning: React.FC = () => {
           ) : (
             <>
               {viewingBlobUrl ? (
-                <div style={{ 
-                  border: '1px solid #f0f0f0', 
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  backgroundColor: '#fafafa'
-                }}>
-                  <iframe
-                    src={viewingBlobUrl}
-                    style={{
-                      width: '100%',
-                      height: '500px',
-                      border: 'none'
-                    }}
-                    title="Document Viewer"
-                  />
+                <div>
+                  <div style={{ 
+                    border: '1px solid #f0f0f0', 
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <iframe
+                      src={viewingBlobUrl}
+                      style={{
+                        width: '100%',
+                        height: '500px',
+                        border: 'none'
+                      }}
+                      title="Document Viewer"
+                    />
+                  </div>
+                  
+                  {/* Sign Button - Appears if document has signature field and not yet signed */}
+                  {/* Removed bottom sign button (signing is done by clicking the in-document signature field). */}
                 </div>
               ) : (
                 <div style={{ padding: '24px', textAlign: 'center', color: '#999' }}>
@@ -302,7 +544,12 @@ const PublicDocumentSigning: React.FC = () => {
 
         {/* Signature Modal */}
         <Modal
-          title="Sign Document"
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <EditOutlined />
+              Sign Document
+            </div>
+          }
           open={signingDocId !== null}
           onCancel={() => setSigningDocId(null)}
           footer={null}
@@ -320,6 +567,7 @@ const PublicDocumentSigning: React.FC = () => {
               </div>
               
               <SignaturePad
+                key={`signature-${signingDocId}-${signatureIndex}`}
                 onSave={handleSaveSignature}
                 onCancel={() => setSigningDocId(null)}
                 width={500}
