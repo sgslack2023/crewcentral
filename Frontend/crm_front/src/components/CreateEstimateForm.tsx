@@ -1,11 +1,12 @@
 import React, { FC, useEffect, useState } from "react";
-import { Drawer, notification, Form, InputNumber, Button, Card, Select, Divider } from "antd";
+import { Drawer, notification, Form, InputNumber, Button, Card, Select, Divider, DatePicker } from "antd";
 import { 
   CalculatorOutlined, 
   CarOutlined,
   FileTextOutlined,
   UserOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  CalendarOutlined
 } from "@ant-design/icons";
 import { AuthTokenType, CustomerProps, EstimateTemplateProps, ServiceTypeProps } from "../utils/types";
 import { getAuthToken, getServiceTypes } from "../utils/functions";
@@ -101,7 +102,11 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
       template_id: values.template_id,
       customer_id: customer.id,
       weight_lbs: values.weight_lbs,
-      labour_hours: values.labour_hours
+      labour_hours: values.labour_hours,
+      pickup_date_from: values.pickup_date_from ? values.pickup_date_from.format('YYYY-MM-DD') : null,
+      pickup_date_to: values.pickup_date_to ? values.pickup_date_to.format('YYYY-MM-DD') : null,
+      delivery_date_from: values.delivery_date_from ? values.delivery_date_from.format('YYYY-MM-DD') : null,
+      delivery_date_to: values.delivery_date_to ? values.delivery_date_to.format('YYYY-MM-DD') : null
     };
 
     try {
@@ -255,6 +260,72 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
               />
             </Form.Item>
           </div>
+        </Card>
+
+        {/* Date Ranges Card */}
+        <Card 
+          size="small"
+          style={{ marginBottom: '16px' }}
+          title={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+              <CalendarOutlined />
+              Schedule
+            </span>
+          }
+        >
+          <Form.Item
+            label="Pickup Date Range"
+            style={{ marginBottom: '12px' }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Form.Item
+                name="pickup_date_from"
+                style={{ marginBottom: '0' }}
+              >
+                <DatePicker 
+                  placeholder="From"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="pickup_date_to"
+                style={{ marginBottom: '0' }}
+              >
+                <DatePicker 
+                  placeholder="To"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </div>
+          </Form.Item>
+
+          <Form.Item
+            label="Delivery Date Range"
+            style={{ marginBottom: '0' }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Form.Item
+                name="delivery_date_from"
+                style={{ marginBottom: '0' }}
+              >
+                <DatePicker 
+                  placeholder="From"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="delivery_date_to"
+                style={{ marginBottom: '0' }}
+              >
+                <DatePicker 
+                  placeholder="To"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </div>
+          </Form.Item>
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>

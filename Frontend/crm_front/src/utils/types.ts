@@ -310,6 +310,10 @@ export interface EstimateProps {
     service_type_name?: string;
     weight_lbs?: number;
     labour_hours?: number;
+    pickup_date_from?: string;
+    pickup_date_to?: string;
+    delivery_date_from?: string;
+    delivery_date_to?: string;
     subtotal?: number;
     tax_percentage?: number;
     tax_amount?: number;

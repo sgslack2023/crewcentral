@@ -54,11 +54,32 @@ class EstimateLineItemInline(admin.TabularInline):
 
 @admin.register(Estimate)
 class EstimateAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer', 'service_type', 'status', 'subtotal', 'tax_amount', 'total_amount', 'created_at', 'created_by')
-    list_filter = ('service_type', 'status', 'created_at')
+    list_display = ('id', 'customer', 'service_type', 'pickup_date_from', 'delivery_date_from', 'status', 'total_amount', 'created_at')
+    list_filter = ('service_type', 'status', 'created_at', 'pickup_date_from', 'delivery_date_from')
     search_fields = ('customer__full_name', 'customer__email', 'notes')
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'subtotal', 'tax_percentage', 'tax_amount', 'total_amount')
     inlines = [EstimateLineItemInline]
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('customer', 'template_used', 'service_type', 'status')
+        }),
+        ('Move Details', {
+            'fields': ('weight_lbs', 'labour_hours')
+        }),
+        ('Schedule', {
+            'fields': ('pickup_date_from', 'pickup_date_to', 'delivery_date_from', 'delivery_date_to')
+        }),
+        ('Financial', {
+            'fields': ('subtotal', 'tax_percentage', 'tax_amount', 'total_amount')
+        }),
+        ('Email Tracking', {
+            'fields': ('public_token', 'email_sent_at', 'customer_viewed_at', 'customer_responded_at', 'link_active'),
+            'classes': ('collapse',)
+        }),
+        ('Additional Information', {
+            'fields': ('notes', 'created_at', 'updated_at', 'created_by')
+        }),
+    )
 
 
 @admin.register(EstimateLineItem)

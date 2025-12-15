@@ -158,6 +158,12 @@ class Estimate(models.Model):
     weight_lbs = models.PositiveIntegerField(null=True, blank=True)
     labour_hours = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
+    # Date ranges
+    pickup_date_from = models.DateField(null=True, blank=True, help_text="Pickup start date")
+    pickup_date_to = models.DateField(null=True, blank=True, help_text="Pickup end date")
+    delivery_date_from = models.DateField(null=True, blank=True, help_text="Delivery start date")
+    delivery_date_to = models.DateField(null=True, blank=True, help_text="Delivery end date")
+    
     # Calculated total
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Tax percentage from customer's branch")

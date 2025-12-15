@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Table, InputNumber, Space, Avatar } from 'antd';
+import { Card, Button, Tag, notification, Table, InputNumber, Space, Avatar, DatePicker } from 'antd';
 import { 
   ArrowLeftOutlined,
   SaveOutlined,
@@ -16,8 +16,10 @@ import {
   DeleteOutlined,
   SendOutlined,
   CopyOutlined,
-  PercentageOutlined
+  PercentageOutlined,
+  CalendarOutlined
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getAuthToken, getEstimateById, recalculateEstimate, getEstimateDocuments } from '../utils/functions';
@@ -43,6 +45,11 @@ const EstimateEditor: React.FC = () => {
   const [sendingDocs, setSendingDocs] = useState(false);
   const [editingTax, setEditingTax] = useState(false);
   const [tempTaxPercentage, setTempTaxPercentage] = useState<number>(0);
+  const [editingDates, setEditingDates] = useState(false);
+  const [tempPickupFrom, setTempPickupFrom] = useState<any>(null);
+  const [tempPickupTo, setTempPickupTo] = useState<any>(null);
+  const [tempDeliveryFrom, setTempDeliveryFrom] = useState<any>(null);
+  const [tempDeliveryTo, setTempDeliveryTo] = useState<any>(null);
 
   const currentUser = {
     role: localStorage.getItem(role) || 'user',
@@ -117,6 +124,35 @@ const EstimateEditor: React.FC = () => {
       notification.error({
         message: 'Update Error',
         description: 'Failed to update tax percentage',
+        title: 'Error'
+      });
+    }
+  };
+
+  const handleUpdateDates = async () => {
+    if (!estimateId || !estimate) return;
+    
+    try {
+      const headers = getAuthToken() as any;
+      await axios.patch(`${EstimatesUrl}/${estimateId}`, {
+        pickup_date_from: tempPickupFrom ? tempPickupFrom.format('YYYY-MM-DD') : null,
+        pickup_date_to: tempPickupTo ? tempPickupTo.format('YYYY-MM-DD') : null,
+        delivery_date_from: tempDeliveryFrom ? tempDeliveryFrom.format('YYYY-MM-DD') : null,
+        delivery_date_to: tempDeliveryTo ? tempDeliveryTo.format('YYYY-MM-DD') : null
+      }, headers);
+      
+      notification.success({
+        message: 'Dates Updated',
+        description: 'Pickup and delivery dates have been updated',
+        title: 'Success'
+      });
+      
+      setEditingDates(false);
+      fetchEstimate();
+    } catch (error) {
+      notification.error({
+        message: 'Update Error',
+        description: 'Failed to update dates',
         title: 'Error'
       });
     }
@@ -469,7 +505,7 @@ const EstimateEditor: React.FC = () => {
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate('/customers')}
             >
-              Back to Customers
+              Back
             </Button>
           </div>
         </div>
@@ -589,6 +625,139 @@ const EstimateEditor: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Schedule Section - Editable */}
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '10px'
+                    }}>
+                      <div style={{ fontSize: '11px', color: '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <CalendarOutlined /> Schedule
+                      </div>
+                      {!editingDates && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => {
+                            setEditingDates(true);
+                            setTempPickupFrom(estimate.pickup_date_from ? dayjs(estimate.pickup_date_from) : null);
+                            setTempPickupTo(estimate.pickup_date_to ? dayjs(estimate.pickup_date_to) : null);
+                            setTempDeliveryFrom(estimate.delivery_date_from ? dayjs(estimate.delivery_date_from) : null);
+                            setTempDeliveryTo(estimate.delivery_date_to ? dayjs(estimate.delivery_date_to) : null);
+                          }}
+                          style={{ padding: '2px 8px' }}
+                        />
+                      )}
+                    </div>
+
+                    {editingDates ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {/* Pickup Range */}
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#d97706', fontWeight: 500, marginBottom: '6px' }}>
+                            📤 Pickup
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <DatePicker
+                              value={tempPickupFrom}
+                              onChange={(date) => setTempPickupFrom(date)}
+                              placeholder="From"
+                              size="small"
+                              style={{ flex: 1 }}
+                            />
+                            <DatePicker
+                              value={tempPickupTo}
+                              onChange={(date) => setTempPickupTo(date)}
+                              placeholder="To"
+                              size="small"
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Delivery Range */}
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 500, marginBottom: '6px' }}>
+                            📥 Delivery
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <DatePicker
+                              value={tempDeliveryFrom}
+                              onChange={(date) => setTempDeliveryFrom(date)}
+                              placeholder="From"
+                              size="small"
+                              style={{ flex: 1 }}
+                            />
+                            <DatePicker
+                              value={tempDeliveryTo}
+                              onChange={(date) => setTempDeliveryTo(date)}
+                              placeholder="To"
+                              size="small"
+                              style={{ flex: 1 }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Save/Cancel */}
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                          <Button
+                            size="small"
+                            type="primary"
+                            icon={<CheckOutlined />}
+                            onClick={handleUpdateDates}
+                            style={{ flex: 1 }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<CloseOutlined />}
+                            onClick={() => setEditingDates(false)}
+                            style={{ flex: 1 }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Pickup Display */}
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#d97706', fontWeight: 500, marginBottom: '4px' }}>
+                            📤 Pickup
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#000' }}>
+                            {estimate.pickup_date_from 
+                              ? `${new Date(estimate.pickup_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${estimate.pickup_date_to ? ' - ' + new Date(estimate.pickup_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`
+                              : <span style={{ color: '#999' }}>Not set</span>
+                            }
+                          </div>
+                        </div>
+
+                        {/* Delivery Display */}
+                        <div>
+                          <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 500, marginBottom: '4px' }}>
+                            📥 Delivery
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#000' }}>
+                            {estimate.delivery_date_from 
+                              ? `${new Date(estimate.delivery_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${estimate.delivery_date_to ? ' - ' + new Date(estimate.delivery_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`
+                              : <span style={{ color: '#999' }}>Not set</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Amount Breakdown */}
                   <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {/* Subtotal */}
@@ -684,7 +853,7 @@ const EstimateEditor: React.FC = () => {
                           description: 'Estimate has been saved successfully',
                           title: 'Success'
                         });
-                        navigate('/estimates');
+                        navigate('/customers');
                       }}
                     >
                       Save & Close

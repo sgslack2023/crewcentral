@@ -134,7 +134,8 @@ class EstimateSerializer(serializers.ModelSerializer):
         model = Estimate
         fields = [
             'id', 'customer', 'customer_name', 'template_used', 'template_name',
-            'service_type', 'service_type_name', 'weight_lbs', 'labour_hours', 
+            'service_type', 'service_type_name', 'weight_lbs', 'labour_hours',
+            'pickup_date_from', 'pickup_date_to', 'delivery_date_from', 'delivery_date_to',
             'subtotal', 'tax_percentage', 'tax_amount', 'total_amount',
             'status', 'notes', 'created_at', 'updated_at', 'created_by', 'created_by_name', 
             'items', 'items_count',

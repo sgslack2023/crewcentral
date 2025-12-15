@@ -14,7 +14,8 @@ import {
   InfoCircleOutlined,
   MoreOutlined,
   CalculatorOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -468,6 +469,18 @@ const Customers: React.FC = () => {
                     <Button
                       size="small"
                       type="text"
+                      icon={<FileTextOutlined />}
+                      onClick={() => navigate(`/estimates?customer=${customer.id}`)}
+                      style={{ 
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                        color: '#1890ff'
+                      }}
+                      title="View Estimates"
+                    />
+                    <Button
+                      size="small"
+                      type="text"
                       icon={<EditOutlined />}
                       onClick={() => {
                         setEditingCustomer(customer);
@@ -475,8 +488,10 @@ const Customers: React.FC = () => {
                       }}
                       style={{ 
                         backgroundColor: 'rgba(255,255,255,0.9)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                        color: '#faad14'
                       }}
+                      title="Edit Customer"
                     />
                     <Button
                       size="small"
@@ -488,6 +503,7 @@ const Customers: React.FC = () => {
                         backgroundColor: 'rgba(255,255,255,0.9)',
                         boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
                       }}
+                      title="Delete Customer"
                     />
                   </div>
                 </Card>

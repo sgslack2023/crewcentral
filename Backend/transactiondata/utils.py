@@ -3,7 +3,10 @@ from .models import Estimate, EstimateLineItem, ChargeType
 from datetime import datetime
 
 
-def create_estimate_from_template(template, customer, weight=None, labour_hours=None, created_by=None):
+def create_estimate_from_template(template, customer, weight=None, labour_hours=None, 
+                                  pickup_date_from=None, pickup_date_to=None,
+                                  delivery_date_from=None, delivery_date_to=None,
+                                  created_by=None):
     """
     Create a new estimate from a template
     """
@@ -13,6 +16,10 @@ def create_estimate_from_template(template, customer, weight=None, labour_hours=
         service_type=template.service_type,
         weight_lbs=weight,
         labour_hours=labour_hours,
+        pickup_date_from=pickup_date_from,
+        pickup_date_to=pickup_date_to,
+        delivery_date_from=delivery_date_from,
+        delivery_date_to=delivery_date_to,
         created_by=created_by
     )
     

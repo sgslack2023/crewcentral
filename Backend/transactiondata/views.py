@@ -275,6 +275,10 @@ class EstimateViewSet(viewsets.ModelViewSet):
         customer_id = request.data.get('customer_id')
         weight = request.data.get('weight_lbs')
         hours = request.data.get('labour_hours')
+        pickup_date_from = request.data.get('pickup_date_from')
+        pickup_date_to = request.data.get('pickup_date_to')
+        delivery_date_from = request.data.get('delivery_date_from')
+        delivery_date_to = request.data.get('delivery_date_to')
         
         if not template_id or not customer_id:
             return Response(
@@ -288,7 +292,12 @@ class EstimateViewSet(viewsets.ModelViewSet):
         except (EstimateTemplate.DoesNotExist, Customer.DoesNotExist) as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
         
-        estimate = create_estimate_from_template(template, customer, weight, hours, request.user)
+        estimate = create_estimate_from_template(
+            template, customer, weight, hours,
+            pickup_date_from, pickup_date_to, 
+            delivery_date_from, delivery_date_to,
+            request.user
+        )
         
         # Create activity record
         CustomerActivity.objects.create(

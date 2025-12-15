@@ -164,7 +164,7 @@ const CustomerTimeline: React.FC = () => {
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate('/customers')}
             >
-              Back to Customers
+              Back
             </Button>
           </div>
         </div>
@@ -172,156 +172,291 @@ const CustomerTimeline: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
           {/* Modern Customer Info Card */}
           {customer && (
-            <Card 
-              style={{ 
-                borderRadius: '12px',
-                position: 'sticky',
-                top: '24px',
-                alignSelf: 'start'
-              }}
-              bodyStyle={{ padding: '20px' }}
-            >
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{
+              backgroundColor: '#fff',
+              borderRadius: '12px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              position: 'sticky',
+              top: '24px',
+              alignSelf: 'start',
+              overflow: 'hidden'
+            }}>
+              {/* Header with Avatar */}
+              <div style={{
+                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                padding: '24px',
+                textAlign: 'center'
+              }}>
                 <Avatar 
-                  size={72} 
+                  size={80} 
                   style={{ 
-                    backgroundColor: '#1890ff',
-                    fontSize: '28px',
-                    marginBottom: '12px'
+                    backgroundColor: '#2563eb',
+                    fontSize: '32px',
+                    marginBottom: '12px',
+                    border: '4px solid #fff',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}
                 >
                   {customer.full_name?.charAt(0) || 'C'}
                 </Avatar>
-                <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 600, margin: '0 0 8px 0', color: '#111827' }}>
                   {customer.full_name}
-                </div>
-                <Tag color="blue" style={{ fontSize: '11px' }}>
+                </h3>
+                <Tag 
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: '#eff6ff',
+                    color: '#1e40af',
+                    border: '1px solid #bfdbfe'
+                  }}
+                >
                   {customer.stage?.toUpperCase()}
                 </Tag>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {/* Email */}
-                <div style={{
-                  padding: '10px',
-                  backgroundColor: '#f0f9ff',
-                  borderRadius: '8px',
-                  border: '1px solid #bae6fd'
+              {/* Contact Information */}
+              <div style={{ padding: '20px' }}>
+                <h4 style={{ 
+                  fontSize: '12px', 
+                  fontWeight: 600, 
+                  color: '#6b7280',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  margin: '0 0 16px 0'
                 }}>
-                  <div style={{ fontSize: '10px', color: '#0284c7', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <MailOutlined /> Email
+                  Contact Information
+                </h4>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Email */}
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '8px',
+                    border: '1px solid #e5e7eb',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: '#2563eb', 
+                      fontWeight: 500, 
+                      marginBottom: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <MailOutlined style={{ fontSize: '12px' }} />
+                      EMAIL
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#111827', wordBreak: 'break-word', lineHeight: '1.4' }}>
+                      {customer.email}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#000', wordBreak: 'break-word' }}>
-                    {customer.email}
-                  </div>
+
+                  {/* Phone */}
+                  {customer.phone && (
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <div style={{ 
+                        fontSize: '11px', 
+                        color: '#16a34a', 
+                        fontWeight: 500, 
+                        marginBottom: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <PhoneOutlined style={{ fontSize: '12px' }} />
+                        PHONE
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#111827' }}>
+                        {customer.phone}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  {(customer.city || customer.state) && (
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <div style={{ 
+                        fontSize: '11px', 
+                        color: '#ea580c', 
+                        fontWeight: 500, 
+                        marginBottom: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <HomeOutlined style={{ fontSize: '12px' }} />
+                        LOCATION
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#111827' }}>
+                        {[customer.city, customer.state].filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                  )}
                 </div>
-
-                {/* Phone */}
-                {customer.phone && (
-                  <div style={{
-                    padding: '10px',
-                    backgroundColor: '#f0fdf4',
-                    borderRadius: '8px',
-                    border: '1px solid #bbf7d0'
-                  }}>
-                    <div style={{ fontSize: '10px', color: '#16a34a', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      <PhoneOutlined /> Phone
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#000' }}>
-                      {customer.phone}
-                    </div>
-                  </div>
-                )}
-
-                {/* Location */}
-                {(customer.city || customer.state) && (
-                  <div style={{
-                    padding: '10px',
-                    backgroundColor: '#fef3f2',
-                    borderRadius: '8px',
-                    border: '1px solid #fecaca'
-                  }}>
-                    <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      <HomeOutlined /> Location
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#000' }}>
-                      {[customer.city, customer.state].filter(Boolean).join(', ')}
-                    </div>
-                  </div>
-                )}
-
-                {/* Service Type */}
-                {customer.service_type_name && (
-                  <div style={{
-                    padding: '10px',
-                    backgroundColor: '#faf5ff',
-                    borderRadius: '8px',
-                    border: '1px solid #e9d5ff'
-                  }}>
-                    <div style={{ fontSize: '10px', color: '#9333ea', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      <TagsOutlined /> Service Type
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#000' }}>
-                      {customer.service_type_name}
-                    </div>
-                  </div>
-                )}
-
-                {/* Move Date */}
-                {customer.move_date && (
-                  <div style={{
-                    padding: '10px',
-                    backgroundColor: '#fffbeb',
-                    borderRadius: '8px',
-                    border: '1px solid #fde68a'
-                  }}>
-                    <div style={{ fontSize: '10px', color: '#d97706', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      <CalendarOutlined /> Move Date
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#000' }}>
-                      {new Date(customer.move_date).toLocaleDateString()}
-                    </div>
-                  </div>
-                )}
               </div>
-            </Card>
+
+              {/* Additional Details */}
+              {(customer.service_type_name || customer.move_date) && (
+                <>
+                  <div style={{ 
+                    height: '1px', 
+                    backgroundColor: '#e5e7eb',
+                    margin: '0 20px'
+                  }} />
+                  
+                  <div style={{ padding: '20px' }}>
+                    <h4 style={{ 
+                      fontSize: '12px', 
+                      fontWeight: 600, 
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      margin: '0 0 16px 0'
+                    }}>
+                      Move Details
+                    </h4>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {/* Service Type */}
+                      {customer.service_type_name && (
+                        <div style={{
+                          padding: '12px',
+                          backgroundColor: '#f9fafb',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: '#9333ea', 
+                            fontWeight: 500, 
+                            marginBottom: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            <TagsOutlined style={{ fontSize: '12px' }} />
+                            SERVICE TYPE
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#111827' }}>
+                            {customer.service_type_name}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Move Date */}
+                      {customer.move_date && (
+                        <div style={{
+                          padding: '12px',
+                          backgroundColor: '#f9fafb',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: '#d97706', 
+                            fontWeight: 500, 
+                            marginBottom: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            <CalendarOutlined style={{ fontSize: '12px' }} />
+                            MOVE DATE
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#111827' }}>
+                            {new Date(customer.move_date).toLocaleDateString('en-US', {
+                              month: 'long',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
-          {/* Timeline Card - Modern but consistent */}
-          <Card 
-            title={
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ClockCircleOutlined style={{ fontSize: '18px' }} />
-                  <span style={{ fontSize: '16px', fontWeight: 600 }}>
-                    Activity Timeline
-                  </span>
-                  <Tag color="blue" style={{ marginLeft: '8px' }}>{activities.length}</Tag>
+          {/* Timeline Card - Modern */}
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <ClockCircleOutlined style={{ fontSize: '18px', color: '#2563eb' }} />
                 </div>
-                <Button 
-                  type="primary"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={() => setNoteModalVisible(true)}
-                  style={{ 
-                    backgroundColor: '#52c41a', 
-                    borderColor: '#52c41a',
-                    fontSize: '12px',
-                    height: '28px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  Add Note
-                </Button>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: '#111827' }}>
+                    Activity Timeline
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                    {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
+                  </p>
+                </div>
               </div>
-            }
-            style={{ 
-              borderRadius: '12px'
-            }}
-            bodyStyle={{ padding: '24px' }}
-          >
+              <Button 
+                icon={<PlusOutlined />}
+                onClick={() => setNoteModalVisible(true)}
+                style={{ 
+                  backgroundColor: '#dcfce7',
+                  color: '#16a34a',
+                  border: '1px solid #86efac',
+                  borderRadius: '8px',
+                  fontWeight: 500,
+                  height: '36px',
+                  padding: '0 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                Add Note
+              </Button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
             {loading ? (
               <div style={{ textAlign: 'center', padding: '60px' }}>
                 <ClockCircleOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
@@ -334,70 +469,110 @@ const CustomerTimeline: React.FC = () => {
                 style={{ padding: '60px 0' }}
               />
             ) : (
-              <Timeline
-                style={{ marginTop: '16px' }}
-                items={activities.map(activity => ({
-                  key: activity.id,
-                  dot: (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px' }}>
+                {activities.map((activity, index) => (
+                  <div 
+                    key={activity.id}
+                    style={{
+                      display: 'flex',
+                      gap: '20px',
+                      position: 'relative',
+                      paddingBottom: index !== activities.length - 1 ? '24px' : '0'
+                    }}
+                  >
+                    {/* Timeline line connector */}
+                    {index !== activities.length - 1 && (
+                      <div style={{
+                        position: 'absolute',
+                        left: '23px',
+                        top: '52px',
+                        bottom: '-24px',
+                        width: '2px',
+                        background: 'linear-gradient(to bottom, #e5e7eb 0%, #f3f4f6 100%)',
+                        zIndex: 0
+                      }} />
+                    )}
+
+                    {/* Icon Badge */}
                     <div style={{
-                      width: '40px',
-                      height: '40px',
+                      width: '48px',
+                      height: '48px',
                       borderRadius: '12px',
                       background: getActivityBgColor(activity.activity_type),
                       border: `2px solid ${getActivityColor(activity.activity_type)}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      transition: 'all 0.3s ease'
+                      flexShrink: 0,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                      zIndex: 1,
+                      position: 'relative'
                     }}>
                       {getActivityIcon(activity.activity_type)}
                     </div>
-                  ),
-                  children: (
-                    <Card 
-                      size="small"
-                      style={{ 
-                        marginBottom: '16px',
-                        borderRadius: '8px',
-                        border: '1px solid #f0f0f0',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                        transition: 'all 0.2s ease'
-                      }}
-                      bodyStyle={{ padding: '16px' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-                        e.currentTarget.style.borderColor = '#d9d9d9';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)';
-                        e.currentTarget.style.borderColor = '#f0f0f0';
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '15px', fontWeight: 600, color: '#000', marginBottom: '6px' }}>
-                            {activity.title}
+
+                    {/* Activity Content Card */}
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          padding: '20px',
+                          backgroundColor: '#fff',
+                          borderRadius: '12px',
+                          border: '1px solid #e5e7eb',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                          transition: 'all 0.2s ease',
+                          cursor: 'default'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                          e.currentTarget.style.transform = 'translateX(4px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+                          e.currentTarget.style.transform = 'translateX(0)';
+                        }}
+                      >
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                          <div style={{ flex: 1 }}>
+                            <h3 style={{ 
+                              fontSize: '16px', 
+                              fontWeight: 600, 
+                              color: '#111827',
+                              margin: '0 0 8px 0'
+                            }}>
+                              {activity.title}
+                            </h3>
+                            <div style={{ 
+                              fontSize: '13px', 
+                              color: '#6b7280', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '16px',
+                              flexWrap: 'wrap'
+                            }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <ClockCircleOutlined style={{ fontSize: '12px' }} />
+                                {new Date(activity.created_at!).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <UserOutlined style={{ fontSize: '12px' }} />
+                                {activity.created_by_name}
+                              </span>
+                            </div>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#999', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <span>
-                              <ClockCircleOutlined /> {new Date(activity.created_at!).toLocaleString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                            <span>
-                              <UserOutlined /> {activity.created_by_name}
-                            </span>
-                          </div>
-                        </div>
                           <Tag 
                             style={{ 
                               margin: 0, 
-                              fontSize: '10px', 
+                              fontSize: '11px', 
                               fontWeight: 500,
+                              padding: '4px 12px',
+                              borderRadius: '6px',
                               backgroundColor: getActivityBgColor(activity.activity_type),
                               color: getActivityColor(activity.activity_type),
                               border: `1px solid ${getActivityColor(activity.activity_type)}`
@@ -405,53 +580,73 @@ const CustomerTimeline: React.FC = () => {
                           >
                             {activity.activity_type.replace('_', ' ').toUpperCase()}
                           </Tag>
+                        </div>
+
+                        {/* Description */}
+                        {activity.description && (
+                          <div style={{ 
+                            fontSize: '14px', 
+                            color: '#4b5563',
+                            lineHeight: '1.6',
+                            marginTop: '12px',
+                            padding: '14px',
+                            backgroundColor: '#f9fafb',
+                            borderRadius: '8px',
+                            borderLeft: `3px solid ${getActivityColor(activity.activity_type)}`
+                          }}>
+                            {activity.description}
+                          </div>
+                        )}
+
+                        {/* Estimate Link */}
+                        {activity.estimate_id && (
+                          <div style={{ 
+                            marginTop: '16px',
+                            paddingTop: '16px',
+                            borderTop: '1px solid #e5e7eb',
+                            display: 'flex',
+                            gap: '10px',
+                            alignItems: 'center'
+                          }}>
+                            <Button
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={() => navigate(`/estimate-editor/${activity.estimate_id}`)}
+                              style={{
+                                backgroundColor: '#dbeafe',
+                                color: '#2563eb',
+                                border: '1px solid #93c5fd',
+                                borderRadius: '8px',
+                                fontWeight: 500,
+                                height: '32px',
+                                padding: '0 16px'
+                              }}
+                            >
+                              View Estimate
+                            </Button>
+                            <Tag 
+                              style={{ 
+                                margin: 0,
+                                backgroundColor: '#eff6ff',
+                                color: '#1e40af',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                                fontSize: '12px'
+                              }}
+                            >
+                              <FileTextOutlined /> Estimate #{activity.estimate_id}
+                            </Tag>
+                          </div>
+                        )}
                       </div>
-                      
-                      {activity.description && (
-                        <div style={{ 
-                          fontSize: '13px', 
-                          color: '#666',
-                          marginTop: '12px',
-                          padding: '10px',
-                          backgroundColor: '#fafafa',
-                          borderRadius: '6px',
-                          borderLeft: '2px solid #1890ff'
-                        }}>
-                          {activity.description}
-                        </div>
-                      )}
-                      
-                      {activity.estimate_id && (
-                        <div style={{ 
-                          marginTop: '12px',
-                          paddingTop: '12px',
-                          borderTop: '1px solid #f0f0f0',
-                          display: 'flex',
-                          gap: '8px',
-                          alignItems: 'center'
-                        }}>
-                          <Button
-                            size="small"
-                            type="primary"
-                            icon={<EyeOutlined />}
-                            onClick={() => navigate(`/estimate-editor/${activity.estimate_id}`)}
-                          >
-                            View Estimate
-                          </Button>
-                          <Tag 
-                            color="blue"
-                            style={{ margin: 0 }}
-                          >
-                            <FileTextOutlined /> Estimate #{activity.estimate_id}
-                          </Tag>
-                        </div>
-                      )}
-                    </Card>
-                  )
-                }))}
-              />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
 
