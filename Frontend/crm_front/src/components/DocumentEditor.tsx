@@ -234,6 +234,27 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
     }
   };
 
+  const insertTextBoxField = () => {
+    if (editorRef.current) {
+      const textBoxHtml = `
+        <span
+          class="textbox-container"
+          style="display: inline-block; border: 2px dashed #52c41a; background-color: #f6ffed; border-radius: 6px; padding: 4px 8px; font-weight: 600; color: #52c41a; white-space: nowrap; min-width: 150px;"
+        >
+          {{textbox}}
+        </span>
+        &nbsp;
+      `;
+      editorRef.current.insertHTML(textBoxHtml);
+      
+      notification.success({
+        message: 'Text Box Added',
+        description: 'Customer can click this field to enter text.',
+        title: 'Success'
+      });
+    }
+  };
+
   const handleSave = async () => {
     // Get current content from editor
     const currentContent = editorRef.current ? editorRef.current.getContents() : content;
@@ -395,13 +416,16 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                 label: 'Customer Fields',
                 icon: <UserOutlined />,
                 children: [
+                  { key: 'job_number', label: 'Job Number', onClick: () => insertTag('{{job_number}}') },
                   { key: 'customer_name', label: 'Customer Name', onClick: () => insertTag('{{customer_name}}') },
                   { key: 'customer_email', label: 'Email', onClick: () => insertTag('{{customer_email}}') },
                   { key: 'customer_phone', label: 'Phone', onClick: () => insertTag('{{customer_phone}}') },
                   { key: 'customer_company', label: 'Company', onClick: () => insertTag('{{customer_company}}') },
                   { key: 'customer_address', label: 'Address', onClick: () => insertTag('{{customer_address}}') },
                   { key: 'customer_city', label: 'City', onClick: () => insertTag('{{customer_city}}') },
-                  { key: 'customer_state', label: 'State', onClick: () => insertTag('{{customer_state}}') }
+                  { key: 'customer_state', label: 'State', onClick: () => insertTag('{{customer_state}}') },
+                  { key: 'origin_address', label: 'Origin Address', onClick: () => insertTag('{{origin_address}}') },
+                  { key: 'destination_address', label: 'Destination Address', onClick: () => insertTag('{{destination_address}}') }
                 ]
               },
               {
@@ -451,6 +475,17 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                 ),
                 icon: <EditOutlined />,
                 onClick: () => insertSignatureField()
+              },
+              {
+                key: 'textbox', 
+                label: (
+                  <span>
+                    <strong>✏️ Text Box</strong>
+                    <div style={{ fontSize: '11px', color: '#999' }}>Clickable field for customer to type text</div>
+                  </span>
+                ),
+                icon: <EditOutlined />,
+                onClick: () => insertTextBoxField()
               }
             ]
           }}
@@ -508,7 +543,7 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
           border: '1px solid #bae6fd'
         }}>
            <div style={{ fontSize: '12px', color: '#0284c7' }}>
-             💡 <strong>Tips:</strong> Click <strong>"Insert Field"</strong> to add customer/estimate data • Insert <strong>Line Items Table</strong> for automatic pricing • Add <strong>Signature Box</strong> for customer to sign • All fields auto-populate when document is sent to customer!
+             💡 <strong>Tips:</strong> Click <strong>"Insert Field"</strong> to add customer/estimate data • Insert <strong>Line Items Table</strong> for automatic pricing • Add <strong>Signature Box</strong> for customer to sign • Add <strong>Text Box</strong> for customer to fill in • All fields auto-populate when document is sent to customer!
            </div>
         </div>
       </div>

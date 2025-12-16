@@ -39,7 +39,7 @@ function AuthComponent({
               </svg>
             </div>
             <div className="brand-text">
-              <h1>BVL Movers</h1>
+              <h1>Baltic Van Lines</h1>
             </div>
           </div>
         </div>
@@ -160,7 +160,7 @@ function AuthComponent({
 
         {/* Footer */}
         <div className="login-footer">
-          <p>© 2024 BVL Movers. All rights reserved.</p>
+          <p>© 2024 Baltic Van Lines. All rights reserved.</p>
         </div>
       </div>
     </div>

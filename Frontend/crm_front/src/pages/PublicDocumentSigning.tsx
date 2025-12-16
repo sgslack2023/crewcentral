@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Modal, Result, Progress } from 'antd';
+import { Card, Button, Tag, notification, Modal, Result, Progress, Input } from 'antd';
 import { 
   FileTextOutlined,
   CheckCircleOutlined,
@@ -20,6 +20,9 @@ const PublicDocumentSigning: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [signingDocId, setSigningDocId] = useState<number | null>(null);
   const [signatureIndex, setSignatureIndex] = useState<number>(0);
+  const [fillingTextboxDocId, setFillingTextboxDocId] = useState<number | null>(null);
+  const [textboxIndex, setTextboxIndex] = useState<number>(0);
+  const [textboxValue, setTextboxValue] = useState<string>('');
   const [viewingDocUrl, setViewingDocUrl] = useState<string | null>(null);
   const [viewingBlobUrl, setViewingBlobUrl] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<EstimateDocumentProps | null>(null);
@@ -33,12 +36,17 @@ const PublicDocumentSigning: React.FC = () => {
     }
   }, [token]);
 
-  // Allow clicking signature boxes inside the HTML preview iframe (blob document)
+  // Allow clicking signature boxes and text boxes inside the HTML preview iframe (blob document)
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event?.data?.type === 'SIGNATURE_CLICK' && typeof event.data.docId === 'number' && typeof event.data.signatureIndex === 'number') {
         setSigningDocId(event.data.docId);
         setSignatureIndex(event.data.signatureIndex);
+      }
+      if (event?.data?.type === 'TEXTBOX_CLICK' && typeof event.data.docId === 'number' && typeof event.data.textboxIndex === 'number') {
+        setFillingTextboxDocId(event.data.docId);
+        setTextboxIndex(event.data.textboxIndex);
+        setTextboxValue('');
       }
     };
 
@@ -72,6 +80,59 @@ const PublicDocumentSigning: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveTextbox = async () => {
+    if (!fillingTextboxDocId) return;
+    
+    const wasViewingDoc = viewingDoc?.id === fillingTextboxDocId;
+    
+    try {
+      await axios.post(`${EstimateDocumentsUrl}/${fillingTextboxDocId}/fill_textbox`, {
+        text: textboxValue,
+        textbox_index: textboxIndex,
+        token
+      });
+      
+      notification.success({
+        message: 'Text Saved',
+        description: 'Your text has been saved.',
+        duration: 2,
+        title: 'Success'
+      });
+      
+      setFillingTextboxDocId(null);
+      setTextboxValue('');
+      
+      // Refresh documents to get updated text data
+      const response = await axios.get(`${EstimateDocumentsUrl}/by_token?token=${token}`);
+      const updatedDocs = response.data;
+      setDocuments(updatedDocs);
+      
+      // If we were viewing this document, update the view in place without closing
+      if (wasViewingDoc) {
+        const updatedDoc = updatedDocs.find((d: EstimateDocumentProps) => d.id === fillingTextboxDocId);
+        if (updatedDoc && updatedDoc.processed_content) {
+          // Update the blob URL in place
+          if (viewingBlobUrl) {
+            URL.revokeObjectURL(viewingBlobUrl);
+          }
+          
+          const fullHtml = generateDocumentHtml(updatedDoc);
+          
+          const blob = new Blob([fullHtml], { type: 'text/html' });
+          const newBlobUrl = URL.createObjectURL(blob);
+          setViewingBlobUrl(newBlobUrl);
+          setViewingDoc(updatedDoc);
+        }
+      }
+    } catch (error: any) {
+      notification.error({
+        message: 'Text Save Error',
+        description: error.response?.data?.error || 'Failed to save text',
+        title: 'Error'
+      });
     }
   };
 
@@ -110,7 +171,25 @@ const PublicDocumentSigning: React.FC = () => {
             URL.revokeObjectURL(viewingBlobUrl);
           }
           
-          const fullHtml = `
+          const fullHtml = generateDocumentHtml(updatedDoc);
+          
+          const blob = new Blob([fullHtml], { type: 'text/html' });
+          const newBlobUrl = URL.createObjectURL(blob);
+          setViewingBlobUrl(newBlobUrl);
+          setViewingDoc(updatedDoc);
+        }
+      }
+    } catch (error: any) {
+      notification.error({
+        message: 'Signature Error',
+        description: error.response?.data?.error || 'Failed to save signature',
+        title: 'Error'
+      });
+    }
+  };
+
+  const generateDocumentHtml = (doc: EstimateDocumentProps) => {
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -132,16 +211,19 @@ const PublicDocumentSigning: React.FC = () => {
         p { margin: 10px 0; }
         .signature-box-container { cursor: pointer !important; }
         .signature-box-container:hover { opacity: 0.9; transform: scale(1.01); transition: all 0.2s; }
-        /* Make the container reliably clickable even if inner elements capture events */
         .signature-box-container * { pointer-events: none; }
+        .textbox-container { cursor: pointer !important; }
+        .textbox-container:hover { opacity: 0.9; transform: scale(1.01); transition: all 0.2s; }
+        .textbox-container * { pointer-events: none; }
     </style>
     <script>
       (function() {
-        function setupSignatureClicks() {
+        function setupClickHandlers() {
           try {
-            var boxes = document.querySelectorAll('.signature-box-container');
-            for (var i = 0; i < boxes.length; i++) {
-              var box = boxes[i];
+            // Setup signature boxes
+            var sigBoxes = document.querySelectorAll('.signature-box-container');
+            for (var i = 0; i < sigBoxes.length; i++) {
+              var box = sigBoxes[i];
               if (box.__signatureBound) continue;
               box.__signatureBound = true;
               
@@ -152,7 +234,7 @@ const PublicDocumentSigning: React.FC = () => {
                 currentBox.addEventListener('click', function(e) {
                   e.preventDefault();
                   e.stopPropagation();
-                  var docId = ${updatedDoc.id};
+                  var docId = ${doc.id};
                   if (docId !== null) {
                     window.parent.postMessage({ 
                       type: 'SIGNATURE_CLICK', 
@@ -164,36 +246,49 @@ const PublicDocumentSigning: React.FC = () => {
                 currentBox.style.cursor = 'pointer';
               })(box, signatureIndex);
             }
+            
+            // Setup text boxes
+            var textBoxes = document.querySelectorAll('.textbox-container');
+            for (var j = 0; j < textBoxes.length; j++) {
+              var textBox = textBoxes[j];
+              if (textBox.__textboxBound) continue;
+              textBox.__textboxBound = true;
+              
+              var textboxIndex = textBox.getAttribute('data-textbox-index');
+              if (!textboxIndex) continue;
+              
+              (function(currentBox, currentIndex) {
+                currentBox.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  var docId = ${doc.id};
+                  if (docId !== null) {
+                    window.parent.postMessage({ 
+                      type: 'TEXTBOX_CLICK', 
+                      docId: docId, 
+                      textboxIndex: parseInt(currentIndex) 
+                    }, '*');
+                  }
+                }, true);
+                currentBox.style.cursor = 'pointer';
+              })(textBox, textboxIndex);
+            }
           } catch (err) {
             // ignore
           }
         }
-        window.addEventListener('load', setupSignatureClicks);
-        setTimeout(setupSignatureClicks, 50);
-        setTimeout(setupSignatureClicks, 250);
-        setTimeout(setupSignatureClicks, 800);
+        window.addEventListener('load', setupClickHandlers);
+        setTimeout(setupClickHandlers, 50);
+        setTimeout(setupClickHandlers, 250);
+        setTimeout(setupClickHandlers, 800);
       })();
     </script>
 </head>
 <body>
-    ${updatedDoc.processed_content}
+    ${doc.processed_content}
 </body>
 </html>
-          `;
-          
-          const blob = new Blob([fullHtml], { type: 'text/html' });
-          const newBlobUrl = URL.createObjectURL(blob);
-          setViewingBlobUrl(newBlobUrl);
-          setViewingDoc(updatedDoc);
-        }
-      }
-    } catch (error: any) {
-      notification.error({
-        message: 'Signature Error',
-        description: error.response?.data?.error || 'Failed to save signature',
-        title: 'Error'
-      });
-    }
+    `;
   };
 
   const handleSubmitDocument = async (docId: number) => {
@@ -247,81 +342,11 @@ const PublicDocumentSigning: React.FC = () => {
   const handleViewDocument = async (docUrl: string, processedContent?: string, docId?: number, doc?: EstimateDocumentProps) => {
     setViewingDocUrl(docUrl);
     setViewingDoc(doc || null);
-    const signatureDocId = (doc?.id ?? docId) ?? null;
     
     // If we have processed content (HTML with tags replaced), use it
-    if (processedContent) {
+    if (processedContent && doc) {
       // Wrap processed content in complete HTML document with click handler script
-      const fullHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Document Preview</title>
-    <style>
-        body { 
-          font-family: Arial, sans-serif; 
-          max-width: 850px; 
-          margin: 40px auto; 
-          padding: 20px; 
-          line-height: 1.6;
-          background: #fff;
-        }
-        h1, h2, h3, h4, h5, h6 { color: #333; margin: 20px 0 10px 0; }
-        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
-        td, th { border: 1px solid #000; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; font-weight: bold; }
-        p { margin: 10px 0; }
-        .signature-box-container { cursor: pointer !important; }
-        .signature-box-container:hover { opacity: 0.9; transform: scale(1.01); transition: all 0.2s; }
-        /* Make the container reliably clickable even if inner elements capture events */
-        .signature-box-container * { pointer-events: none; }
-    </style>
-    <script>
-      (function() {
-        function setupSignatureClicks() {
-          try {
-            var boxes = document.querySelectorAll('.signature-box-container');
-            for (var i = 0; i < boxes.length; i++) {
-              var box = boxes[i];
-              if (box.__signatureBound) continue;
-              box.__signatureBound = true;
-              
-              var signatureIndex = box.getAttribute('data-signature-index');
-              if (!signatureIndex) continue;
-              
-              (function(currentBox, currentIndex) {
-                currentBox.addEventListener('click', function(e) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  var docId = ${signatureDocId === null ? 'null' : String(signatureDocId)};
-                  if (docId !== null) {
-                    window.parent.postMessage({ 
-                      type: 'SIGNATURE_CLICK', 
-                      docId: docId, 
-                      signatureIndex: parseInt(currentIndex) 
-                    }, '*');
-                  }
-                }, true);
-                currentBox.style.cursor = 'pointer';
-              })(box, signatureIndex);
-            }
-          } catch (err) {
-            // ignore
-          }
-        }
-        window.addEventListener('load', setupSignatureClicks);
-        setTimeout(setupSignatureClicks, 50);
-        setTimeout(setupSignatureClicks, 250);
-        setTimeout(setupSignatureClicks, 800);
-      })();
-    </script>
-</head>
-<body>
-    ${processedContent}
-</body>
-</html>
-      `;
+      const fullHtml = generateDocumentHtml(doc);
       const blob = new Blob([fullHtml], { type: 'text/html' });
       const blobUrl = URL.createObjectURL(blob);
       setViewingBlobUrl(blobUrl);
@@ -572,6 +597,61 @@ const PublicDocumentSigning: React.FC = () => {
                 onCancel={() => setSigningDocId(null)}
                 width={500}
                 height={200}
+              />
+            </div>
+          )}
+        </Modal>
+
+        {/* Text Box Modal */}
+        <Modal
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <EditOutlined />
+              Fill Text Box
+            </div>
+          }
+          open={fillingTextboxDocId !== null}
+          onCancel={() => {
+            setFillingTextboxDocId(null);
+            setTextboxValue('');
+          }}
+          footer={[
+            <Button
+              key="cancel"
+              onClick={() => {
+                setFillingTextboxDocId(null);
+                setTextboxValue('');
+              }}
+            >
+              Cancel
+            </Button>,
+            <Button
+              key="save"
+              type="primary"
+              onClick={handleSaveTextbox}
+            >
+              Save
+            </Button>
+          ]}
+          width={500}
+        >
+          {fillingTextboxDocId && (
+            <div>
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>
+                  {documents.find(d => d.id === fillingTextboxDocId)?.document_title}
+                </h4>
+                <p style={{ fontSize: '13px', color: '#666' }}>
+                  Please enter your text below.
+                </p>
+              </div>
+              
+              <Input.TextArea
+                value={textboxValue}
+                onChange={(e) => setTextboxValue(e.target.value)}
+                placeholder="Type your text here..."
+                rows={4}
+                style={{ width: '100%' }}
               />
             </div>
           )}

@@ -6,7 +6,8 @@ import {
   FileTextOutlined,
   CarOutlined,
   HomeOutlined,
-  CalculatorOutlined
+  CalculatorOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { fullname, role, email } from '../utils/data';
@@ -75,6 +76,15 @@ const Settings: React.FC = () => {
       bgColor: '#fff0f6',
       borderColor: '#ffadd2',
       path: '/estimate-templates'
+    },
+    {
+      title: 'Time Windows',
+      description: 'Configure arrival time windows for pickups and deliveries',
+      icon: <ClockCircleOutlined />,
+      iconColor: '#fa541c',
+      bgColor: '#fff2e8',
+      borderColor: '#ffbb96',
+      path: '/time-windows'
     }
   ];
 

@@ -97,6 +97,7 @@ export interface AddUserFormModalProps{
 // Customer Management Types
 export interface CustomerProps {
     id?: number;
+    job_number?: number;
     full_name: string;
     email: string;
     phone?: string;
@@ -155,6 +156,21 @@ export interface ServiceTypeProps {
     scaling_factor: number;
     color?: string;
     enabled?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    created_by?: number;
+    created_by_name?: string;
+}
+
+// Time Window Types
+export interface TimeWindowProps {
+    id?: number;
+    name: string;
+    start_time: string;
+    end_time: string;
+    time_display?: string;
+    is_active?: boolean;
+    display_order?: number;
     created_at?: string;
     updated_at?: string;
     created_by?: number;
@@ -247,6 +263,7 @@ export interface ChargeDefinitionProps {
     applies_to_names?: string[];
     is_required?: boolean;
     is_active?: boolean;
+    is_estimate_only?: boolean;
     created_at?: string;
     updated_at?: string;
     created_by?: number;
@@ -304,6 +321,7 @@ export interface EstimateProps {
     id?: number;
     customer: number;
     customer_name?: string;
+    customer_job_number?: number;
     template_used?: number;
     template_name?: string;
     service_type: number;
@@ -312,8 +330,14 @@ export interface EstimateProps {
     labour_hours?: number;
     pickup_date_from?: string;
     pickup_date_to?: string;
+    pickup_time_window?: number | null;
+    pickup_time_window_display?: string;
     delivery_date_from?: string;
     delivery_date_to?: string;
+    delivery_time_window?: number | null;
+    delivery_time_window_display?: string;
+    origin_address?: string;
+    destination_address?: string;
     subtotal?: number;
     tax_percentage?: number;
     tax_amount?: number;

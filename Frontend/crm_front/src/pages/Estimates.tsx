@@ -215,7 +215,7 @@ const Estimates: React.FC = () => {
       const marginX = 14;
       const rightX = pageWidth - marginX;
 
-      const companyName = 'BVL Movers';
+      const companyName = 'Baltic Van Lines';
       const fileSafeCustomer = (e.customer_name || 'Customer').replace(/[^\w\-]+/g, '_');
       const createdAt = e.created_at ? new Date(e.created_at) : null;
       const issueDateText = createdAt ? createdAt.toLocaleDateString() : new Date().toLocaleDateString();

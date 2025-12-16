@@ -5,19 +5,50 @@ from django.db.models import Count, Q
 from crm_back.custom_methods import isAuthenticatedCustom
 from .models import (
     ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem,
-    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch
+    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow
 )
 from .serializers import (
     ChargeCategorySerializer, ChargeDefinitionSerializer, EstimateTemplateSerializer,
     TemplateLineItemSerializer, EstimateSerializer, EstimateLineItemSerializer,
     ChargeCategorySimpleSerializer, ChargeDefinitionSimpleSerializer, EstimateTemplateSimpleSerializer,
-    CustomerActivitySerializer, EstimateDocumentSerializer
+    CustomerActivitySerializer, EstimateDocumentSerializer, TimeWindowSerializer, TimeWindowSimpleSerializer
 )
 from .utils import create_estimate_from_template, calculate_estimate, process_document_template
 from .email_utils import send_estimate_email, send_document_signature_email
 from masterdata.models import Customer
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
+
+
+class TimeWindowViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing time windows
+    """
+    queryset = TimeWindow.objects.all()
+    serializer_class = TimeWindowSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = TimeWindow.objects.all()
+        
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=False, methods=['get'])
+    def simple(self, request):
+        """
+        Get simple list for dropdowns
+        """
+        windows = TimeWindow.objects.filter(is_active=True)
+        serializer = TimeWindowSimpleSerializer(windows, many=True)
+        return Response(serializer.data)
 
 
 class ChargeCategoryViewSet(viewsets.ModelViewSet):
@@ -70,6 +101,12 @@ class ChargeDefinitionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = ChargeDefinition.objects.all()
         
+        # By default, exclude estimate-only charges from configure views
+        # unless explicitly requested with include_estimate_only=true
+        include_estimate_only = self.request.query_params.get('include_estimate_only', None)
+        if include_estimate_only != 'true':
+            queryset = queryset.filter(is_estimate_only=False)
+        
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
         if is_active is not None:
@@ -110,6 +147,11 @@ class ChargeDefinitionViewSet(viewsets.ModelViewSet):
         Get simple list for dropdowns
         """
         charges = ChargeDefinition.objects.filter(is_active=True)
+        
+        # By default, exclude estimate-only charges unless explicitly requested
+        include_estimate_only = self.request.query_params.get('include_estimate_only', None)
+        if include_estimate_only != 'true':
+            charges = charges.filter(is_estimate_only=False)
         
         # Filter by applies_to if provided (service type)
         service_type_id = self.request.query_params.get('applies_to', None)
@@ -277,8 +319,10 @@ class EstimateViewSet(viewsets.ModelViewSet):
         hours = request.data.get('labour_hours')
         pickup_date_from = request.data.get('pickup_date_from')
         pickup_date_to = request.data.get('pickup_date_to')
+        pickup_time_window_id = request.data.get('pickup_time_window')
         delivery_date_from = request.data.get('delivery_date_from')
         delivery_date_to = request.data.get('delivery_date_to')
+        delivery_time_window_id = request.data.get('delivery_time_window')
         
         if not template_id or not customer_id:
             return Response(
@@ -294,8 +338,8 @@ class EstimateViewSet(viewsets.ModelViewSet):
         
         estimate = create_estimate_from_template(
             template, customer, weight, hours,
-            pickup_date_from, pickup_date_to, 
-            delivery_date_from, delivery_date_to,
+            pickup_date_from, pickup_date_to, pickup_time_window_id,
+            delivery_date_from, delivery_date_to, delivery_time_window_id,
             request.user
         )
         
@@ -754,6 +798,52 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         
         # Save signatures as JSON
         estimate_document.customer_signature = json.dumps(signatures)
+        
+        # Mark as viewed if first time
+        if not estimate_document.customer_viewed:
+            estimate_document.customer_viewed = True
+            estimate_document.customer_viewed_at = timezone.now()
+        
+        estimate_document.save()
+        
+        serializer = self.get_serializer(estimate_document)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny])
+    def fill_textbox(self, request, pk=None):
+        """
+        Customer fills a single text box field in a document (supports multiple text boxes)
+        POST /estimate-documents/{id}/fill_textbox/
+        {"text": "user input text", "textbox_index": 0, "token": "xxx"}
+        """
+        estimate_document = self.get_object()
+        text = request.data.get('text')
+        textbox_index = request.data.get('textbox_index', 0)
+        token = request.data.get('token')
+        
+        if text is None:
+            return Response({'error': 'Text is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify token matches document signing batch (NOT estimate token)
+        try:
+            batch = DocumentSigningBatch.objects.get(estimate=estimate_document.estimate, signing_token=token, link_active=True)
+        except DocumentSigningBatch.DoesNotExist:
+            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Load existing text inputs (stored as JSON)
+        import json
+        text_inputs = {}
+        if estimate_document.customer_text_inputs:
+            try:
+                text_inputs = json.loads(estimate_document.customer_text_inputs)
+            except:
+                text_inputs = {}
+        
+        # Add/update this text input
+        text_inputs[str(textbox_index)] = text
+        
+        # Save text inputs as JSON
+        estimate_document.customer_text_inputs = json.dumps(text_inputs)
         
         # Mark as viewed if first time
         if not estimate_document.customer_viewed:

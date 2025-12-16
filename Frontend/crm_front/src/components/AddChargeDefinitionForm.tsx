@@ -275,6 +275,9 @@ const AddChargeDefinitionForm: FC<AddChargeDefinitionFormProps> = ({
                     <Tag color={definition.is_active ? 'green' : 'red'}>
                       {definition.is_active ? 'ACTIVE' : 'INACTIVE'}
                     </Tag>
+                    {definition.is_estimate_only && (
+                      <Tag color="orange">ESTIMATE ONLY</Tag>
+                    )}
                   </div>
                 }
                 description={
@@ -300,7 +303,7 @@ const AddChargeDefinitionForm: FC<AddChargeDefinitionFormProps> = ({
         size="small"
         title={selectedDefinition ? `Edit: ${selectedDefinition.name}` : "Add New Charge Definition"}
       >
-        <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true, applies_to: [] }}>
+        <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true, applies_to: [], is_estimate_only: false }}>
         <div>
           <Form.Item
             label="Charge Name"
@@ -447,6 +450,16 @@ const AddChargeDefinitionForm: FC<AddChargeDefinitionFormProps> = ({
               <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
             </Form.Item>
           </div>
+
+          <Form.Item
+            label="Estimate Only"
+            name="is_estimate_only"
+            valuePropName="checked"
+            style={{ marginBottom: '0', marginTop: '12px' }}
+            help="If checked, this charge will only appear for estimates and won't show in the Configure section"
+          >
+            <Switch checkedChildren="Yes - Estimate Only" unCheckedChildren="No - Show Everywhere" />
+          </Form.Item>
         </div>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '16px' }}>

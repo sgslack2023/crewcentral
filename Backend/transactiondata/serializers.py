@@ -1,9 +1,30 @@
 from rest_framework import serializers
 from .models import (
     ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem, 
-    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch
+    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow
 )
 from users.models import CustomUser
+
+
+class TimeWindowSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    time_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TimeWindow
+        fields = [
+            'id', 'name', 'start_time', 'end_time', 'time_display', 'is_active', 
+            'display_order', 'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            return obj.created_by.fullname
+        return None
+    
+    def get_time_display(self, obj):
+        return f"{obj.start_time.strftime('%I:%M %p')} - {obj.end_time.strftime('%I:%M %p')}"
 
 
 class ChargeCategorySerializer(serializers.ModelSerializer):
@@ -34,7 +55,7 @@ class ChargeDefinitionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'category', 'category_name', 'charge_type', 
             'default_rate', 'default_percentage', 'percent_applied_on', 'percent_applied_on_name',
-            'applies_to', 'applies_to_names', 'is_required', 'is_active', 
+            'applies_to', 'applies_to_names', 'is_required', 'is_active', 'is_estimate_only',
             'created_at', 'updated_at', 'created_by', 'created_by_name'
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by']
@@ -104,7 +125,6 @@ class EstimateTemplateSerializer(serializers.ModelSerializer):
 
 
 class EstimateLineItemSerializer(serializers.ModelSerializer):
-    charge_name = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
     
     class Meta:
@@ -114,9 +134,6 @@ class EstimateLineItemSerializer(serializers.ModelSerializer):
             'rate', 'percentage', 'quantity', 'amount', 'is_user_modified', 'display_order'
         ]
     
-    def get_charge_name(self, obj):
-        return obj.charge_name
-    
     def get_category_name(self, obj):
         return obj.charge.category.name if obj.charge and obj.charge.category else None
 
@@ -124,43 +141,69 @@ class EstimateLineItemSerializer(serializers.ModelSerializer):
 class EstimateSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
+    customer_job_number = serializers.SerializerMethodField()
     template_name = serializers.SerializerMethodField()
     service_type_name = serializers.SerializerMethodField()
+    origin_address = serializers.SerializerMethodField()
+    destination_address = serializers.SerializerMethodField()
+    pickup_time_window_display = serializers.SerializerMethodField()
+    delivery_time_window_display = serializers.SerializerMethodField()
     items = EstimateLineItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
     document_signing_token = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Estimate
         fields = [
-            'id', 'customer', 'customer_name', 'template_used', 'template_name',
+            'id', 'customer', 'customer_name', 'customer_job_number', 'template_used', 'template_name',
             'service_type', 'service_type_name', 'weight_lbs', 'labour_hours',
-            'pickup_date_from', 'pickup_date_to', 'delivery_date_from', 'delivery_date_to',
+            'pickup_date_from', 'pickup_date_to', 'pickup_time_window', 'pickup_time_window_display',
+            'delivery_date_from', 'delivery_date_to', 'delivery_time_window', 'delivery_time_window_display',
+            'origin_address', 'destination_address',
             'subtotal', 'tax_percentage', 'tax_amount', 'total_amount',
-            'status', 'notes', 'created_at', 'updated_at', 'created_by', 'created_by_name', 
+            'status', 'notes', 'created_at', 'updated_at', 'created_by', 'created_by_name',
             'items', 'items_count',
             'public_token', 'email_sent_at', 'customer_viewed_at', 'customer_responded_at', 'link_active',
             'document_signing_token'
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by', 'subtotal', 'tax_amount', 'total_amount', 'public_token']
-    
+
     def get_created_by_name(self, obj):
         if obj.created_by:
             return obj.created_by.fullname
         return None
-    
+
     def get_customer_name(self, obj):
         return obj.customer.full_name if obj.customer else None
-    
+
+    def get_customer_job_number(self, obj):
+        return obj.customer.job_number if obj.customer else None
+
     def get_template_name(self, obj):
         return obj.template_used.name if obj.template_used else None
-    
+
     def get_service_type_name(self, obj):
         return obj.service_type.service_type if obj.service_type else None
-    
+
+    def get_origin_address(self, obj):
+        return obj.customer.origin_address if obj.customer else None
+
+    def get_destination_address(self, obj):
+        return obj.customer.destination_address if obj.customer else None
+
+    def get_pickup_time_window_display(self, obj):
+        if obj.pickup_time_window:
+            return str(obj.pickup_time_window)
+        return None
+
+    def get_delivery_time_window_display(self, obj):
+        if obj.delivery_time_window:
+            return str(obj.delivery_time_window)
+        return None
+
     def get_items_count(self, obj):
         return obj.items.count()
-    
+
     def get_document_signing_token(self, obj):
         """Get the separate token for document signing"""
         try:
@@ -184,7 +227,7 @@ class ChargeDefinitionSimpleSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ChargeDefinition
-        fields = ['id', 'name', 'charge_type', 'category_name', 'default_rate', 'default_percentage', 'applies_to', 'applies_to_names']
+        fields = ['id', 'name', 'charge_type', 'category_name', 'default_rate', 'default_percentage', 'applies_to', 'applies_to_names', 'is_estimate_only']
     
     def get_category_name(self, obj):
         return obj.category.name if obj.category else None
@@ -202,6 +245,17 @@ class EstimateTemplateSimpleSerializer(serializers.ModelSerializer):
     
     def get_service_type_name(self, obj):
         return obj.service_type.service_type if obj.service_type else None
+
+
+class TimeWindowSimpleSerializer(serializers.ModelSerializer):
+    time_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TimeWindow
+        fields = ['id', 'name', 'start_time', 'end_time', 'time_display']
+    
+    def get_time_display(self, obj):
+        return f"{obj.start_time.strftime('%I:%M %p')} - {obj.end_time.strftime('%I:%M %p')}"
 
 
 class CustomerActivitySerializer(serializers.ModelSerializer):
@@ -319,12 +373,13 @@ class EstimateDocumentSerializer(serializers.ModelSerializer):
             # Process template tags
             from .utils import process_document_template
             
-            # Pass customer_signature (JSON string with indexed signatures)
+            # Pass customer_signature and customer_text_inputs (JSON strings with indexed data)
             processed = process_document_template(
                 html_content,
                 customer=obj.estimate.customer if obj.estimate else None,
                 estimate=obj.estimate,
-                signatures=obj.customer_signature  # This is JSON string like {"0": "base64...", "1": "base64..."}
+                signatures=obj.customer_signature,  # This is JSON string like {"0": "base64...", "1": "base64..."}
+                text_inputs=obj.customer_text_inputs  # This is JSON string like {"0": "text...", "1": "text..."}
             )
             
             return processed

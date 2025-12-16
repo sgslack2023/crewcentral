@@ -4,12 +4,29 @@ from datetime import datetime
 
 
 def create_estimate_from_template(template, customer, weight=None, labour_hours=None, 
-                                  pickup_date_from=None, pickup_date_to=None,
-                                  delivery_date_from=None, delivery_date_to=None,
+                                  pickup_date_from=None, pickup_date_to=None, pickup_time_window_id=None,
+                                  delivery_date_from=None, delivery_date_to=None, delivery_time_window_id=None,
                                   created_by=None):
     """
     Create a new estimate from a template
     """
+    # Get time window objects if IDs provided
+    from .models import TimeWindow
+    pickup_time_window = None
+    delivery_time_window = None
+    
+    if pickup_time_window_id:
+        try:
+            pickup_time_window = TimeWindow.objects.get(id=pickup_time_window_id)
+        except TimeWindow.DoesNotExist:
+            pass
+    
+    if delivery_time_window_id:
+        try:
+            delivery_time_window = TimeWindow.objects.get(id=delivery_time_window_id)
+        except TimeWindow.DoesNotExist:
+            pass
+    
     estimate = Estimate.objects.create(
         customer=customer,
         template_used=template,
@@ -18,8 +35,10 @@ def create_estimate_from_template(template, customer, weight=None, labour_hours=
         labour_hours=labour_hours,
         pickup_date_from=pickup_date_from,
         pickup_date_to=pickup_date_to,
+        pickup_time_window=pickup_time_window,
         delivery_date_from=delivery_date_from,
         delivery_date_to=delivery_date_to,
+        delivery_time_window=delivery_time_window,
         created_by=created_by
     )
     
@@ -103,16 +122,18 @@ def calculate_estimate(estimate):
     return estimate
 
 
-def process_document_template(html_content, customer=None, estimate=None, signatures=None):
+def process_document_template(html_content, customer=None, estimate=None, signatures=None, text_inputs=None):
     """
     Replace template tags with actual customer and estimate data
-    signatures: dict like {'customer': 'base64_signature_data', 'witness': '...'}
+    signatures: dict like {'0': 'base64_signature_data', '1': '...'}
+    text_inputs: dict like {'0': 'text value', '1': 'another value'}
     """
     if not html_content:
         return html_content
     
     # Customer tags
     if customer:
+        html_content = html_content.replace('{{job_number}}', str(customer.job_number) if customer.job_number else '')
         html_content = html_content.replace('{{customer_name}}', customer.full_name or '')
         html_content = html_content.replace('{{customer_email}}', customer.email or '')
         html_content = html_content.replace('{{customer_phone}}', customer.phone or '')
@@ -120,6 +141,8 @@ def process_document_template(html_content, customer=None, estimate=None, signat
         html_content = html_content.replace('{{customer_address}}', customer.address or '')
         html_content = html_content.replace('{{customer_city}}', customer.city or '')
         html_content = html_content.replace('{{customer_state}}', customer.state or '')
+        html_content = html_content.replace('{{origin_address}}', customer.origin_address or '')
+        html_content = html_content.replace('{{destination_address}}', customer.destination_address or '')
     
     # Estimate tags
     if estimate:
@@ -177,6 +200,41 @@ def process_document_template(html_content, customer=None, estimate=None, signat
     
     # Replace all {{signature}} tags
     html_content = re.sub(r'\{\{signature\}\}', replace_signature_tag, html_content)
+    
+    # Text box fields - handle multiple text inputs with unique IDs
+    text_inputs_dict = {}
+    if text_inputs:
+        if isinstance(text_inputs, str):
+            try:
+                text_inputs_dict = json.loads(text_inputs)
+            except:
+                text_inputs_dict = {}
+        elif isinstance(text_inputs, dict):
+            text_inputs_dict = text_inputs
+    
+    # Find all {{textbox}} tags and assign unique indices
+    textbox_index = 0
+    
+    def replace_textbox_tag(match):
+        nonlocal textbox_index
+        current_index = textbox_index
+        textbox_index += 1
+        
+        # Check if this text box is filled
+        text_value = text_inputs_dict.get(str(current_index))
+        
+        if text_value:
+            # Filled - show the text
+            inner = f'<span style="font-weight: normal; color: #000;">{text_value}</span>'
+        else:
+            # Not filled - show placeholder
+            inner = 'Click to type'
+        
+        # Return with data-textbox-index attribute
+        return f'<span class="textbox-container" data-textbox-index="{current_index}" style="display: inline-block; border: 2px dashed #52c41a; background-color: #f6ffed; border-radius: 6px; padding: 4px 8px; font-weight: 600; color: #52c41a; min-width: 150px; cursor: pointer;">{inner}</span>'
+    
+    # Replace all {{textbox}} tags
+    html_content = re.sub(r'\{\{textbox\}\}', replace_textbox_tag, html_content)
     
     return html_content
 

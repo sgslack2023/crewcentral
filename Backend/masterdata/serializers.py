@@ -9,18 +9,19 @@ class CustomerSerializer(serializers.ModelSerializer):
     service_type_name = serializers.SerializerMethodField()
     move_size_name = serializers.SerializerMethodField()
     branch_name = serializers.SerializerMethodField()
-    
+    job_number = serializers.ReadOnlyField()
+
     class Meta:
         model = Customer
         fields = [
-            'id', 'full_name', 'email', 'phone', 'company',
+            'id', 'job_number', 'full_name', 'email', 'phone', 'company',
             'address', 'city', 'state', 'country', 'postal_code',
             'source', 'stage', 'assigned_to', 'assigned_to_name',
             'service_type', 'service_type_name', 'move_date', 'move_size', 'move_size_name',
             'branch', 'branch_name', 'origin_address', 'destination_address',
             'notes', 'created_at', 'updated_at', 'created_by', 'created_by_name'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'created_by']
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'job_number']
     
     def get_assigned_to_name(self, obj):
         if obj.assigned_to:

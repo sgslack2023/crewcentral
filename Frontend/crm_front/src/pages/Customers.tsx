@@ -30,23 +30,23 @@ import CreateEstimateForm from '../components/CreateEstimateForm';
 const { Option } = Select;
 
 const SOURCE_OPTIONS = [
-  { value: 'website', label: 'Website' },
+  { value: 'moveit', label: 'Moveit' },
+  { value: 'mymovingloads', label: 'MyMovingLoads' },
+  { value: 'moving24', label: 'Moving24' },
+  { value: 'baltic_website', label: 'Baltic Website' },
+  { value: 'n1m_website', label: 'N1M Website' },
+  { value: 'google', label: 'Google' },
   { value: 'referral', label: 'Referral' },
-  { value: 'social_media', label: 'Social Media' },
-  { value: 'email', label: 'Email Campaign' },
-  { value: 'phone', label: 'Phone Call' },
-  { value: 'walk_in', label: 'Walk-in' },
-  { value: 'advertisement', label: 'Advertisement' },
   { value: 'other', label: 'Other' },
 ];
 
 const STAGE_OPTIONS = [
-  { value: 'lead', label: 'Lead', color: 'orange' },
-  { value: 'contacted', label: 'Contacted', color: 'blue' },
-  { value: 'qualified', label: 'Qualified', color: 'cyan' },
-  { value: 'proposal', label: 'Proposal', color: 'purple' },
-  { value: 'negotiation', label: 'Negotiation', color: 'geekblue' },
-  { value: 'won', label: 'Won', color: 'green' },
+  { value: 'new_lead', label: 'New Lead', color: 'orange' },
+  { value: 'in_progress', label: 'In Progress', color: 'blue' },
+  { value: 'opportunity', label: 'Opportunity', color: 'cyan' },
+  { value: 'booked', label: 'Booked', color: 'purple' },
+  { value: 'closed', label: 'Closed', color: 'green' },
+  { value: 'bad_lead', label: 'Bad Lead', color: 'volcano' },
   { value: 'lost', label: 'Lost', color: 'red' },
 ];
 
@@ -280,15 +280,27 @@ const Customers: React.FC = () => {
                   {/* Header with Title */}
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h3 style={{ 
-                        margin: 0, 
-                        fontSize: '16px', 
-                        fontWeight: 600,
-                        color: '#000',
-                        marginBottom: '8px'
-                      }}>
-                        {customer.full_name}
-                      </h3>
+                      <div>
+                        <h3 style={{
+                          margin: 0,
+                          fontSize: '16px',
+                          fontWeight: 600,
+                          color: '#000',
+                          marginBottom: '4px'
+                        }}>
+                          {customer.full_name}
+                        </h3>
+                        {customer.job_number && (
+                          <div style={{
+                            fontSize: '12px',
+                            color: '#666',
+                            fontWeight: 500,
+                            marginBottom: '8px'
+                          }}>
+                            Job #{customer.job_number}
+                          </div>
+                        )}
+                      </div>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <Button
                           type="text"

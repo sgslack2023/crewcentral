@@ -5,23 +5,23 @@ from users.models import CustomUser
 
 # Choices for Customer fields
 SOURCE_CHOICES = (
-    ('website', 'Website'),
+    ('moveit', 'Moveit'),
+    ('mymovingloads', 'MyMovingLoads'),
+    ('moving24', 'Moving24'),
+    ('baltic_website', 'Baltic Website'),
+    ('n1m_website', 'N1M Website'),
+    ('google', 'Google'),
     ('referral', 'Referral'),
-    ('social_media', 'Social Media'),
-    ('email', 'Email Campaign'),
-    ('phone', 'Phone Call'),
-    ('walk_in', 'Walk-in'),
-    ('advertisement', 'Advertisement'),
     ('other', 'Other'),
 )
 
 STAGE_CHOICES = (
-    ('lead', 'Lead'),
-    ('contacted', 'Contacted'),
-    ('qualified', 'Qualified'),
-    ('proposal', 'Proposal'),
-    ('negotiation', 'Negotiation'),
-    ('won', 'Won'),
+    ('new_lead', 'New Lead'),
+    ('in_progress', 'In Progress'),
+    ('opportunity', 'Opportunity'),
+    ('booked', 'Booked'),
+    ('closed', 'Closed'),
+    ('bad_lead', 'Bad Lead'),
     ('lost', 'Lost'),
 )
 
@@ -172,7 +172,7 @@ class Customer(models.Model):
     
     # CRM Fields
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='other')
-    stage = models.CharField(max_length=50, choices=STAGE_CHOICES, default='lead')
+    stage = models.CharField(max_length=50, choices=STAGE_CHOICES, default='new_lead')
     assigned_to = models.ForeignKey(
         CustomUser, 
         on_delete=models.SET_NULL, 
@@ -222,14 +222,19 @@ class Customer(models.Model):
         ordering = ('-created_at',)
         verbose_name = 'Customer'
         verbose_name_plural = 'Customers'
-    
+
     def __str__(self):
         return f"{self.full_name} - {self.stage}"
+
+    @property
+    def job_number(self):
+        """Return the ID + 999 to make it start from 1000"""
+        return self.id + 999 if self.id else None
     
     @property
     def is_lead(self):
         """Check if customer is in lead stage"""
-        return self.stage == 'lead'
+        return self.stage == 'new_lead'
     
     @property
     def is_unassigned(self):

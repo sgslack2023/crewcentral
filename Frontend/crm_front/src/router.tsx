@@ -16,6 +16,7 @@ import TemplateLineItems from './pages/TemplateLineItems';
 import Estimates from './pages/Estimates';
 import EstimateEditor from './pages/EstimateEditor';
 import CustomerTimeline from './pages/CustomerTimeline';
+import TimeWindows from './pages/TimeWindows';
 import PublicEstimateView from './pages/PublicEstimateView';
 import PublicDocumentSigning from './pages/PublicDocumentSigning';
 import UpdateUserPassword from './pages/UpdateUserPassword';
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/documents" element={<AuthRoute><Documents/></AuthRoute>}/>
       <Route path="/move-types" element={<AuthRoute><MoveTypes/></AuthRoute>}/>
       <Route path="/room-sizes" element={<AuthRoute><RoomSizes/></AuthRoute>}/>
+      <Route path="/time-windows" element={<AuthRoute><TimeWindows/></AuthRoute>}/>
       <Route path="/estimate-templates" element={<AuthRoute><EstimateTemplates/></AuthRoute>}/>
       <Route path="/template-line-items/:templateId" element={<AuthRoute><TemplateLineItems/></AuthRoute>}/>
       <Route path="/estimates" element={<AuthRoute><Estimates/></AuthRoute>}/>

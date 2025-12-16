@@ -248,7 +248,7 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser, onPageChange }) => {
       }}>
         <div className="navigation-header-content">
           <div className="navigation-title-section">
-            <h1 className="navigation-title">BVL Movers</h1>
+            <h1 className="navigation-title">Baltic Van Lines</h1>
           </div>
 
           {/* Quicklinks */}

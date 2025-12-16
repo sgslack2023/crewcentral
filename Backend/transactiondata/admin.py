@@ -1,8 +1,17 @@
 from django.contrib import admin
 from .models import (
-    ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem,
+    TimeWindow, ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem,
     Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch
 )
+
+
+@admin.register(TimeWindow)
+class TimeWindowAdmin(admin.ModelAdmin):
+    list_display = ('name', 'start_time', 'end_time', 'is_active', 'display_order', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('name',)
+    readonly_fields = ('created_at', 'updated_at', 'created_by')
+    ordering = ('display_order', 'start_time')
 
 
 @admin.register(ChargeCategory)
@@ -67,7 +76,7 @@ class EstimateAdmin(admin.ModelAdmin):
             'fields': ('weight_lbs', 'labour_hours')
         }),
         ('Schedule', {
-            'fields': ('pickup_date_from', 'pickup_date_to', 'delivery_date_from', 'delivery_date_to')
+            'fields': ('pickup_date_from', 'pickup_date_to', 'pickup_time_window', 'delivery_date_from', 'delivery_date_to', 'delivery_time_window')
         }),
         ('Financial', {
             'fields': ('subtotal', 'tax_percentage', 'tax_amount', 'total_amount')

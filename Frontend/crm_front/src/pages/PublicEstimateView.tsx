@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Tag, notification, Table, Modal, Input, Result } from 'antd';
-import { 
+import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   DollarOutlined,
@@ -8,7 +8,9 @@ import {
   UserOutlined,
   TagsOutlined,
   TeamOutlined,
-  CalculatorOutlined
+  CalculatorOutlined,
+  CalendarOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -213,7 +215,7 @@ const PublicEstimateView: React.FC = () => {
           <div style={{ textAlign: 'center' }}>
             <FileTextOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
             <h1 style={{ fontSize: '28px', fontWeight: 600, margin: 0, color: '#fff', marginBottom: '8px' }}>
-              BVL Movers - Estimate #{estimate.id}
+              Baltic Van Lines - Estimate #{estimate.id}
             </h1>
             <Tag 
               color={
@@ -268,6 +270,102 @@ const PublicEstimateView: React.FC = () => {
             </div>
           </Card>
         </div>
+
+        {/* Origin and Destination Addresses */}
+        {(estimate.origin_address || estimate.destination_address) && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+            {estimate.origin_address && (
+              <Card style={{ borderRadius: '12px' }}>
+                <h3 style={{ marginTop: 0, fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <EnvironmentOutlined style={{ color: '#52c41a' }} /> Origin Address
+                </h3>
+                <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
+                  {estimate.origin_address}
+                </div>
+              </Card>
+            )}
+
+            {estimate.destination_address && (
+              <Card style={{ borderRadius: '12px' }}>
+                <h3 style={{ marginTop: 0, fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <EnvironmentOutlined style={{ color: '#1890ff' }} /> Destination Address
+                </h3>
+                <div style={{ fontSize: '14px', color: '#333', lineHeight: '1.6' }}>
+                  {estimate.destination_address}
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Pickup and Delivery Windows */}
+        {(estimate.pickup_date_from || estimate.delivery_date_from) && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+            {estimate.pickup_date_from && (
+              <Card style={{ borderRadius: '12px' }}>
+                <h3 style={{ marginTop: 0, fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CalendarOutlined style={{ color: '#fa8c16' }} /> Pickup Window
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>From</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                      {new Date(estimate.pickup_date_from).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
+                  {estimate.pickup_date_to && (
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>To</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {new Date(estimate.pickup_date_to).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {estimate.delivery_date_from && (
+              <Card style={{ borderRadius: '12px' }}>
+                <h3 style={{ marginTop: 0, fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CalendarOutlined style={{ color: '#13c2c2' }} /> Delivery Window
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>From</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                      {new Date(estimate.delivery_date_from).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
+                  {estimate.delivery_date_to && (
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>To</div>
+                      <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                        {new Date(estimate.delivery_date_to).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* Line Items */}
         <Card 

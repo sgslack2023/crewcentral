@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Table, InputNumber, Space, Avatar, DatePicker } from 'antd';
+import { Card, Button, Tag, notification, Table, InputNumber, Space, Avatar, DatePicker, Select } from 'antd';
 import { 
   ArrowLeftOutlined,
   SaveOutlined,
@@ -23,12 +23,15 @@ import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getAuthToken, getEstimateById, recalculateEstimate, getEstimateDocuments } from '../utils/functions';
-import { EstimatesUrl, EstimateLineItemsUrl, EstimateDocumentsUrl } from '../utils/network';
-import { EstimateProps, EstimateLineItemProps, EstimateDocumentProps } from '../utils/types';
+import { EstimatesUrl, EstimateLineItemsUrl, EstimateDocumentsUrl, BaseUrl } from '../utils/network';
+import { EstimateProps, EstimateLineItemProps, EstimateDocumentProps, TimeWindowProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddEstimateLineItemForm from '../components/AddEstimateLineItemForm';
 import AttachDocumentsForm from '../components/AttachDocumentsForm';
+
+const TimeWindowsUrl = BaseUrl + 'transactiondata/time-windows';
+const { Option } = Select;
 
 const EstimateEditor: React.FC = () => {
   const navigate = useNavigate();
@@ -48,8 +51,14 @@ const EstimateEditor: React.FC = () => {
   const [editingDates, setEditingDates] = useState(false);
   const [tempPickupFrom, setTempPickupFrom] = useState<any>(null);
   const [tempPickupTo, setTempPickupTo] = useState<any>(null);
+  const [tempPickupTimeWindow, setTempPickupTimeWindow] = useState<number | null>(null);
   const [tempDeliveryFrom, setTempDeliveryFrom] = useState<any>(null);
   const [tempDeliveryTo, setTempDeliveryTo] = useState<any>(null);
+  const [tempDeliveryTimeWindow, setTempDeliveryTimeWindow] = useState<number | null>(null);
+  const [timeWindows, setTimeWindows] = useState<TimeWindowProps[]>([]);
+  const [editingWeightHours, setEditingWeightHours] = useState(false);
+  const [tempWeight, setTempWeight] = useState<number | null>(null);
+  const [tempLabourHours, setTempLabourHours] = useState<number | null>(null);
 
   const currentUser = {
     role: localStorage.getItem(role) || 'user',
@@ -61,6 +70,7 @@ const EstimateEditor: React.FC = () => {
     if (estimateId) {
       fetchEstimate();
       fetchAttachedDocuments();
+      fetchTimeWindows();
     }
   }, [estimateId]);
 
@@ -79,6 +89,16 @@ const EstimateEditor: React.FC = () => {
       });
     }
     setLoading(false);
+  };
+
+  const fetchTimeWindows = async () => {
+    try {
+      const headers = getAuthToken() as any;
+      const response = await axios.get(`${TimeWindowsUrl}/simple`, headers);
+      setTimeWindows(response.data);
+    } catch (error) {
+      console.error('Error fetching time windows:', error);
+    }
   };
 
   const handleRecalculate = async () => {
@@ -131,28 +151,60 @@ const EstimateEditor: React.FC = () => {
 
   const handleUpdateDates = async () => {
     if (!estimateId || !estimate) return;
-    
+
     try {
       const headers = getAuthToken() as any;
       await axios.patch(`${EstimatesUrl}/${estimateId}`, {
         pickup_date_from: tempPickupFrom ? tempPickupFrom.format('YYYY-MM-DD') : null,
         pickup_date_to: tempPickupTo ? tempPickupTo.format('YYYY-MM-DD') : null,
+        pickup_time_window: tempPickupTimeWindow,
         delivery_date_from: tempDeliveryFrom ? tempDeliveryFrom.format('YYYY-MM-DD') : null,
-        delivery_date_to: tempDeliveryTo ? tempDeliveryTo.format('YYYY-MM-DD') : null
+        delivery_date_to: tempDeliveryTo ? tempDeliveryTo.format('YYYY-MM-DD') : null,
+        delivery_time_window: tempDeliveryTimeWindow
       }, headers);
-      
+
       notification.success({
         message: 'Dates Updated',
         description: 'Pickup and delivery dates have been updated',
         title: 'Success'
       });
-      
+
       setEditingDates(false);
       fetchEstimate();
     } catch (error) {
       notification.error({
         message: 'Update Error',
         description: 'Failed to update dates',
+        title: 'Error'
+      });
+    }
+  };
+
+  const handleUpdateWeightHours = async () => {
+    if (!estimateId || !estimate) return;
+
+    try {
+      const headers = getAuthToken() as any;
+      await axios.patch(`${EstimatesUrl}/${estimateId}`, {
+        weight_lbs: tempWeight,
+        labour_hours: tempLabourHours
+      }, headers);
+
+      // Recalculate to update any weight/hour-dependent charges
+      await recalculateEstimate(estimateId);
+
+      notification.success({
+        message: 'Updated',
+        description: 'Weight and labour hours have been updated',
+        title: 'Success'
+      });
+
+      setEditingWeightHours(false);
+      fetchEstimate();
+    } catch (error) {
+      notification.error({
+        message: 'Update Error',
+        description: 'Failed to update weight and labour hours',
         title: 'Error'
       });
     }
@@ -496,12 +548,17 @@ const EstimateEditor: React.FC = () => {
             <div>
               <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>
                 Review Estimate #{estimateId}
+                {estimate?.customer_job_number && (
+                  <span style={{ fontSize: '20px', color: '#666', fontWeight: 400, marginLeft: '12px' }}>
+                    (Job #{estimate.customer_job_number})
+                  </span>
+                )}
               </h1>
               <p style={{ color: '#666', margin: 0 }}>
                 Review and edit line items before finalizing
               </p>
             </div>
-            <Button 
+            <Button
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate('/customers')}
             >
@@ -555,6 +612,11 @@ const EstimateEditor: React.FC = () => {
                     <div style={{ fontSize: '13px', color: '#000', fontWeight: 600 }}>
                       {estimate.customer_name}
                     </div>
+                    {estimate.customer_job_number && (
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                        Job #{estimate.customer_job_number}
+                      </div>
+                    )}
                   </div>
 
                   {/* Service Type */}
@@ -591,39 +653,117 @@ const EstimateEditor: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Weight */}
-                  {estimate.weight_lbs && (
+                  {/* Weight and Labour Hours - Editable */}
+                  <div style={{
+                    padding: '12px',
+                    backgroundColor: '#fafafa',
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0'
+                  }}>
                     <div style={{
-                      padding: '10px',
-                      backgroundColor: '#fffbeb',
-                      borderRadius: '8px',
-                      border: '1px solid #fde68a'
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '10px'
                     }}>
-                      <div style={{ fontSize: '10px', color: '#d97706', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        <TeamOutlined /> Weight
+                      <div style={{ fontSize: '11px', color: '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <TeamOutlined /> Weight & Hours
                       </div>
-                      <div style={{ fontSize: '13px', color: '#000' }}>
-                        {estimate.weight_lbs} lbs
-                      </div>
+                      {!editingWeightHours && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => {
+                            setEditingWeightHours(true);
+                            setTempWeight(estimate.weight_lbs || null);
+                            setTempLabourHours(estimate.labour_hours || null);
+                          }}
+                          style={{ padding: '2px 8px' }}
+                        />
+                      )}
                     </div>
-                  )}
 
-                  {/* Labour Hours */}
-                  {estimate.labour_hours && (
-                    <div style={{
-                      padding: '10px',
-                      backgroundColor: '#fef3f2',
-                      borderRadius: '8px',
-                      border: '1px solid #fecaca'
-                    }}>
-                      <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        <CalculatorOutlined /> Labour Hours
+                    {editingWeightHours ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#d97706', fontWeight: 500, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Weight (lbs)
+                          </div>
+                          <InputNumber
+                            value={tempWeight}
+                            onChange={(value) => setTempWeight(value)}
+                            min={0}
+                            placeholder="Enter weight"
+                            style={{ width: '100%' }}
+                            size="small"
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 500, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Labour Hours
+                          </div>
+                          <InputNumber
+                            value={tempLabourHours}
+                            onChange={(value) => setTempLabourHours(value)}
+                            min={0}
+                            step={0.5}
+                            placeholder="Enter hours"
+                            style={{ width: '100%' }}
+                            size="small"
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                          <Button
+                            size="small"
+                            icon={<CheckOutlined />}
+                            onClick={handleUpdateWeightHours}
+                            type="primary"
+                            style={{ flex: 1 }}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<CloseOutlined />}
+                            onClick={() => setEditingWeightHours(false)}
+                            style={{ flex: 1 }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#000' }}>
-                        {Number(estimate.labour_hours).toFixed(1)} hours
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{
+                          padding: '8px',
+                          backgroundColor: '#fffbeb',
+                          borderRadius: '6px',
+                          border: '1px solid #fde68a'
+                        }}>
+                          <div style={{ fontSize: '10px', color: '#d97706', fontWeight: 500, marginBottom: '2px' }}>
+                            Weight
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#000', fontWeight: 600 }}>
+                            {estimate.weight_lbs ? `${estimate.weight_lbs} lbs` : 'Not set'}
+                          </div>
+                        </div>
+                        <div style={{
+                          padding: '8px',
+                          backgroundColor: '#fef3f2',
+                          borderRadius: '6px',
+                          border: '1px solid #fecaca'
+                        }}>
+                          <div style={{ fontSize: '10px', color: '#dc2626', fontWeight: 500, marginBottom: '2px' }}>
+                            Labour Hours
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#000', fontWeight: 600 }}>
+                            {estimate.labour_hours ? `${Number(estimate.labour_hours).toFixed(1)} hours` : 'Not set'}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Schedule Section - Editable */}
                   <div style={{
@@ -650,8 +790,10 @@ const EstimateEditor: React.FC = () => {
                             setEditingDates(true);
                             setTempPickupFrom(estimate.pickup_date_from ? dayjs(estimate.pickup_date_from) : null);
                             setTempPickupTo(estimate.pickup_date_to ? dayjs(estimate.pickup_date_to) : null);
+                            setTempPickupTimeWindow(estimate.pickup_time_window || null);
                             setTempDeliveryFrom(estimate.delivery_date_from ? dayjs(estimate.delivery_date_from) : null);
                             setTempDeliveryTo(estimate.delivery_date_to ? dayjs(estimate.delivery_date_to) : null);
+                            setTempDeliveryTimeWindow(estimate.delivery_time_window || null);
                           }}
                           style={{ padding: '2px 8px' }}
                         />
@@ -665,7 +807,7 @@ const EstimateEditor: React.FC = () => {
                           <div style={{ fontSize: '11px', color: '#d97706', fontWeight: 500, marginBottom: '6px' }}>
                             📤 Pickup
                           </div>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
                             <DatePicker
                               value={tempPickupFrom}
                               onChange={(date) => setTempPickupFrom(date)}
@@ -681,6 +823,20 @@ const EstimateEditor: React.FC = () => {
                               style={{ flex: 1 }}
                             />
                           </div>
+                          <Select
+                            value={tempPickupTimeWindow}
+                            onChange={(value) => setTempPickupTimeWindow(value)}
+                            placeholder="Select time window"
+                            size="small"
+                            style={{ width: '100%' }}
+                            allowClear
+                          >
+                            {timeWindows.map(tw => (
+                              <Option key={tw.id} value={tw.id}>
+                                {tw.name} - {tw.time_display}
+                              </Option>
+                            ))}
+                          </Select>
                         </div>
 
                         {/* Delivery Range */}
@@ -688,7 +844,7 @@ const EstimateEditor: React.FC = () => {
                           <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 500, marginBottom: '6px' }}>
                             📥 Delivery
                           </div>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
                             <DatePicker
                               value={tempDeliveryFrom}
                               onChange={(date) => setTempDeliveryFrom(date)}
@@ -704,6 +860,20 @@ const EstimateEditor: React.FC = () => {
                               style={{ flex: 1 }}
                             />
                           </div>
+                          <Select
+                            value={tempDeliveryTimeWindow}
+                            onChange={(value) => setTempDeliveryTimeWindow(value)}
+                            placeholder="Select time window"
+                            size="small"
+                            style={{ width: '100%' }}
+                            allowClear
+                          >
+                            {timeWindows.map(tw => (
+                              <Option key={tw.id} value={tw.id}>
+                                {tw.name} - {tw.time_display}
+                              </Option>
+                            ))}
+                          </Select>
                         </div>
 
                         {/* Save/Cancel */}
@@ -740,6 +910,11 @@ const EstimateEditor: React.FC = () => {
                               : <span style={{ color: '#999' }}>Not set</span>
                             }
                           </div>
+                          {estimate.pickup_time_window_display && (
+                            <div style={{ fontSize: '11px', color: '#fa541c', marginTop: '4px' }}>
+                              🕐 {estimate.pickup_time_window_display}
+                            </div>
+                          )}
                         </div>
 
                         {/* Delivery Display */}
@@ -753,6 +928,11 @@ const EstimateEditor: React.FC = () => {
                               : <span style={{ color: '#999' }}>Not set</span>
                             }
                           </div>
+                          {estimate.delivery_time_window_display && (
+                            <div style={{ fontSize: '11px', color: '#fa541c', marginTop: '4px' }}>
+                              🕐 {estimate.delivery_time_window_display}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

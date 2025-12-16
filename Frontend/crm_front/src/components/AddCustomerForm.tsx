@@ -31,23 +31,23 @@ interface AddCustomerFormProps {
 }
 
 const SOURCE_OPTIONS = [
-  { value: 'website', label: 'Website' },
+  { value: 'moveit', label: 'Moveit' },
+  { value: 'mymovingloads', label: 'MyMovingLoads' },
+  { value: 'moving24', label: 'Moving24' },
+  { value: 'baltic_website', label: 'Baltic Website' },
+  { value: 'n1m_website', label: 'N1M Website' },
+  { value: 'google', label: 'Google' },
   { value: 'referral', label: 'Referral' },
-  { value: 'social_media', label: 'Social Media' },
-  { value: 'email', label: 'Email Campaign' },
-  { value: 'phone', label: 'Phone Call' },
-  { value: 'walk_in', label: 'Walk-in' },
-  { value: 'advertisement', label: 'Advertisement' },
   { value: 'other', label: 'Other' },
 ];
 
 const STAGE_OPTIONS = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'qualified', label: 'Qualified' },
-  { value: 'proposal', label: 'Proposal' },
-  { value: 'negotiation', label: 'Negotiation' },
-  { value: 'won', label: 'Won' },
+  { value: 'new_lead', label: 'New Lead' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'opportunity', label: 'Opportunity' },
+  { value: 'booked', label: 'Booked' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'bad_lead', label: 'Bad Lead' },
   { value: 'lost', label: 'Lost' },
 ];
 
@@ -404,7 +404,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
               label="Stage"
               name="stage"
               rules={[{ required: true, message: 'Please select the stage!' }]}
-              initialValue="lead"
+              initialValue="new_lead"
               style={{ marginBottom: '12px' }}
             >
               <Select placeholder="Select Stage">

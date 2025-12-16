@@ -37,6 +37,33 @@ class ChargeType(models.TextChoices):
     HOURLY = "hourly", "Hourly"
 
 
+class TimeWindow(models.Model):
+    """
+    Predefined time windows for pickup and delivery scheduling
+    """
+    name = models.CharField(max_length=100, help_text="e.g., Morning, Afternoon, Evening")
+    start_time = models.TimeField(help_text="Start time of the window")
+    end_time = models.TimeField(help_text="End time of the window")
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_time_windows'
+    )
+    
+    class Meta:
+        ordering = ('display_order', 'start_time')
+        verbose_name = 'Time Window'
+        verbose_name_plural = 'Time Windows'
+    
+    def __str__(self):
+        return f"{self.name} ({self.start_time.strftime('%I:%M %p')} - {self.end_time.strftime('%I:%M %p')})"
+
+
 class ChargeDefinition(models.Model):
     """
     Defines a specific charge (e.g., Transportation, Fuel Surcharge, Admin Fee)
@@ -70,6 +97,7 @@ class ChargeDefinition(models.Model):
     
     is_required = models.BooleanField(default=False, help_text="Must be included in estimates")
     is_active = models.BooleanField(default=True)
+    is_estimate_only = models.BooleanField(default=False, help_text="Only for specific estimates, not shown in configure")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -161,8 +189,10 @@ class Estimate(models.Model):
     # Date ranges
     pickup_date_from = models.DateField(null=True, blank=True, help_text="Pickup start date")
     pickup_date_to = models.DateField(null=True, blank=True, help_text="Pickup end date")
+    pickup_time_window = models.ForeignKey(TimeWindow, on_delete=models.SET_NULL, null=True, blank=True, related_name='pickup_estimates', help_text="Pickup arrival window")
     delivery_date_from = models.DateField(null=True, blank=True, help_text="Delivery start date")
     delivery_date_to = models.DateField(null=True, blank=True, help_text="Delivery end date")
+    delivery_time_window = models.ForeignKey(TimeWindow, on_delete=models.SET_NULL, null=True, blank=True, related_name='delivery_estimates', help_text="Delivery arrival window")
     
     # Calculated total
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -318,7 +348,8 @@ class EstimateDocument(models.Model):
     customer_viewed_at = models.DateTimeField(null=True, blank=True)
     customer_signed = models.BooleanField(default=False)
     customer_signed_at = models.DateTimeField(null=True, blank=True)
-    customer_signature = models.TextField(blank=True, help_text="Base64 encoded signature image")
+    customer_signature = models.TextField(blank=True, help_text="JSON with indexed signatures: {\"0\": \"base64...\", \"1\": \"base64...\"}")
+    customer_text_inputs = models.TextField(blank=True, help_text="JSON with indexed text inputs: {\"0\": \"text value\", \"1\": \"another value\"}")
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

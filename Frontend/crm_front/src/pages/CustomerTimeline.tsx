@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Timeline, Empty, Descriptions, Avatar, Space, Modal, Input, Form } from 'antd';
-import { 
+import { Card, Button, Tag, notification, Timeline, Empty, Descriptions, Avatar, Space, Modal, Input, Form, Select } from 'antd';
+import {
   ArrowLeftOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
@@ -26,6 +26,16 @@ import { CustomerActivityProps, CustomerProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 
+const STAGE_OPTIONS = [
+  { value: 'new_lead', label: 'New Lead', color: '#fa8c16' },
+  { value: 'in_progress', label: 'In Progress', color: '#1890ff' },
+  { value: 'opportunity', label: 'Opportunity', color: '#13c2c2' },
+  { value: 'booked', label: 'Booked', color: '#722ed1' },
+  { value: 'closed', label: 'Closed', color: '#52c41a' },
+  { value: 'bad_lead', label: 'Bad Lead', color: '#ff7a45' },
+  { value: 'lost', label: 'Lost', color: '#ff4d4f' }
+];
+
 const CustomerTimeline: React.FC = () => {
   const navigate = useNavigate();
   const { customerId } = useParams<{ customerId: string }>();
@@ -34,6 +44,7 @@ const CustomerTimeline: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
   const [noteForm] = Form.useForm();
+  const [stageUpdating, setStageUpdating] = useState(false);
 
   const currentUser = {
     role: localStorage.getItem(role) || 'user',
@@ -65,6 +76,38 @@ const CustomerTimeline: React.FC = () => {
   const fetchActivities = async () => {
     if (customerId) {
       getCustomerActivities(customerId, setActivities, setLoading);
+    }
+  };
+
+  const handleStageChange = async (newStage: string) => {
+    if (!customerId || !customer) return;
+
+    setStageUpdating(true);
+    try {
+      const headers = getAuthToken() as any;
+      await axios.post(`${CustomersUrl}/${customerId}/change_stage`, {
+        stage: newStage
+      }, headers);
+
+      notification.success({
+        message: 'Stage Updated',
+        description: `Customer stage has been changed to ${STAGE_OPTIONS.find(s => s.value === newStage)?.label}`,
+        title: 'Success'
+      });
+
+      // Update local customer state
+      setCustomer({ ...customer, stage: newStage });
+
+      // Refresh activities to show the stage change
+      fetchActivities();
+    } catch (error: any) {
+      notification.error({
+        message: 'Error',
+        description: error.response?.data?.error || 'Failed to update stage',
+        title: 'Error'
+      });
+    } finally {
+      setStageUpdating(false);
     }
   };
 
@@ -144,6 +187,11 @@ const CustomerTimeline: React.FC = () => {
     return bgColors[activityType] || '#fafafa';
   };
 
+  const getStageColor = (stage: string): string => {
+    const stageOption = STAGE_OPTIONS.find(s => s.value === stage);
+    return stageOption?.color || '#8c8c8c';
+  };
+
   return (
     <div>
       <Header currentUser={currentUser} />
@@ -200,22 +248,38 @@ const CustomerTimeline: React.FC = () => {
                 >
                   {customer.full_name?.charAt(0) || 'C'}
                 </Avatar>
-                <h3 style={{ fontSize: '20px', fontWeight: 600, margin: '0 0 8px 0', color: '#111827' }}>
+                <h3 style={{ fontSize: '20px', fontWeight: 600, margin: '0 0 12px 0', color: '#111827' }}>
                   {customer.full_name}
                 </h3>
-                <Tag 
+                <Select
+                  value={customer.stage}
+                  onChange={handleStageChange}
+                  loading={stageUpdating}
                   style={{
-                    fontSize: '11px',
-                    fontWeight: 500,
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: '#eff6ff',
-                    color: '#1e40af',
-                    border: '1px solid #bfdbfe'
+                    width: '180px',
+                    borderRadius: '8px'
                   }}
-                >
-                  {customer.stage?.toUpperCase()}
-                </Tag>
+                  size="middle"
+                  suffixIcon={<EditOutlined style={{ fontSize: '12px', color: '#6b7280' }} />}
+                  dropdownStyle={{ borderRadius: '8px' }}
+                  options={STAGE_OPTIONS.map(stage => ({
+                    value: stage.value,
+                    label: (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          backgroundColor: stage.color,
+                          flexShrink: 0
+                        }} />
+                        <span style={{ fontWeight: 500 }}>{stage.label}</span>
+                      </div>
+                    )
+                  }))}
+                  placeholder="Select stage"
+                  disabled={stageUpdating}
+                />
               </div>
 
               {/* Contact Information */}

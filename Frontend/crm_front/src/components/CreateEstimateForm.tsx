@@ -8,12 +8,13 @@ import {
   DashboardOutlined,
   CalendarOutlined
 } from "@ant-design/icons";
-import { AuthTokenType, CustomerProps, EstimateTemplateProps, ServiceTypeProps } from "../utils/types";
+import { AuthTokenType, CustomerProps, EstimateTemplateProps, ServiceTypeProps, TimeWindowProps } from "../utils/types";
 import { getAuthToken, getServiceTypes } from "../utils/functions";
 import axios, { AxiosResponse } from "axios";
-import { EstimatesUrl, EstimateTemplatesUrl, ServiceTypesUrl } from "../utils/network";
+import { EstimatesUrl, EstimateTemplatesUrl, ServiceTypesUrl, BaseUrl } from "../utils/network";
 
 const { Option } = Select;
+const TimeWindowsUrl = BaseUrl + 'transactiondata/time-windows';
 
 interface CreateEstimateFormProps {
   isVisible: boolean;
@@ -34,10 +35,12 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeProps[]>([]);
   const [selectedServiceType, setSelectedServiceType] = useState<number | null>(null);
   const [filteredTemplates, setFilteredTemplates] = useState<EstimateTemplateProps[]>([]);
+  const [timeWindows, setTimeWindows] = useState<TimeWindowProps[]>([]);
 
   useEffect(() => {
     if (isVisible) {
       fetchServiceTypes();
+      fetchTimeWindows();
       
       // Pre-fill customer service type if available
       if (customer?.service_type) {
@@ -80,6 +83,16 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
     }
   };
 
+  const fetchTimeWindows = async () => {
+    try {
+      const headers = getAuthToken() as AuthTokenType;
+      const response = await axios.get(`${TimeWindowsUrl}/simple`, headers);
+      setTimeWindows(response.data);
+    } catch (error) {
+      console.error('Error fetching time windows:', error);
+    }
+  };
+
   const handleFormClose = () => {
     form.resetFields();
     setSelectedServiceType(null);
@@ -105,8 +118,10 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
       labour_hours: values.labour_hours,
       pickup_date_from: values.pickup_date_from ? values.pickup_date_from.format('YYYY-MM-DD') : null,
       pickup_date_to: values.pickup_date_to ? values.pickup_date_to.format('YYYY-MM-DD') : null,
+      pickup_time_window: values.pickup_time_window || null,
       delivery_date_from: values.delivery_date_from ? values.delivery_date_from.format('YYYY-MM-DD') : null,
-      delivery_date_to: values.delivery_date_to ? values.delivery_date_to.format('YYYY-MM-DD') : null
+      delivery_date_to: values.delivery_date_to ? values.delivery_date_to.format('YYYY-MM-DD') : null,
+      delivery_time_window: values.delivery_time_window || null
     };
 
     try {
@@ -275,7 +290,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
         >
           <Form.Item
             label="Pickup Date Range"
-            style={{ marginBottom: '12px' }}
+            style={{ marginBottom: '8px' }}
           >
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <Form.Item
@@ -301,8 +316,22 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
           </Form.Item>
 
           <Form.Item
+            label="Pickup Time Window"
+            name="pickup_time_window"
+            style={{ marginBottom: '12px' }}
+          >
+            <Select placeholder="Select arrival window (optional)" allowClear>
+              {timeWindows.map(tw => (
+                <Option key={tw.id} value={tw.id}>
+                  {tw.name} - {tw.time_display}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             label="Delivery Date Range"
-            style={{ marginBottom: '0' }}
+            style={{ marginBottom: '8px' }}
           >
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <Form.Item
@@ -325,6 +354,20 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
                 />
               </Form.Item>
             </div>
+          </Form.Item>
+
+          <Form.Item
+            label="Delivery Time Window"
+            name="delivery_time_window"
+            style={{ marginBottom: '0' }}
+          >
+            <Select placeholder="Select arrival window (optional)" allowClear>
+              {timeWindows.map(tw => (
+                <Option key={tw.id} value={tw.id}>
+                  {tw.name} - {tw.time_display}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
         </Card>
 
