@@ -21,6 +21,14 @@ dist/
 *.log
 *.pot
 *.pyc
+db.sqlite3
+*.sqlite3
+*.db
+
+# Media and static files
+media/
+staticfiles/
+static_root/
 
 # IDEs
 .vscode/
