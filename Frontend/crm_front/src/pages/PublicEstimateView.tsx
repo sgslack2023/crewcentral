@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { EstimatesUrl } from '../utils/network';
 import { EstimateProps, EstimateLineItemProps } from '../utils/types';
+import logo from '../assets/logo.png';
 
 const { TextArea } = Input;
 
@@ -213,10 +214,18 @@ const PublicEstimateView: React.FC = () => {
           color: '#fff'
         }}>
           <div style={{ textAlign: 'center' }}>
-            <FileTextOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-            <h1 style={{ fontSize: '28px', fontWeight: 600, margin: 0, color: '#fff', marginBottom: '8px' }}>
-              Baltic Van Lines - Estimate #{estimate.id}
-            </h1>
+            <div style={{ marginBottom: '16px' }}>
+              <img 
+                src={logo} 
+                alt="Baltic Van Lines" 
+                style={{ maxHeight: '60px', width: 'auto' }}
+              />
+            </div>
+            {estimate.customer_job_number && (
+              <div style={{ fontSize: '20px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>
+                Job Number: {estimate.customer_job_number}
+              </div>
+            )}
             <Tag 
               color={
                 estimate.status === 'approved' ? 'green' : 
@@ -270,6 +279,24 @@ const PublicEstimateView: React.FC = () => {
             </div>
           </Card>
         </div>
+
+        {/* Service Type Estimate Content */}
+        {estimate.service_type_estimate_content && (
+          <Card style={{ borderRadius: '12px', marginBottom: '24px' }}>
+            <div 
+              style={{ 
+                fontSize: '14px', 
+                color: '#333', 
+                lineHeight: '1.8',
+                whiteSpace: 'pre-wrap',
+                textAlign: 'center',
+                padding: '16px'
+              }}
+            >
+              {estimate.service_type_estimate_content}
+            </div>
+          </Card>
+        )}
 
         {/* Origin and Destination Addresses */}
         {(estimate.origin_address || estimate.destination_address) && (
@@ -385,10 +412,65 @@ const PublicEstimateView: React.FC = () => {
             size="small"
             pagination={false}
             summary={() => {
+              const subtotal = estimate.subtotal ? Number(estimate.subtotal) : 0;
+              const discountAmount = estimate.discount_amount ? Number(estimate.discount_amount) : 0;
+              const taxAmount = estimate.tax_amount ? Number(estimate.tax_amount) : 0;
+              const taxPercentage = estimate.tax_percentage ? Number(estimate.tax_percentage) : 0;
               const totalAmount = estimate.total_amount ? Number(estimate.total_amount) : 0;
+              
               return (
                 <Table.Summary>
+                  {/* Subtotal Row */}
                   <Table.Summary.Row style={{ backgroundColor: '#fafafa' }}>
+                    <Table.Summary.Cell index={0} colSpan={5}>
+                      <strong style={{ fontSize: '14px' }}>Subtotal</strong>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={1}>
+                      <strong style={{ fontSize: '16px', color: '#1890ff' }}>
+                        ${subtotal.toFixed(2)}
+                      </strong>
+                    </Table.Summary.Cell>
+                  </Table.Summary.Row>
+                  
+                  {/* Discount Row */}
+                  {discountAmount > 0 && (
+                    <Table.Summary.Row style={{ backgroundColor: '#fff1f0' }}>
+                      <Table.Summary.Cell index={0} colSpan={5}>
+                        <strong style={{ fontSize: '14px', color: '#cf1322' }}>
+                          Discount
+                          {estimate.discount_type === 'percent' && estimate.discount_value && (
+                            <span style={{ marginLeft: '8px', fontWeight: 'normal' }}>
+                              ({estimate.discount_value}%)
+                            </span>
+                          )}
+                        </strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={1}>
+                        <strong style={{ fontSize: '16px', color: '#cf1322' }}>
+                          -${discountAmount.toFixed(2)}
+                        </strong>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                  
+                  {/* Tax Row */}
+                  {taxAmount > 0 && (
+                    <Table.Summary.Row style={{ backgroundColor: '#fff7e6' }}>
+                      <Table.Summary.Cell index={0} colSpan={5}>
+                        <strong style={{ fontSize: '14px', color: '#d46b08' }}>
+                          Sales Tax ({taxPercentage.toFixed(2)}%)
+                        </strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={1}>
+                        <strong style={{ fontSize: '16px', color: '#d46b08' }}>
+                          ${taxAmount.toFixed(2)}
+                        </strong>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                  
+                  {/* Total Row */}
+                  <Table.Summary.Row style={{ backgroundColor: '#f6ffed' }}>
                     <Table.Summary.Cell index={0} colSpan={5}>
                       <strong style={{ fontSize: '16px' }}>Total Amount</strong>
                     </Table.Summary.Cell>

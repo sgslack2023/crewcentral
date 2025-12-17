@@ -43,6 +43,7 @@ const CustomerTimeline: React.FC = () => {
   const [activities, setActivities] = useState<CustomerActivityProps[]>([]);
   const [loading, setLoading] = useState(false);
   const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [viewNotesModalVisible, setViewNotesModalVisible] = useState(false);
   const [noteForm] = Form.useForm();
   const [stageUpdating, setStageUpdating] = useState(false);
 
@@ -499,24 +500,44 @@ const CustomerTimeline: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <Button 
-                icon={<PlusOutlined />}
-                onClick={() => setNoteModalVisible(true)}
-                style={{ 
-                  backgroundColor: '#dcfce7',
-                  color: '#16a34a',
-                  border: '1px solid #86efac',
-                  borderRadius: '8px',
-                  fontWeight: 500,
-                  height: '36px',
-                  padding: '0 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                Add Note
-              </Button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Button
+                  icon={<EyeOutlined />}
+                  onClick={() => setViewNotesModalVisible(true)}
+                  style={{
+                    backgroundColor: '#e0f2fe',
+                    color: '#0284c7',
+                    border: '1px solid #7dd3fc',
+                    borderRadius: '8px',
+                    fontWeight: 500,
+                    height: '36px',
+                    padding: '0 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  View Notes
+                </Button>
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => setNoteModalVisible(true)}
+                  style={{
+                    backgroundColor: '#dcfce7',
+                    color: '#16a34a',
+                    border: '1px solid #86efac',
+                    borderRadius: '8px',
+                    fontWeight: 500,
+                    height: '36px',
+                    padding: '0 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  Add Note
+                </Button>
+              </div>
             </div>
 
             {/* Content */}
@@ -779,6 +800,111 @@ const CustomerTimeline: React.FC = () => {
             </Button>
           </div>
         </Form>
+      </Modal>
+
+      {/* View Notes Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CommentOutlined />
+            View All Notes
+          </div>
+        }
+        open={viewNotesModalVisible}
+        onCancel={() => setViewNotesModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setViewNotesModalVisible(false)}>
+            Close
+          </Button>
+        ]}
+        width={700}
+        style={{
+          borderRadius: '16px',
+          overflow: 'hidden'
+        }}
+        bodyStyle={{
+          maxHeight: '600px',
+          overflowY: 'auto'
+        }}
+      >
+        {activities.filter(a => a.activity_type === 'note_added').length === 0 ? (
+          <Empty
+            description="No notes found"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            style={{ padding: '60px 0' }}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {activities
+              .filter(activity => activity.activity_type === 'note_added')
+              .map((activity) => (
+                <div
+                  key={activity.id}
+                  style={{
+                    padding: '20px',
+                    backgroundColor: '#fff',
+                    borderRadius: '12px',
+                    border: '1px solid #e5e7eb',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#111827',
+                        margin: '0 0 8px 0'
+                      }}>
+                        {activity.title}
+                      </h3>
+                      <div style={{
+                        fontSize: '13px',
+                        color: '#6b7280',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '16px',
+                        flexWrap: 'wrap'
+                      }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ClockCircleOutlined style={{ fontSize: '12px' }} />
+                          {new Date(activity.created_at!).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <UserOutlined style={{ fontSize: '12px' }} />
+                          {activity.created_by_name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {activity.description && (
+                    <div style={{
+                      fontSize: '14px',
+                      color: '#4b5563',
+                      lineHeight: '1.6',
+                      marginTop: '12px',
+                      padding: '14px',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '8px',
+                      borderLeft: '3px solid #8c8c8c'
+                    }}>
+                      {activity.description}
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+        )}
       </Modal>
     </div>
   );

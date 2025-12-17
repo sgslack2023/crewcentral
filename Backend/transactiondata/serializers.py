@@ -144,6 +144,7 @@ class EstimateSerializer(serializers.ModelSerializer):
     customer_job_number = serializers.SerializerMethodField()
     template_name = serializers.SerializerMethodField()
     service_type_name = serializers.SerializerMethodField()
+    service_type_estimate_content = serializers.SerializerMethodField()
     origin_address = serializers.SerializerMethodField()
     destination_address = serializers.SerializerMethodField()
     pickup_time_window_display = serializers.SerializerMethodField()
@@ -156,11 +157,11 @@ class EstimateSerializer(serializers.ModelSerializer):
         model = Estimate
         fields = [
             'id', 'customer', 'customer_name', 'customer_job_number', 'template_used', 'template_name',
-            'service_type', 'service_type_name', 'weight_lbs', 'labour_hours',
+            'service_type', 'service_type_name', 'service_type_estimate_content', 'weight_lbs', 'labour_hours',
             'pickup_date_from', 'pickup_date_to', 'pickup_time_window', 'pickup_time_window_display',
             'delivery_date_from', 'delivery_date_to', 'delivery_time_window', 'delivery_time_window_display',
             'origin_address', 'destination_address',
-            'subtotal', 'tax_percentage', 'tax_amount', 'total_amount',
+            'discount_type', 'discount_value', 'subtotal', 'discount_amount', 'tax_percentage', 'tax_amount', 'total_amount',
             'status', 'notes', 'created_at', 'updated_at', 'created_by', 'created_by_name',
             'items', 'items_count',
             'public_token', 'email_sent_at', 'customer_viewed_at', 'customer_responded_at', 'link_active',
@@ -184,6 +185,9 @@ class EstimateSerializer(serializers.ModelSerializer):
 
     def get_service_type_name(self, obj):
         return obj.service_type.service_type if obj.service_type else None
+
+    def get_service_type_estimate_content(self, obj):
+        return obj.service_type.estimate_content if obj.service_type and obj.service_type.estimate_content else None
 
     def get_origin_address(self, obj):
         return obj.customer.origin_address if obj.customer else None

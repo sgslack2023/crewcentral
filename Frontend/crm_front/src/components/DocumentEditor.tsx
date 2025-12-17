@@ -393,23 +393,74 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
   };
 
   return (
-    <Modal
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FileTextOutlined />
-          {editingDocument ? 'Edit Document' : 'Create New Document'}
-        </div>
-      }
-      open={isVisible}
-      onCancel={handleClose}
-      width={1000}
-      style={{ top: 20 }}
-      bodyStyle={{ padding: '24px' }}
-      destroyOnClose={false}
-      footer={[
+    <>
+      <style>
+        {`
+          /* Make submenu popups scrollable - use universal selector to catch submenus */
+          .ant-dropdown-menu-submenu-popup {
+            max-height: 300px !important;
+          }
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu {
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding: 4px 0 !important;
+          }
+          /* Target the ul element that contains menu items */
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu ul.ant-dropdown-menu-root {
+            max-height: 300px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+          }
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu-item {
+            white-space: nowrap !important;
+            padding: 8px 12px !important;
+          }
+          /* Ensure scrollbar is visible */
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu::-webkit-scrollbar,
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu ul::-webkit-scrollbar {
+            width: 8px;
+          }
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu::-webkit-scrollbar-track,
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu ul::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+          }
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu::-webkit-scrollbar-thumb,
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu ul::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+          }
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu::-webkit-scrollbar-thumb:hover,
+          .ant-dropdown-menu-submenu-popup .ant-dropdown-menu ul::-webkit-scrollbar-thumb:hover {
+            background: #555;
+          }
+        `}
+      </style>
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileTextOutlined />
+            {editingDocument ? 'Edit Document' : 'Create New Document'}
+          </div>
+        }
+        open={isVisible}
+        onCancel={handleClose}
+        width={1000}
+        style={{ top: 20 }}
+        bodyStyle={{ padding: '24px' }}
+        destroyOnClose={false}
+        footer={[
         <Dropdown
           key="insert-fields"
+          placement="top"
+          overlayClassName="document-editor-dropdown"
+          overlayStyle={{
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}
           menu={{
+            style: { maxHeight: '80vh', overflowY: 'auto' },
             items: [
               {
                 key: 'customer',
@@ -442,7 +493,9 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                   { key: 'service_type', label: 'Service Type', onClick: () => insertTag('{{service_type}}') },
                   { key: 'move_date', label: 'Move Date', onClick: () => insertTag('{{move_date}}') },
                   { key: 'weight', label: 'Weight', onClick: () => insertTag('{{weight}}') },
-                  { key: 'labour_hours', label: 'Labour Hours', onClick: () => insertTag('{{labour_hours}}') }
+                  { key: 'labour_hours', label: 'Labour Hours', onClick: () => insertTag('{{labour_hours}}') },
+                  { key: 'pickup_time_window', label: 'Pickup Time Window', onClick: () => insertTag('{{pickup_time_window}}') },
+                  { key: 'delivery_time_window', label: 'Delivery Time Window', onClick: () => insertTag('{{delivery_time_window}}') }
                 ]
               },
               {
@@ -548,6 +601,7 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
         </div>
       </div>
     </Modal>
+    </>
   );
 };
 

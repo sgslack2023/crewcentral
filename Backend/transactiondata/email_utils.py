@@ -9,9 +9,11 @@ def generate_public_token():
     return secrets.token_urlsafe(32)
 
 
-def send_estimate_email(estimate, base_url="http://127.0.0.1:3000"):
+def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base_url=None):
     """
     Send estimate to customer via email
+    base_url: Frontend URL for public estimate view
+    backend_base_url: Backend URL for API endpoints (defaults to base_url with port 8000)
     """
     from django.core.mail import EmailMultiAlternatives
     
@@ -20,11 +22,31 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000"):
         estimate.public_token = generate_public_token()
         estimate.save()
     
-    # Build public link
+    # Determine backend URL
+    if backend_base_url is None:
+        # Try to derive backend URL from frontend URL
+        if ':3000' in base_url:
+            backend_base_url = base_url.replace(':3000', ':8000')
+        else:
+            backend_base_url = 'http://127.0.0.1:8000'
+    
+    # Build public link (frontend)
     public_link = f"{base_url}/public-estimate/{estimate.public_token}"
+    # Build PDF download link (backend API) - no trailing slash for router with trailing_slash=False
+    pdf_download_link = f"{backend_base_url}/api/transactiondata/estimates/download_pdf?token={estimate.public_token}"
+    
+    # Get service type name
+    service_type_name = estimate.service_type.service_type if estimate.service_type else "Relocation Services"
+    
+    # Get job number
+    job_number = estimate.customer.job_number if estimate.customer and estimate.customer.job_number else "N/A"
+    
+    # Customer first name (for greeting)
+    customer_name = estimate.customer.full_name if estimate.customer else "Customer"
+    customer_first_name = customer_name.split()[0] if customer_name else "Customer"
     
     # Email subject
-    subject = f"Please Review and Sign - Estimate #{estimate.id}"
+    subject = f"Your Estimate for {service_type_name} - Baltic Van Lines"
     
     # HTML Email body
     html_message = f"""
@@ -43,10 +65,13 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000"):
         .title {{ color: #5a6c7d; font-size: 20px; font-weight: 600; margin-bottom: 24px; text-align: center; }}
         .greeting {{ color: #333; font-size: 16px; margin-bottom: 20px; }}
         .message {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }}
-        .contact {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 32px; }}
         .button-container {{ text-align: center; margin: 32px 0; }}
         .button {{ display: inline-block; background-color: #1890ff; color: #ffffff; text-decoration: none; 
-                   padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; }}
+                   padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; margin: 8px; }}
+        .button-secondary {{ display: inline-block; background-color: #52c41a; color: #ffffff; text-decoration: none; 
+                            padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; margin: 8px; }}
+        .contact {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }}
+        .job-number {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 32px; font-weight: 600; }}
         .footer {{ padding: 30px; background-color: #ffffff; text-align: center; color: #999; font-size: 12px; }}
     </style>
 </head>
@@ -56,21 +81,39 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000"):
             <h1>Baltic Van Lines</h1>
         </div>
         <div class="content">
-            <div class="title">Please Review and Sign - Estimate #{estimate.id}</div>
-            <div class="greeting">Hello {estimate.customer.full_name},</div>
+            <div class="title">Your Estimate for {service_type_name}</div>
+            <div class="greeting">Hello {customer_first_name},</div>
             <div class="message">
-                Please review and complete your estimate related to your move by using the button below.
+                Thank you for inquiring for a Estimate for <strong>{service_type_name}</strong> with Baltic Van Lines.<br><br>
+                We all know how stressful moving can be, that's why we do our part in putting all the information out there for you to see.
             </div>
-            <div class="contact">
-                If you have any questions please contact us at <strong>647-931-5244</strong> or send an email to 
-                <strong>Info@BalticVanLines.ca</strong>
+            <div class="message">
+                To view your estimate and see more information please click the big button below!
             </div>
             <div class="button-container">
                 <a href="{public_link}" class="button">View Estimate</a>
             </div>
-        </div>
-        <div class="footer">
-            <p>&copy; 2024 Baltic Van Lines. All rights reserved.</p>
+            <div class="message">
+                Estimates are based on the information provided during your on-boarding process with your relocation consultant. To ensure you get the most accurate estimate possible we suggest you complete the your inventory on the link below!
+            </div>
+            <div class="message">
+                If you would like to download a PDF copy of your current estimate feel free to click the button below.
+            </div>
+            <div class="button-container">
+                <a href="{pdf_download_link}" class="button-secondary">Download PDF</a>
+            </div>
+            <div class="contact">
+                If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at <strong>(123) 555-1234</strong>.
+            </div>
+            <div class="job-number">
+                To save time when calling please have your Job Number handy : <strong>{job_number}</strong>
+            </div>
+            <div class="footer">
+                <p>Baltic Van Lines</p>
+                <p>(123) 555-1234 </p>
+                <p>6685 Kennedy Rd, Mississauga, ON L5T 3A5</p>
+                <p>balticvanlines.ca</p>
+            </div>
         </div>
     </div>
 </body>
@@ -79,16 +122,34 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000"):
     
     # Plain text fallback
     text_message = f"""
-Hello {estimate.customer.full_name},
+Hello {customer_first_name},
 
-Please review and complete your estimate related to your move by using the link below:
+Thank you for inquiring for a Estimate for {service_type_name} with Baltic Van Lines.
+
+We all know how stressful moving can be, that's why we do our part in putting all the information out there for you to see.
+
+To view your estimate and see more information please click the link below:
 
 {public_link}
 
-If you have any questions please contact us at 647-931-5244 or send an email to Info@BalticVanLines.ca
+Estimates are based on the information provided during your on-boarding process with your relocation consultant. To ensure you get the most accurate estimate possible we suggest you complete the your inventory on the link below!
 
-Best regards,
-Baltic Van Lines Team
+If you would like to download a PDF copy of your current estimate feel free to click the link below:
+
+{pdf_download_link}
+
+If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at (123) 555-1234.
+
+To save time when calling please have your Job Number handy : {job_number}
+
+Baltic Van Lines
+(123) 555-1234
+https://sample-data.com
+
+Baltic Van Lines
+6685 Kennedy Rd
+Mississauga, ON L5T 3A5
+balticvanlines.ca
 """
     
     # Send email

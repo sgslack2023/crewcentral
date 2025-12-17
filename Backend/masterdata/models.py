@@ -65,6 +65,7 @@ class ServiceType(models.Model):
     service_type = models.CharField(max_length=255, unique=True)
     scaling_factor = models.DecimalField(max_digits=10, decimal_places=2, default=1.0)
     color = models.CharField(max_length=7, blank=True, null=True, help_text="Hex color code (e.g., #FF5733)")
+    estimate_content = models.TextField(blank=True, null=True, help_text="Additional content to display on estimates for this service type")
     enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -230,11 +230,21 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
               rules={[{ required: true, message: 'Please select a charge!' }]}
               style={{ marginBottom: '12px' }}
             >
-              <Select 
-                placeholder="Select Charge Definition" 
+              <Select
+                placeholder="Select Charge Definition"
                 onChange={handleChargeChange}
                 showSearch
                 optionFilterProp="children"
+                filterOption={(input, option) => {
+                  const charge = chargeDefinitions.find(cd => cd.id === option?.value);
+                  if (!charge) return false;
+                  const searchText = input.toLowerCase();
+                  return (
+                    charge.name.toLowerCase().includes(searchText) ||
+                    charge.category_name?.toLowerCase().includes(searchText) ||
+                    charge.charge_type.toLowerCase().includes(searchText)
+                  );
+                }}
               >
                 {chargeDefinitions.map(cd => (
                   <Option key={cd.id} value={cd.id}>

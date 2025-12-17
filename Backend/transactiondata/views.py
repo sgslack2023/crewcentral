@@ -2,6 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q
+from django.http import HttpResponse, FileResponse
+from io import BytesIO
 from crm_back.custom_methods import isAuthenticatedCustom
 from .models import (
     ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem,
@@ -460,7 +462,15 @@ class EstimateViewSet(viewsets.ModelViewSet):
         estimate = self.get_object()
         
         base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
-        success, message = send_estimate_email(estimate, base_url)
+        backend_base_url = request.data.get('backend_base_url', None)
+        # If not provided, try to get from request
+        if backend_base_url is None and hasattr(request, 'build_absolute_uri'):
+            try:
+                backend_base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
+            except:
+                pass
+        
+        success, message = send_estimate_email(estimate, base_url, backend_base_url)
         
         if success:
             # Create activity
@@ -506,6 +516,263 @@ class EstimateViewSet(viewsets.ModelViewSet):
             
             serializer = self.get_serializer(estimate)
             return Response(serializer.data)
+        except Estimate.DoesNotExist:
+            return Response({
+                'error': 'Invalid or expired link'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def download_pdf(self, request):
+        """
+        Download estimate as PDF (public access via token)
+        GET /estimates/download_pdf/?token=xxx
+        Returns HTML page optimized for printing/PDF conversion
+        """
+        token = request.query_params.get('token')
+        
+        if not token:
+            return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            estimate = Estimate.objects.select_related('customer', 'service_type').prefetch_related('items__charge').get(
+                public_token=token, link_active=True
+            )
+            
+            # Get line items
+            line_items = estimate.items.all().order_by('display_order', 'id')
+            
+            # Get job number for display
+            job_number = estimate.customer.job_number if estimate.customer and estimate.customer.job_number else None
+            job_number_display = f" - Job Number: {job_number}" if job_number else ""
+            
+            # Build HTML for PDF
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Baltic Van Lines{job_number_display}</title>
+    <style>
+        @media print {{
+            @page {{
+                margin: 20mm;
+            }}
+        }}
+        body {{
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }}
+        .header {{
+            background-color: #1890ff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 24px;
+        }}
+        .estimate-info {{
+            margin-bottom: 20px;
+        }}
+        .estimate-info h2 {{
+            margin: 0 0 10px 0;
+            color: #333;
+        }}
+        .customer-info {{
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }}
+        .line-items {{
+            margin: 20px 0;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }}
+        th, td {{
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }}
+        th {{
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }}
+        .total-row {{
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }}
+        .footer {{
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Baltic Van Lines</h1>
+        <div>Estimate</div>
+    </div>
+    
+    <div class="estimate-info">
+        <h2>Baltic Van Lines{job_number_display}</h2>
+        <p><strong>Issue Date:</strong> {estimate.created_at.strftime('%B %d, %Y') if estimate.created_at else 'N/A'}</p>
+    </div>
+    
+    <div class="customer-info">
+        <h3>Customer Information</h3>
+        <p><strong>Name:</strong> {estimate.customer.full_name if estimate.customer else 'N/A'}</p>
+        {f'<p><strong>Job Number:</strong> {job_number}</p>' if job_number else ''}
+        {f'<p><strong>Service Type:</strong> {estimate.service_type.service_type}</p>' if estimate.service_type else ''}
+    </div>
+    
+    <div class="line-items">
+        <h3>Estimate Breakdown</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Charge</th>
+                    <th>Type</th>
+                    <th>Rate</th>
+                    <th>Quantity</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+"""
+            
+            for item in line_items:
+                charge_name = item.charge.name if item.charge else 'N/A'
+                charge_type = item.charge_type.replace('_', ' ').title() if item.charge_type else 'N/A'
+                rate = f"${float(item.rate):.2f}" if item.rate and item.charge_type != 'percent' else '-'
+                percentage = f"{float(item.percentage):.2f}%" if item.percentage and item.charge_type == 'percent' else '-'
+                quantity = f"{float(item.quantity):.2f}" if item.quantity else '1.00'
+                amount = f"${float(item.amount):.2f}" if item.amount else '$0.00'
+                
+                html_content += f"""
+                <tr>
+                    <td>{charge_name}</td>
+                    <td>{charge_type}</td>
+                    <td>{rate if rate != '-' else percentage}</td>
+                    <td>{quantity}</td>
+                    <td>{amount}</td>
+                </tr>
+"""
+            
+            html_content += f"""
+            </tbody>
+            <tfoot>
+                <!-- Subtotal Row -->
+                <tr style="background-color: #fafafa;">
+                    <td colspan="4" style="text-align: right;"><strong>Subtotal:</strong></td>
+                    <td><strong>${float(estimate.subtotal):.2f}</strong></td>
+                </tr>
+"""
+            
+            # Add discount row if discount exists
+            if estimate.discount_amount and float(estimate.discount_amount) > 0:
+                discount_display = f"({estimate.discount_value}%)" if estimate.discount_type == 'percent' and estimate.discount_value else ""
+                html_content += f"""
+                <!-- Discount Row -->
+                <tr style="background-color: #fff1f0;">
+                    <td colspan="4" style="text-align: right; color: #cf1322;"><strong>Discount {discount_display}:</strong></td>
+                    <td style="color: #cf1322;"><strong>-${float(estimate.discount_amount):.2f}</strong></td>
+                </tr>
+"""
+            
+            # Add tax row if tax exists
+            if estimate.tax_amount and float(estimate.tax_amount) > 0:
+                html_content += f"""
+                <!-- Tax Row -->
+                <tr style="background-color: #fff7e6;">
+                    <td colspan="4" style="text-align: right; color: #d46b08;"><strong>Sales Tax ({float(estimate.tax_percentage):.2f}%):</strong></td>
+                    <td style="color: #d46b08;"><strong>${float(estimate.tax_amount):.2f}</strong></td>
+                </tr>
+"""
+            
+            html_content += f"""
+                <!-- Total Row -->
+                <tr class="total-row" style="background-color: #f6ffed;">
+                    <td colspan="4" style="text-align: right;"><strong>Total Amount:</strong></td>
+                    <td><strong style="color: #52c41a;">${float(estimate.total_amount):.2f}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    
+    <div class="footer">
+        <p>Baltic Van Lines</p>
+        <p>6685 Kennedy Rd, Mississauga, ON L5T 3A5</p>
+        <p>Phone: (123) 555-1234 | Email: Info@BalticVanLines.ca</p>
+        <p>balticvanlines.ca</p>
+    </div>
+</body>
+</html>
+"""
+            
+            # Try to generate PDF using xhtml2pdf (pisa)
+            try:
+                from xhtml2pdf import pisa
+                
+                # Generate PDF from HTML
+                pdf_buffer = BytesIO()
+                pisa_status = pisa.CreatePDF(
+                    html_content,
+                    dest=pdf_buffer,
+                    encoding='utf-8'
+                )
+                
+                if pisa_status.err:
+                    # If PDF generation fails, fall through to HTML fallback
+                    raise Exception("PDF generation failed")
+                
+                pdf_bytes = pdf_buffer.getvalue()
+                
+                # Create filename with job number or fallback
+                if job_number:
+                    filename = f"Estimate_{job_number}.pdf"
+                else:
+                    filename = "Estimate.pdf"
+                
+                # Return PDF as file response
+                pdf_buffer = BytesIO(pdf_bytes)
+                response = FileResponse(pdf_buffer, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+                
+            except ImportError:
+                # Fallback to HTML if WeasyPrint is not installed
+                if job_number:
+                    filename = f"Estimate_{job_number}.html"
+                else:
+                    filename = "Estimate.html"
+                
+                response = HttpResponse(html_content, content_type='text/html')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            except Exception as e:
+                # If PDF generation fails, return HTML as fallback
+                if job_number:
+                    filename = f"Estimate_{job_number}.html"
+                else:
+                    filename = "Estimate.html"
+                
+                response = HttpResponse(html_content, content_type='text/html')
+                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            
         except Estimate.DoesNotExist:
             return Response({
                 'error': 'Invalid or expired link'

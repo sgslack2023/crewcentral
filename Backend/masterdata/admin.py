@@ -57,10 +57,10 @@ class ServiceTypeAdmin(admin.ModelAdmin):
     search_fields = ('service_type',)
     ordering = ('service_type',)
     readonly_fields = ('created_at', 'updated_at', 'created_by')
-    
+
     fieldsets = (
         ('Service Type Information', {
-            'fields': ('service_type', 'scaling_factor', 'color', 'enabled')
+            'fields': ('service_type', 'scaling_factor', 'color', 'estimate_content', 'enabled')
         }),
         ('Metadata', {
             'fields': ('created_by', 'created_at', 'updated_at'),

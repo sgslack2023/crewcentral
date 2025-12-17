@@ -1,14 +1,17 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, InputNumber, Button, Card, Switch } from "antd";
-import { 
-  TagsOutlined, 
-  PercentageOutlined, 
-  BgColorsOutlined
+import {
+  TagsOutlined,
+  PercentageOutlined,
+  BgColorsOutlined,
+  FileTextOutlined
 } from "@ant-design/icons";
 import { AuthTokenType, ServiceTypeProps } from "../utils/types";
 import { getAuthToken } from "../utils/functions";
 import axios, { AxiosResponse } from "axios";
 import { ServiceTypesUrl } from "../utils/network";
+
+const { TextArea } = Input;
 
 interface AddServiceTypeFormProps {
   isVisible: boolean;
@@ -134,10 +137,24 @@ const AddServiceTypeForm: FC<AddServiceTypeFormProps> = ({
             style={{ marginBottom: '12px' }}
             extra="Enter hex color code (e.g., #FF5733)"
           >
-            <Input 
-              prefix={<BgColorsOutlined />} 
-              placeholder="#1890ff" 
+            <Input
+              prefix={<BgColorsOutlined />}
+              placeholder="#1890ff"
               maxLength={7}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Estimate Content"
+            name="estimate_content"
+            style={{ marginBottom: '12px' }}
+            extra="Additional content to display on estimates for this service type (up to 5000 characters)"
+          >
+            <TextArea
+              placeholder="Enter additional information to be displayed on estimates..."
+              rows={6}
+              maxLength={5000}
+              showCount
             />
           </Form.Item>
 

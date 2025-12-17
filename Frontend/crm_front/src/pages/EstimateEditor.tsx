@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Table, InputNumber, Space, Avatar, DatePicker, Select } from 'antd';
+import { Card, Button, Tag, notification, Table, InputNumber, Space, Avatar, DatePicker, Select, Modal, Form, Radio } from 'antd';
 import { 
   ArrowLeftOutlined,
   SaveOutlined,
@@ -17,14 +17,16 @@ import {
   SendOutlined,
   CopyOutlined,
   PercentageOutlined,
-  CalendarOutlined
+  CalendarOutlined,
+  TagOutlined,
+  FilePdfOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getAuthToken, getEstimateById, recalculateEstimate, getEstimateDocuments } from '../utils/functions';
 import { EstimatesUrl, EstimateLineItemsUrl, EstimateDocumentsUrl, BaseUrl } from '../utils/network';
-import { EstimateProps, EstimateLineItemProps, EstimateDocumentProps, TimeWindowProps } from '../utils/types';
+import { EstimateProps, EstimateLineItemProps, EstimateDocumentProps, TimeWindowProps, AuthTokenType } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddEstimateLineItemForm from '../components/AddEstimateLineItemForm';
@@ -32,6 +34,151 @@ import AttachDocumentsForm from '../components/AttachDocumentsForm';
 
 const TimeWindowsUrl = BaseUrl + 'transactiondata/time-windows';
 const { Option } = Select;
+
+// Discount Modal Component
+const DiscountModal: React.FC<{
+  visible: boolean;
+  estimate: EstimateProps | null;
+  estimateId: string | undefined;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ visible, estimate, estimateId, onClose, onSuccess }) => {
+  const [form] = Form.useForm();
+  const [discountType, setDiscountType] = useState<'flat' | 'percent' | null>(
+    estimate?.discount_type || null
+  );
+
+  useEffect(() => {
+    if (visible && estimate) {
+      form.setFieldsValue({
+        discount_type: estimate.discount_type || 'flat',
+        discount_value: estimate.discount_value || 0
+      });
+      setDiscountType(estimate.discount_type || 'flat');
+    }
+  }, [visible, estimate, form]);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      const headers = getAuthToken() as AuthTokenType;
+      await axios.patch(
+        `${EstimatesUrl}/${estimateId}`,
+        {
+          discount_type: values.discount_type || null,
+          discount_value: values.discount_value || null
+        },
+        headers
+      );
+      
+      // Recalculate estimate
+      if (estimateId) {
+        await recalculateEstimate(parseInt(estimateId));
+      }
+      
+      notification.success({
+        message: 'Discount Applied',
+        description: 'Discount has been applied and estimate recalculated.',
+        title: 'Success'
+      });
+      
+      onSuccess();
+    } catch (error: any) {
+      notification.error({
+        message: 'Error',
+        description: error.response?.data?.error || 'Failed to apply discount.',
+        title: 'Error'
+      });
+    }
+  };
+
+  const handleClearDiscount = async () => {
+    try {
+      const headers = getAuthToken() as AuthTokenType;
+      await axios.patch(
+        `${EstimatesUrl}/${estimateId}`,
+        {
+          discount_type: null,
+          discount_value: null
+        },
+        headers
+      );
+      
+      if (estimateId) {
+        await recalculateEstimate(parseInt(estimateId));
+      }
+      
+      notification.success({
+        message: 'Discount Removed',
+        description: 'Discount has been removed.',
+        title: 'Success'
+      });
+      
+      onSuccess();
+    } catch (error: any) {
+      notification.error({
+        message: 'Error',
+        description: error.response?.data?.error || 'Failed to remove discount.',
+        title: 'Error'
+      });
+    }
+  };
+
+  return (
+    <Modal
+      title="Apply Discount"
+      open={visible}
+      onCancel={onClose}
+      footer={null}
+      width={500}
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+      >
+        <Form.Item
+          label="Discount Type"
+          name="discount_type"
+          rules={[{ required: true, message: 'Please select discount type' }]}
+        >
+          <Radio.Group onChange={(e) => setDiscountType(e.target.value)}>
+            <Radio value="flat">Flat Amount</Radio>
+            <Radio value="percent">Percentage</Radio>
+          </Radio.Group>
+        </Form.Item>
+
+        <Form.Item
+          label="Discount Value"
+          name="discount_value"
+          rules={[
+            { required: true, message: 'Please enter discount value' },
+            { type: 'number', min: 0, message: 'Discount must be greater than or equal to 0' }
+          ]}
+        >
+          <InputNumber
+            style={{ width: '100%' }}
+            min={0}
+            step={0.01}
+            precision={2}
+            placeholder={discountType === 'percent' ? 'Enter percentage' : 'Enter amount'}
+            addonAfter={discountType === 'percent' ? '%' : '$'}
+          />
+        </Form.Item>
+
+        <Form.Item>
+          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+            <Button onClick={handleClearDiscount}>
+              Clear Discount
+            </Button>
+            <Button type="primary" htmlType="submit">
+              Apply Discount
+            </Button>
+          </Space>
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
 
 const EstimateEditor: React.FC = () => {
   const navigate = useNavigate();
@@ -59,6 +206,7 @@ const EstimateEditor: React.FC = () => {
   const [editingWeightHours, setEditingWeightHours] = useState(false);
   const [tempWeight, setTempWeight] = useState<number | null>(null);
   const [tempLabourHours, setTempLabourHours] = useState<number | null>(null);
+  const [isDiscountModalVisible, setIsDiscountModalVisible] = useState(false);
 
   const currentUser = {
     role: localStorage.getItem(role) || 'user',
@@ -321,6 +469,40 @@ const EstimateEditor: React.FC = () => {
         message: 'Link Copied',
         description: 'Public estimate link copied to clipboard',
         title: 'Success'
+      });
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!estimate || !estimateId) return;
+    
+    try {
+      // Ensure public token exists
+      let token = estimate.public_token;
+      if (!token) {
+        // Generate token if it doesn't exist
+        const headers = getAuthToken() as AuthTokenType;
+        const response = await axios.patch(
+          `${EstimatesUrl}/${estimateId}`,
+          {},
+          headers
+        );
+        token = response.data.public_token;
+      }
+      
+      if (token) {
+        // Get backend URL
+        const backendUrl = BaseUrl.replace('/api', '');
+        const pdfUrl = `${backendUrl}/api/transactiondata/estimates/download_pdf?token=${token}`;
+        
+        // Open in new window to trigger download
+        window.open(pdfUrl, '_blank');
+      }
+    } catch (error: any) {
+      notification.error({
+        message: 'Download Error',
+        description: error.response?.data?.error || 'Failed to download PDF',
+        title: 'Error'
       });
     }
   };
@@ -788,11 +970,13 @@ const EstimateEditor: React.FC = () => {
                           icon={<EditOutlined />}
                           onClick={() => {
                             setEditingDates(true);
-                            setTempPickupFrom(estimate.pickup_date_from ? dayjs(estimate.pickup_date_from) : null);
-                            setTempPickupTo(estimate.pickup_date_to ? dayjs(estimate.pickup_date_to) : null);
+                            // Parse dates as local date-only (no timezone conversion)
+                            // Using format() ensures dayjs treats it as a local date string
+                            setTempPickupFrom(estimate.pickup_date_from ? dayjs(estimate.pickup_date_from, 'YYYY-MM-DD', true) : null);
+                            setTempPickupTo(estimate.pickup_date_to ? dayjs(estimate.pickup_date_to, 'YYYY-MM-DD', true) : null);
                             setTempPickupTimeWindow(estimate.pickup_time_window || null);
-                            setTempDeliveryFrom(estimate.delivery_date_from ? dayjs(estimate.delivery_date_from) : null);
-                            setTempDeliveryTo(estimate.delivery_date_to ? dayjs(estimate.delivery_date_to) : null);
+                            setTempDeliveryFrom(estimate.delivery_date_from ? dayjs(estimate.delivery_date_from, 'YYYY-MM-DD', true) : null);
+                            setTempDeliveryTo(estimate.delivery_date_to ? dayjs(estimate.delivery_date_to, 'YYYY-MM-DD', true) : null);
                             setTempDeliveryTimeWindow(estimate.delivery_time_window || null);
                           }}
                           style={{ padding: '2px 8px' }}
@@ -814,6 +998,7 @@ const EstimateEditor: React.FC = () => {
                               placeholder="From"
                               size="small"
                               style={{ flex: 1 }}
+                              format="YYYY-MM-DD"
                             />
                             <DatePicker
                               value={tempPickupTo}
@@ -821,6 +1006,7 @@ const EstimateEditor: React.FC = () => {
                               placeholder="To"
                               size="small"
                               style={{ flex: 1 }}
+                              format="YYYY-MM-DD"
                             />
                           </div>
                           <Select
@@ -851,6 +1037,7 @@ const EstimateEditor: React.FC = () => {
                               placeholder="From"
                               size="small"
                               style={{ flex: 1 }}
+                              format="YYYY-MM-DD"
                             />
                             <DatePicker
                               value={tempDeliveryTo}
@@ -858,6 +1045,7 @@ const EstimateEditor: React.FC = () => {
                               placeholder="To"
                               size="small"
                               style={{ flex: 1 }}
+                              format="YYYY-MM-DD"
                             />
                           </div>
                           <Select
@@ -906,7 +1094,7 @@ const EstimateEditor: React.FC = () => {
                           </div>
                           <div style={{ fontSize: '13px', color: '#000' }}>
                             {estimate.pickup_date_from 
-                              ? `${new Date(estimate.pickup_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${estimate.pickup_date_to ? ' - ' + new Date(estimate.pickup_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`
+                              ? `${dayjs(estimate.pickup_date_from, 'YYYY-MM-DD').format('MMM D, YYYY')}${estimate.pickup_date_to ? ' - ' + dayjs(estimate.pickup_date_to, 'YYYY-MM-DD').format('MMM D, YYYY') : ''}`
                               : <span style={{ color: '#999' }}>Not set</span>
                             }
                           </div>
@@ -924,7 +1112,7 @@ const EstimateEditor: React.FC = () => {
                           </div>
                           <div style={{ fontSize: '13px', color: '#000' }}>
                             {estimate.delivery_date_from 
-                              ? `${new Date(estimate.delivery_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}${estimate.delivery_date_to ? ' - ' + new Date(estimate.delivery_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}`
+                              ? `${dayjs(estimate.delivery_date_from, 'YYYY-MM-DD').format('MMM D, YYYY')}${estimate.delivery_date_to ? ' - ' + dayjs(estimate.delivery_date_to, 'YYYY-MM-DD').format('MMM D, YYYY') : ''}`
                               : <span style={{ color: '#999' }}>Not set</span>
                             }
                           </div>
@@ -994,28 +1182,34 @@ const EstimateEditor: React.FC = () => {
 
                   {/* Action Buttons */}
                   <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <Button 
+                    <Button
                       block
                       icon={<CalculatorOutlined />}
                       onClick={handleRecalculate}
                     >
                       Recalculate
                     </Button>
-                    
-                    {estimate.status === 'draft' && (
-                      <Button 
-                        type="primary"
-                        block
-                        icon={<SendOutlined />}
-                        onClick={handleSendToCustomer}
-                        loading={sendingEmail}
-                      >
-                        Send to Customer
-                      </Button>
-                    )}
-                    
-                    {estimate.public_token && estimate.status !== 'draft' && (
-                      <Button 
+
+                    <Button
+                      type="primary"
+                      block
+                      icon={<SendOutlined />}
+                      onClick={handleSendToCustomer}
+                      loading={sendingEmail}
+                    >
+                      Send to Customer
+                    </Button>
+
+                    <Button
+                      block
+                      icon={<FilePdfOutlined />}
+                      onClick={handleDownloadPDF}
+                    >
+                      Download PDF
+                    </Button>
+
+                    {estimate.public_token && (
+                      <Button
                         block
                         icon={<CopyOutlined />}
                         onClick={handleCopyPublicLink}
@@ -1139,13 +1333,22 @@ const EstimateEditor: React.FC = () => {
               </div>
             }
             extra={
-              <Button 
-                type="dashed"
-                icon={<PlusOutlined />}
-                onClick={() => setIsAddLineItemVisible(true)}
-              >
-                Add Charge
-              </Button>
+              <Space>
+                <Button 
+                  type="dashed"
+                  icon={<TagOutlined />}
+                  onClick={() => setIsDiscountModalVisible(true)}
+                >
+                  Discount
+                </Button>
+                <Button 
+                  type="dashed"
+                  icon={<PlusOutlined />}
+                  onClick={() => setIsAddLineItemVisible(true)}
+                >
+                  Add Charge
+                </Button>
+              </Space>
             }
             style={{ 
               borderRadius: '12px'
@@ -1176,6 +1379,7 @@ const EstimateEditor: React.FC = () => {
             style={{ borderRadius: '0' }}
             summary={(pageData) => {
               const subtotal = estimate?.subtotal ? Number(estimate.subtotal) : 0;
+              const discountAmount = estimate?.discount_amount ? Number(estimate.discount_amount) : 0;
               const taxAmount = estimate?.tax_amount ? Number(estimate.tax_amount) : 0;
               const taxPercentage = estimate?.tax_percentage ? Number(estimate.tax_percentage) : 0;
               const totalAmount = estimate?.total_amount ? Number(estimate.total_amount) : 0;
@@ -1194,6 +1398,28 @@ const EstimateEditor: React.FC = () => {
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={2} />
                   </Table.Summary.Row>
+                  
+                  {/* Discount Row */}
+                  {discountAmount > 0 && (
+                    <Table.Summary.Row style={{ backgroundColor: '#fff1f0' }}>
+                      <Table.Summary.Cell index={0} colSpan={5}>
+                        <strong style={{ fontSize: '14px', color: '#cf1322' }}>
+                          Discount
+                          {estimate?.discount_type === 'percent' && estimate?.discount_value && (
+                            <span style={{ marginLeft: '8px', fontWeight: 'normal' }}>
+                              ({estimate.discount_value}%)
+                            </span>
+                          )}
+                        </strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={1}>
+                        <strong style={{ fontSize: '16px', color: '#cf1322' }}>
+                          -${discountAmount.toFixed(2)}
+                        </strong>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={2} />
+                    </Table.Summary.Row>
+                  )}
                   
                   {/* Tax Row - Editable */}
                   <Table.Summary.Row style={{ backgroundColor: '#fff7e6' }}>
@@ -1293,6 +1519,18 @@ const EstimateEditor: React.FC = () => {
           onClose={() => setIsAttachDocsVisible(false)}
           onSuccessCallBack={() => {
             fetchAttachedDocuments();
+          }}
+        />
+
+        {/* Discount Modal */}
+        <DiscountModal
+          visible={isDiscountModalVisible}
+          estimate={estimate}
+          estimateId={estimateId}
+          onClose={() => setIsDiscountModalVisible(false)}
+          onSuccess={() => {
+            setIsDiscountModalVisible(false);
+            fetchEstimate();
           }}
         />
       </div>

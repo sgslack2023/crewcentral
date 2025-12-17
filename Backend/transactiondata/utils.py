@@ -96,9 +96,21 @@ def calculate_estimate(estimate):
         if item.charge_id:
             subtotal_map[item.charge_id] = item.amount
     
-    # STEP 3: Calculate totals with tax
+    # STEP 3: Calculate totals with discount and tax
     subtotal = sum(item.amount for item in estimate.items.all())
     estimate.subtotal = subtotal
+    
+    # Calculate discount
+    discount_amount = Decimal(0)
+    if estimate.discount_type and estimate.discount_value:
+        if estimate.discount_type == 'flat':
+            discount_amount = Decimal(estimate.discount_value)
+        elif estimate.discount_type == 'percent':
+            discount_amount = (subtotal * Decimal(estimate.discount_value)) / Decimal(100)
+    estimate.discount_amount = discount_amount
+    
+    # Subtotal after discount
+    subtotal_after_discount = subtotal - discount_amount
     
     # Get tax percentage - use existing value if already set, otherwise get from branch
     if estimate.tax_percentage is None or estimate.tax_percentage == Decimal(0):
@@ -111,11 +123,11 @@ def calculate_estimate(estimate):
         # Use the manually set tax percentage
         tax_percentage = estimate.tax_percentage
     
-    # Calculate tax amount
-    estimate.tax_amount = (subtotal * tax_percentage) / Decimal(100)
+    # Calculate tax amount on subtotal after discount
+    estimate.tax_amount = (subtotal_after_discount * tax_percentage) / Decimal(100)
     
-    # Calculate total (subtotal + tax)
-    estimate.total_amount = subtotal + estimate.tax_amount
+    # Calculate total (subtotal after discount + tax)
+    estimate.total_amount = subtotal_after_discount + estimate.tax_amount
     
     estimate.save()
     

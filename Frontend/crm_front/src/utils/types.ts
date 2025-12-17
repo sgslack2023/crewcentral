@@ -155,6 +155,7 @@ export interface ServiceTypeProps {
     service_type: string;
     scaling_factor: number;
     color?: string;
+    estimate_content?: string;
     enabled?: boolean;
     created_at?: string;
     updated_at?: string;
@@ -326,6 +327,7 @@ export interface EstimateProps {
     template_name?: string;
     service_type: number;
     service_type_name?: string;
+    service_type_estimate_content?: string;
     weight_lbs?: number;
     labour_hours?: number;
     pickup_date_from?: string;
@@ -338,7 +340,10 @@ export interface EstimateProps {
     delivery_time_window_display?: string;
     origin_address?: string;
     destination_address?: string;
+    discount_type?: 'flat' | 'percent' | null;
+    discount_value?: number;
     subtotal?: number;
+    discount_amount?: number;
     tax_percentage?: number;
     tax_amount?: number;
     total_amount?: number;

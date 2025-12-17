@@ -62,6 +62,8 @@ const Customers: React.FC = () => {
   const [editingCustomer, setEditingCustomer] = useState<CustomerProps | null>(null);
   const [isCreateEstimateVisible, setIsCreateEstimateVisible] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerProps | null>(null);
+  const [isNotesModalVisible, setIsNotesModalVisible] = useState(false);
+  const [notesCustomer, setNotesCustomer] = useState<CustomerProps | null>(null);
 
   // Get current user info from localStorage
   const currentUser = {
@@ -422,7 +424,7 @@ const Customers: React.FC = () => {
                   </div>
 
                   {/* Footer */}
-                  <div style={{ 
+                  <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -435,11 +437,32 @@ const Customers: React.FC = () => {
                       <UserOutlined style={{ fontSize: '10px' }} />
                       <span>{customer.created_by_name || 'System'}</span>
                     </div>
-                    <div>
-                      {new Date(customer.created_at!).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric'
-                      })}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {customer.notes && (
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<FileTextOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNotesCustomer(customer);
+                            setIsNotesModalVisible(true);
+                          }}
+                          style={{
+                            padding: '0 4px',
+                            height: '20px',
+                            fontSize: '12px',
+                            color: '#1890ff'
+                          }}
+                          title="View Notes"
+                        />
+                      )}
+                      <div>
+                        {new Date(customer.created_at!).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </div>
                     </div>
                   </div>
 
@@ -549,6 +572,64 @@ const Customers: React.FC = () => {
           }}
           onSuccessCallBack={handleEstimateCreated}
         />
+
+        {/* Notes Modal */}
+        <Modal
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileTextOutlined />
+              <span>Customer Notes</span>
+            </div>
+          }
+          open={isNotesModalVisible}
+          onCancel={() => {
+            setIsNotesModalVisible(false);
+            setNotesCustomer(null);
+          }}
+          footer={[
+            <Button
+              key="close"
+              onClick={() => {
+                setIsNotesModalVisible(false);
+                setNotesCustomer(null);
+              }}
+            >
+              Close
+            </Button>
+          ]}
+          width={600}
+        >
+          {notesCustomer && (
+            <div>
+              <div style={{
+                marginBottom: '12px',
+                padding: '12px',
+                backgroundColor: '#f0f9ff',
+                borderRadius: '8px',
+                border: '1px solid #bae6fd'
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: '4px', color: '#0284c7' }}>
+                  {notesCustomer.full_name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  Job #{notesCustomer.job_number}
+                </div>
+              </div>
+              <div style={{
+                padding: '16px',
+                backgroundColor: '#fafafa',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0',
+                whiteSpace: 'pre-wrap',
+                fontSize: '14px',
+                lineHeight: '1.6',
+                minHeight: '100px'
+              }}>
+                {notesCustomer.notes || 'No notes available'}
+              </div>
+            </div>
+          )}
+        </Modal>
       </div>
     </div>
   );

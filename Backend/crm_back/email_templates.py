@@ -3,10 +3,10 @@
 
 EMAIL_TEMPLATES = {
     'WELCOME_ADMIN_CREATED': {
-        'subject': 'Welcome to EmployPro',
+        'subject': 'Welcome to BVL',
         'body': '''Hello {fullname},
 
-Welcome to EmployPro! We are excited to have you on board.
+Welcome to BVL! We are excited to have you on board.
 
 Please set up your password by visiting the following link:
 {setup_link}
@@ -14,10 +14,10 @@ Please set up your password by visiting the following link:
 Once you set up your password, you can log in and start using the system.
 
 Best regards,
-EmployPro Team'''
+BVL Team'''
     },
     'ACCOUNT_APPROVED': {
-        'subject': 'Welcome to EmployPro - Account Approved',
+        'subject': 'Welcome to BVL - Account Approved',
         'body': '''Hello {fullname},
 
 Great news! Your account has been approved and you now have access to the EmployPro system.
@@ -30,13 +30,13 @@ Once you set up your password, you can log in and start using the system.
 Welcome aboard!
 
 Best regards,
-EmployPro Team'''
+BVL Team'''
     },
     'PASSWORD_RESET': {
-        'subject': 'EmployPro - Password Reset',
+        'subject': 'BVL - Password Reset',
         'body': '''Hello {fullname},
 
-You requested a password reset for your EmployPro account.
+You requested a password reset for your BVL account.
 
 Click the following link to reset your password:
 {reset_link}
@@ -48,13 +48,13 @@ This token will expire in 1 hour for security reasons.
 If you didn't request this password reset, please ignore this email.
 
 Best regards,
-EmployPro Team'''
+BVL Team'''
     },
     'ACCOUNT_REQUEST_RECEIVED': {
-        'subject': 'EmployPro - Account Request Received',
+        'subject': 'BVL - Account Request Received',
         'body': '''Hello {fullname},
 
-Thank you for your interest in EmployPro!
+Thank you for your interest in BVL!
 
 We have received your account request and it is currently under review by our administrators.
 
@@ -63,13 +63,13 @@ You will receive another email once your account has been reviewed and approved.
 If you have any questions, please contact our support team at {support_email}.
 
 Best regards,
-EmployPro Team'''
+BVL Team'''
     },
     'ACCOUNT_DENIED': {
-        'subject': 'EmployPro - Account Request Update',
+        'subject': 'BVL - Account Request Update',
         'body': '''Hello {fullname},
 
-Thank you for your interest in EmployPro.
+Thank you for your interest in BVL.
 
 Unfortunately, we are unable to approve your account request at this time.
 
@@ -80,7 +80,7 @@ If you have any questions or believe this is an error, please contact our suppor
 You may submit a new account request in the future if your circumstances change.
 
 Best regards,
-EmployPro Team'''
+BVL Team'''
     }
 }
 
@@ -96,8 +96,8 @@ EmployPro Team'''
 
 # Email Configuration URLs
 EMAIL_URLS = {
-    'SETUP_PASSWORD_URL': 'http://3.13.249.184/check-user',
-    'RESET_PASSWORD_URL': 'http://3.13.249.184/resetpassword',
-    'LOGIN_URL': 'http://3.13.249.184/login',
-    'SUPPORT_EMAIL': 'support@employeepro.com'
+    'SETUP_PASSWORD_URL': 'http://3.17.95.130/check-user',
+    'RESET_PASSWORD_URL': 'http://3.17.95.130/resetpassword',
+    'LOGIN_URL': 'http://3.17.95.130/login',
+    'SUPPORT_EMAIL': 'info@balticvanlines.ca'
 }

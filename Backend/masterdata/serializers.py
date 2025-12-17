@@ -77,11 +77,11 @@ class BranchSerializer(serializers.ModelSerializer):
 
 class ServiceTypeSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = ServiceType
         fields = [
-            'id', 'service_type', 'scaling_factor', 'color', 'enabled',
+            'id', 'service_type', 'scaling_factor', 'color', 'estimate_content', 'enabled',
             'created_at', 'updated_at', 'created_by', 'created_by_name'
         ]
         read_only_fields = ['created_at', 'updated_at', 'created_by']

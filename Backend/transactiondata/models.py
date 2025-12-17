@@ -194,8 +194,22 @@ class Estimate(models.Model):
     delivery_date_to = models.DateField(null=True, blank=True, help_text="Delivery end date")
     delivery_time_window = models.ForeignKey(TimeWindow, on_delete=models.SET_NULL, null=True, blank=True, related_name='delivery_estimates', help_text="Delivery arrival window")
     
+    # Discount
+    discount_type = models.CharField(
+        max_length=10,
+        choices=[
+            ('flat', 'Flat Amount'),
+            ('percent', 'Percentage')
+        ],
+        null=True,
+        blank=True,
+        help_text="Type of discount: flat amount or percentage"
+    )
+    discount_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=0, help_text="Discount amount or percentage")
+    
     # Calculated total
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Calculated discount amount")
     tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Tax percentage from customer's branch")
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
