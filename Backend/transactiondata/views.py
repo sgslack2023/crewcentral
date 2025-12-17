@@ -500,6 +500,7 @@ class EstimateViewSet(viewsets.ModelViewSet):
         """
         Public estimate view by token (no authentication required)
         GET /estimates/public_view/?token=xxx
+        Allows viewing approved estimates (link_active check removed for approved status)
         """
         token = request.query_params.get('token')
         
@@ -507,7 +508,16 @@ class EstimateViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            estimate = Estimate.objects.get(public_token=token, link_active=True)
+            # Allow viewing if link is active OR if estimate is approved (approved estimates can always be viewed)
+            estimate = Estimate.objects.get(
+                public_token=token
+            )
+            
+            # Check if link is active OR estimate is approved
+            if not estimate.link_active and estimate.status != 'approved':
+                return Response({
+                    'error': 'Invalid or expired link'
+                }, status=status.HTTP_404_NOT_FOUND)
             
             # Track customer view
             if not estimate.customer_viewed_at:
@@ -526,7 +536,7 @@ class EstimateViewSet(viewsets.ModelViewSet):
         """
         Download estimate as PDF (public access via token)
         GET /estimates/download_pdf/?token=xxx
-        Returns HTML page optimized for printing/PDF conversion
+        Returns PDF file (always works, even after approval)
         """
         token = request.query_params.get('token')
         
@@ -534,8 +544,9 @@ class EstimateViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
+            # Allow PDF download even after approval (no link_active check)
             estimate = Estimate.objects.select_related('customer', 'service_type').prefetch_related('items__charge').get(
-                public_token=token, link_active=True
+                public_token=token
             )
             
             # Get line items
@@ -799,7 +810,7 @@ class EstimateViewSet(viewsets.ModelViewSet):
             # Update estimate
             estimate.status = 'approved'
             estimate.customer_responded_at = timezone.now()
-            estimate.link_active = False  # Deactivate link
+            # Keep link_active=True so PDF download and view still work after approval
             estimate.save()
             
             # Create activity

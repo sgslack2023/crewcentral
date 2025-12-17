@@ -66,9 +66,9 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base
         .greeting {{ color: #333; font-size: 16px; margin-bottom: 20px; }}
         .message {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }}
         .button-container {{ text-align: center; margin: 32px 0; }}
-        .button {{ display: inline-block; background-color: #1890ff; color: #ffffff; text-decoration: none; 
+        .button {{ display: inline-block; background-color: #1890ff; color: #ffffff; text-decoration: none;
                    padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; margin: 8px; }}
-        .button-secondary {{ display: inline-block; background-color: #52c41a; color: #ffffff; text-decoration: none; 
+        .button-secondary {{ display: inline-block; background-color: #1890ff; color: #ffffff; text-decoration: none;
                             padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; margin: 8px; }}
         .contact {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 24px; }}
         .job-number {{ color: #5a6c7d; font-size: 15px; line-height: 1.6; margin-bottom: 32px; font-weight: 600; }}
@@ -94,23 +94,20 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base
                 <a href="{public_link}" class="button">View Estimate</a>
             </div>
             <div class="message">
-                Estimates are based on the information provided during your on-boarding process with your relocation consultant. To ensure you get the most accurate estimate possible we suggest you complete the your inventory on the link below!
-            </div>
-            <div class="message">
                 If you would like to download a PDF copy of your current estimate feel free to click the button below.
             </div>
             <div class="button-container">
                 <a href="{pdf_download_link}" class="button-secondary">Download PDF</a>
             </div>
             <div class="contact">
-                If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at <strong>(123) 555-1234</strong>.
+                If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at <strong>+1(647)931-5244</strong>.
             </div>
             <div class="job-number">
                 To save time when calling please have your Job Number handy : <strong>{job_number}</strong>
             </div>
             <div class="footer">
                 <p>Baltic Van Lines</p>
-                <p>(123) 555-1234 </p>
+                <p>+1(647)931-5244 </p>
                 <p>6685 Kennedy Rd, Mississauga, ON L5T 3A5</p>
                 <p>balticvanlines.ca</p>
             </div>
@@ -132,19 +129,17 @@ To view your estimate and see more information please click the link below:
 
 {public_link}
 
-Estimates are based on the information provided during your on-boarding process with your relocation consultant. To ensure you get the most accurate estimate possible we suggest you complete the your inventory on the link below!
 
 If you would like to download a PDF copy of your current estimate feel free to click the link below:
 
 {pdf_download_link}
 
-If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at (123) 555-1234.
+If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at +1(647)931-5244.
 
 To save time when calling please have your Job Number handy : {job_number}
 
 Baltic Van Lines
-(123) 555-1234
-https://sample-data.com
++1(647)931-5244
 
 Baltic Van Lines
 6685 Kennedy Rd
@@ -247,7 +242,7 @@ def send_document_signature_email(estimate, base_url="http://127.0.0.1:3000"):
             </div>
             {f'<div class="document-list"><strong>Documents to sign:</strong><ul>{document_list_html}</ul></div>' if document_count > 1 else ''}
             <div class="contact">
-                If you have any questions please contact us at <strong>647-931-5244</strong> or send an email to 
+                If you have any questions please contact us at <strong>+1(647)931-5244</strong> or send an email to 
                 <strong>Info@BalticVanLines.ca</strong>
             </div>
             <div class="button-container">
@@ -270,7 +265,7 @@ Please review and complete a document related to your move by using the link bel
 
 {document_link}
 
-If you have any questions please contact us at 647-931-5244 or send an email to Info@BalticVanLines.ca
+If you have any questions please contact us at +1(647)931-5244 or send an email to Info@BalticVanLines.ca
 
 Best regards,
 Baltic Van Lines Team

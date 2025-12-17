@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Table, Modal, Input, Result } from 'antd';
+import { Card, Button, Tag, notification, Table, Modal, Result } from 'antd';
 import {
   CheckCircleOutlined,
-  CloseCircleOutlined,
   DollarOutlined,
   FileTextOutlined,
   UserOutlined,
@@ -18,17 +17,14 @@ import { EstimatesUrl } from '../utils/network';
 import { EstimateProps, EstimateLineItemProps } from '../utils/types';
 import logo from '../assets/logo.png';
 
-const { TextArea } = Input;
-
 const PublicEstimateView: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [estimate, setEstimate] = useState<EstimateProps | null>(null);
   const [lineItems, setLineItems] = useState<EstimateLineItemProps[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -43,13 +39,21 @@ const PublicEstimateView: React.FC = () => {
       setEstimate(response.data);
       setLineItems(response.data.items || []);
       setError(null);
+      
+      // If estimate is already approved, show the modal
+      if (response.data.status === 'approved') {
+        setShowApprovalModal(true);
+      }
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to load estimate');
-      notification.error({
-        message: 'Error',
-        description: error.response?.data?.error || 'Failed to load estimate',
-        title: 'Error'
-      });
+      // Only show notification if estimate is not approved (to avoid showing error for approved estimates)
+      if (!(error.response?.data?.status === 'approved')) {
+        notification.error({
+          message: 'Error',
+          description: error.response?.data?.error || 'Failed to load estimate',
+          title: 'Error'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -65,12 +69,8 @@ const PublicEstimateView: React.FC = () => {
         setActionLoading(true);
         try {
           await axios.post(`${EstimatesUrl}/customer_approve`, { token });
-          notification.success({
-            message: 'Estimate Approved',
-            description: 'Thank you! Your estimate has been approved.',
-            title: 'Success'
-          });
           fetchEstimate();
+          setShowApprovalModal(true);
         } catch (error: any) {
           notification.error({
             message: 'Approval Error',
@@ -82,31 +82,6 @@ const PublicEstimateView: React.FC = () => {
         }
       }
     });
-  };
-
-  const handleReject = async () => {
-    setActionLoading(true);
-    try {
-      await axios.post(`${EstimatesUrl}/customer_reject`, { 
-        token,
-        reason: rejectionReason 
-      });
-      notification.success({
-        message: 'Estimate Rejected',
-        description: 'We have received your response. Thank you for your time.',
-        title: 'Success'
-      });
-      setIsRejectModalVisible(false);
-      fetchEstimate();
-    } catch (error: any) {
-      notification.error({
-        message: 'Rejection Error',
-        description: error.response?.data?.error || 'Failed to reject estimate',
-        title: 'Error'
-      });
-    } finally {
-      setActionLoading(false);
-    }
   };
 
   const columns = [
@@ -184,7 +159,8 @@ const PublicEstimateView: React.FC = () => {
     );
   }
 
-  if (error) {
+  // Don't show error if estimate is approved - show the content with modal instead
+  if (error && !(estimate && estimate.status === 'approved')) {
     return (
       <div style={{ padding: '60px' }}>
         <Result
@@ -488,15 +464,15 @@ const PublicEstimateView: React.FC = () => {
 
         {/* Action Buttons or Response Message */}
         {isAlreadyResponded ? (
-          <Result
-            status={estimate.status === 'approved' ? 'success' : 'warning'}
-            title={estimate.status === 'approved' ? 'Estimate Approved' : 'Estimate Rejected'}
-            subTitle={
-              estimate.status === 'approved'
-                ? 'Thank you for approving this estimate. We will contact you shortly to proceed.'
-                : 'This estimate has been rejected. Thank you for your time.'
-            }
-          />
+          // For approved estimates, the modal will show the message
+          // For rejected estimates, show the Result component
+          estimate.status === 'rejected' ? (
+            <Result
+              status="warning"
+              title="Estimate Rejected"
+              subTitle="This estimate has been rejected. Thank you for your time."
+            />
+          ) : null
         ) : (
           <Card style={{ borderRadius: '12px' }}>
             <div style={{ textAlign: 'center' }}>
@@ -517,48 +493,39 @@ const PublicEstimateView: React.FC = () => {
                 >
                   Approve Estimate
                 </Button>
-                <Button
-                  danger
-                  size="large"
-                  icon={<CloseCircleOutlined />}
-                  onClick={() => setIsRejectModalVisible(true)}
-                  loading={actionLoading}
-                  style={{ minWidth: '150px' }}
-                >
-                  Reject Estimate
-                </Button>
               </div>
             </div>
           </Card>
         )}
 
-        {/* Reject Modal */}
+        {/* Approval Success Modal */}
         <Modal
-          title="Reject Estimate"
-          open={isRejectModalVisible}
-          onCancel={() => setIsRejectModalVisible(false)}
+          open={showApprovalModal}
+          onCancel={() => setShowApprovalModal(false)}
           footer={[
-            <Button key="cancel" onClick={() => setIsRejectModalVisible(false)}>
-              Cancel
-            </Button>,
-            <Button 
-              key="submit" 
-              danger 
+            <Button
+              key="close"
               type="primary"
-              onClick={handleReject}
-              loading={actionLoading}
+              onClick={() => setShowApprovalModal(false)}
+              size="large"
             >
-              Reject Estimate
+              Close
             </Button>
           ]}
+          width={500}
+          centered
         >
-          <p>Please let us know why you're rejecting this estimate (optional):</p>
-          <TextArea
-            rows={4}
-            placeholder="Enter reason for rejection..."
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-          />
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <CheckCircleOutlined style={{ fontSize: '64px', color: '#52c41a', marginBottom: '24px' }} />
+            <h2 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '16px', color: '#000' }}>
+              Thank you for your feedback!
+            </h2>
+            <div style={{ fontSize: '16px', color: '#333', lineHeight: '1.8', marginBottom: '8px' }}>
+              <p style={{ marginBottom: '12px' }}>Your moving advisor will be notified of your input.</p>
+              <p style={{ marginBottom: '12px' }}>To get your move secured we do require a deposit.</p>
+              <p style={{ marginBottom: '0' }}>Please contact your moving advisor to take care of the next steps!</p>
+            </div>
+          </div>
         </Modal>
       </div>
     </div>
