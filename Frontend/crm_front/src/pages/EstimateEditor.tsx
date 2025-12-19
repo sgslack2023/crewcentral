@@ -491,8 +491,8 @@ const EstimateEditor: React.FC = () => {
       }
       
       if (token) {
-        // Get backend URL
-        const backendUrl = BaseUrl.replace('/api', '');
+        // Get backend URL - remove /api and any trailing slash
+        const backendUrl = BaseUrl.replace('/api', '').replace(/\/$/, '');
         const pdfUrl = `${backendUrl}/api/transactiondata/estimates/download_pdf?token=${token}`;
         
         // Open in new window to trigger download

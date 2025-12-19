@@ -30,6 +30,9 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base
         else:
             backend_base_url = 'http://127.0.0.1:8000'
     
+    # Remove trailing slash from backend_base_url to avoid double slash
+    backend_base_url = backend_base_url.rstrip('/')
+    
     # Build public link (frontend)
     public_link = f"{base_url}/public-estimate/{estimate.public_token}"
     # Build PDF download link (backend API) - no trailing slash for router with trailing_slash=False
