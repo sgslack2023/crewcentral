@@ -67,6 +67,46 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
     setIsDrawing(false);
   };
 
+  // Touch event handlers for touchscreen support
+  const startDrawingTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // Prevent scrolling while signing
+    if (e.touches.length === 0) return;
+    
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      if (ctx) {
+        const touch = e.touches[0];
+        ctx.beginPath();
+        ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      }
+    }
+  };
+
+  const drawTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // Prevent scrolling while signing
+    if (!isDrawing || e.touches.length === 0) return;
+    
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      if (ctx) {
+        const touch = e.touches[0];
+        ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        ctx.stroke();
+        setIsEmpty(false);
+      }
+    }
+  };
+
+  const stopDrawingTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    setIsDrawing(false);
+  };
+
   const clearSignature = () => {
     const canvas = canvasRef.current;
     if (canvas) {
@@ -103,13 +143,18 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
+          onTouchStart={startDrawingTouch}
+          onTouchMove={drawTouch}
+          onTouchEnd={stopDrawingTouch}
+          onTouchCancel={stopDrawingTouch}
           style={{
             border: '1px solid #d9d9d9',
             borderRadius: '4px',
             backgroundColor: '#fff',
             cursor: 'crosshair',
             display: 'block',
-            width: '100%'
+            width: '100%',
+            touchAction: 'none' // Prevents default touch behaviors like scrolling/zooming
           }}
         />
         <div style={{ 
