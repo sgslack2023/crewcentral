@@ -120,24 +120,84 @@ const Estimates: React.FC = () => {
         container.style.top = '0';
         container.style.width = '210mm'; // A4 width
         container.style.padding = '20mm';
-        container.style.backgroundColor = '#fff';
-        container.style.fontFamily = 'Arial, sans-serif';
+        container.style.backgroundColor = '#ffffff';
+        container.style.fontFamily = 'Arial, Helvetica, sans-serif';
+        container.style.fontSize = '12px';
+        container.style.lineHeight = '1.6';
+        container.style.color = '#000000';
+        container.style.boxSizing = 'border-box';
+        
+        // Add CSS for better rendering
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          table { border-collapse: collapse; width: 100%; }
+          td, th { padding: 8px; border: 1px solid #ddd; text-align: left; }
+          th { background-color: #f5f5f5; font-weight: bold; }
+          img { max-width: 100%; height: auto; }
+        `;
+        document.head.appendChild(styleElement);
+        
         container.innerHTML = doc.processed_content;
         document.body.appendChild(container);
 
-        // Wait a bit for fonts/styles to load
+        // Convert all images to base64 to preserve them in PDF
+        const images = container.querySelectorAll('img');
+        await Promise.all(Array.from(images).map((img: HTMLImageElement) => {
+          return new Promise<void>((resolve) => {
+            const convertToBase64 = () => {
+              try {
+                if (img.src.startsWith('data:')) {
+                  resolve();
+                  return;
+                }
+                const imgCanvas = document.createElement('canvas');
+                imgCanvas.width = img.naturalWidth || img.width || 200;
+                imgCanvas.height = img.naturalHeight || img.height || 100;
+                const ctx = imgCanvas.getContext('2d');
+                if (ctx && img.naturalWidth > 0) {
+                  ctx.drawImage(img, 0, 0);
+                  try {
+                    img.src = imgCanvas.toDataURL('image/png');
+                  } catch (e) {
+                    console.warn('CORS issue with image:', e);
+                  }
+                }
+              } catch (e) {
+                console.warn('Could not convert image:', e);
+              }
+              resolve();
+            };
+
+            if (img.complete && img.naturalWidth > 0) {
+              convertToBase64();
+            } else {
+              img.crossOrigin = 'anonymous';
+              img.onload = convertToBase64;
+              img.onerror = () => resolve();
+              // Reload to apply crossOrigin
+              const src = img.src;
+              img.src = '';
+              img.src = src;
+            }
+          });
+        }));
+
+        // Wait for fonts/styles to load
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Convert HTML to canvas
         const canvas = await html2canvas(container, {
           scale: 2,
           useCORS: true,
+          allowTaint: true,
           logging: false,
           backgroundColor: '#ffffff'
         });
 
-        // Remove temporary container
+        // Remove temporary elements
         document.body.removeChild(container);
+        document.head.removeChild(styleElement);
 
         // Create PDF
         const imgData = canvas.toDataURL('image/png');
@@ -160,15 +220,18 @@ const Estimates: React.FC = () => {
         heightLeft -= pdfHeight;
 
         // Add additional pages if content is longer than one page
-        while (heightLeft > 0) {
+        // Use threshold of 10mm to avoid empty pages from small overflows
+        while (heightLeft >= 10) {
           position = heightLeft - imgHeight;
           pdf.addPage();
           pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
           heightLeft -= pdfHeight;
         }
 
-        // Download PDF
-        const fileName = `${doc.document_title?.replace(/[^\w\-]+/g, '_') || 'document'}.pdf`;
+        // Download PDF with document name and customer name
+        const docName = doc.document_title?.replace(/[^\w\-]+/g, '_') || 'document';
+        const customerName = selectedEstimateForDocs?.customer_name?.replace(/[^\w\-]+/g, '_') || '';
+        const fileName = customerName ? `${docName}_${customerName}.pdf` : `${docName}.pdf`;
         pdf.save(fileName);
 
         notification.success({
@@ -178,9 +241,13 @@ const Estimates: React.FC = () => {
         });
       } else {
         // For existing PDFs or other file types, download directly
+        const docName = doc.document_title?.replace(/[^\w\-]+/g, '_') || 'document';
+        const customerName = selectedEstimateForDocs?.customer_name?.replace(/[^\w\-]+/g, '_') || '';
+        const downloadName = customerName ? `${docName}_${customerName}` : docName;
+        
         const link = document.createElement('a');
         link.href = doc.document_url!;
-        link.download = doc.document_title || 'document';
+        link.download = downloadName;
         link.target = '_blank';
         document.body.appendChild(link);
         link.click();

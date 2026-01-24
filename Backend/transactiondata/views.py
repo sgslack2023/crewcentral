@@ -736,6 +736,10 @@ class EstimateViewSet(viewsets.ModelViewSet):
             # Try to generate PDF using xhtml2pdf (pisa)
             try:
                 from xhtml2pdf import pisa
+                from .utils import convert_images_to_base64
+                
+                # Convert any external images to base64 for PDF rendering
+                html_content = convert_images_to_base64(html_content)
                 
                 # Generate PDF from HTML
                 pdf_buffer = BytesIO()

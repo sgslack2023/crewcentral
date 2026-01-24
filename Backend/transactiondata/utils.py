@@ -134,6 +134,42 @@ def calculate_estimate(estimate):
     return estimate
 
 
+def convert_images_to_base64(html_content):
+    """
+    Convert all image URLs in HTML to base64 for PDF generation
+    """
+    import re
+    import base64
+    import requests
+    
+    def replace_img_src(match):
+        full_tag = match.group(0)
+        src = match.group(1)
+        
+        # Skip if already base64
+        if src.startswith('data:image'):
+            return full_tag
+        
+        try:
+            # Check if it's a URL
+            if src.startswith('http://') or src.startswith('https://'):
+                # Download image
+                response = requests.get(src, timeout=10)
+                if response.status_code == 200:
+                    content_type = response.headers.get('content-type', 'image/png')
+                    image_base64 = base64.b64encode(response.content).decode('utf-8')
+                    return full_tag.replace(src, f'data:{content_type};base64,{image_base64}')
+            return full_tag
+        except Exception as e:
+            print(f"Error converting image {src}: {e}")
+            return full_tag
+    
+    # Replace all img src attributes
+    html_content = re.sub(r'<img[^>]+src=["\']([^"\']+)["\']', replace_img_src, html_content, flags=re.IGNORECASE)
+    
+    return html_content
+
+
 def process_document_template(html_content, customer=None, estimate=None, signatures=None, text_inputs=None):
     """
     Replace template tags with actual customer and estimate data
@@ -247,6 +283,9 @@ def process_document_template(html_content, customer=None, estimate=None, signat
     
     # Replace all {{textbox}} tags
     html_content = re.sub(r'\{\{textbox\}\}', replace_textbox_tag, html_content)
+    
+    # Convert any remaining images to base64 for better PDF rendering
+    html_content = convert_images_to_base64(html_content)
     
     return html_content
 
