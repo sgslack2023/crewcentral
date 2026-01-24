@@ -104,141 +104,53 @@ const Estimates: React.FC = () => {
 
   const handleDownloadDocument = async (doc: EstimateDocumentProps) => {
     try {
-      // If it's an HTML document with processed content, generate PDF from HTML
-      if (doc.processed_content && doc.document_type === 'HTML Document') {
+      // If it's an HTML document, download via backend PDF generator
+      if (doc.document_type === 'HTML Document') {
         notification.info({
-          message: 'Generating PDF',
-          description: 'Please wait while we generate your PDF...',
+          message: 'Preparing Download',
+          description: 'Generating PDF on server...',
           title: 'Info',
-          duration: 2
+          duration: 3
         });
 
-        // Create a temporary container for rendering HTML
-        const container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.width = '210mm'; // A4 width
-        container.style.padding = '20mm';
-        container.style.backgroundColor = '#ffffff';
-        container.style.fontFamily = 'Arial, Helvetica, sans-serif';
-        container.style.fontSize = '12px';
-        container.style.lineHeight = '1.6';
-        container.style.color = '#000000';
-        container.style.boxSizing = 'border-box';
+        // Import BaseUrl from network.ts
+        const { BaseUrl } = await import('../utils/network');
+        // Construct the URL for the detail action - NO trailing slash (router has trailing_slash=False)
+        const downloadUrl = `${BaseUrl}transactiondata/estimate-documents/${doc.id}/download_pdf`;
         
-        // Add CSS for better rendering
-        const styleElement = document.createElement('style');
-        styleElement.textContent = `
-          * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          table { border-collapse: collapse; width: 100%; }
-          td, th { padding: 8px; border: 1px solid #ddd; text-align: left; }
-          th { background-color: #f5f5f5; font-weight: bold; }
-          img { max-width: 100%; height: auto; }
-        `;
-        document.head.appendChild(styleElement);
-        
-        container.innerHTML = doc.processed_content;
-        document.body.appendChild(container);
+        const response = await fetch(downloadUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
 
-        // Convert all images to base64 to preserve them in PDF
-        const images = container.querySelectorAll('img');
-        await Promise.all(Array.from(images).map((img: HTMLImageElement) => {
-          return new Promise<void>((resolve) => {
-            const convertToBase64 = () => {
-              try {
-                if (img.src.startsWith('data:')) {
-                  resolve();
-                  return;
-                }
-                const imgCanvas = document.createElement('canvas');
-                imgCanvas.width = img.naturalWidth || img.width || 200;
-                imgCanvas.height = img.naturalHeight || img.height || 100;
-                const ctx = imgCanvas.getContext('2d');
-                if (ctx && img.naturalWidth > 0) {
-                  ctx.drawImage(img, 0, 0);
-                  try {
-                    img.src = imgCanvas.toDataURL('image/png');
-                  } catch (e) {
-                    console.warn('CORS issue with image:', e);
-                  }
-                }
-              } catch (e) {
-                console.warn('Could not convert image:', e);
-              }
-              resolve();
-            };
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          
+          const contentDisposition = response.headers.get('Content-Disposition');
+          let fileName = `${doc.document_title || 'document'}.pdf`;
+          if (contentDisposition && contentDisposition.includes('filename=')) {
+            fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
+          }
+          
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
 
-            if (img.complete && img.naturalWidth > 0) {
-              convertToBase64();
-            } else {
-              img.crossOrigin = 'anonymous';
-              img.onload = convertToBase64;
-              img.onerror = () => resolve();
-              // Reload to apply crossOrigin
-              const src = img.src;
-              img.src = '';
-              img.src = src;
-            }
+          notification.success({
+            message: 'PDF Downloaded',
+            description: `${doc.document_title} has been downloaded`,
+            title: 'Success'
           });
-        }));
-
-        // Wait for fonts/styles to load
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Convert HTML to canvas
-        const canvas = await html2canvas(container, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          backgroundColor: '#ffffff'
-        });
-
-        // Remove temporary elements
-        document.body.removeChild(container);
-        document.head.removeChild(styleElement);
-
-        // Create PDF
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
-
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        // Add first page
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        // Add additional pages if content is longer than one page
-        // Use threshold of 10mm to avoid empty pages from small overflows
-        while (heightLeft >= 10) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pdfHeight;
+        } else {
+          throw new Error(`Failed to download PDF from server: ${response.status}`);
         }
-
-        // Download PDF with document name and customer name
-        const docName = doc.document_title?.replace(/[^\w\-]+/g, '_') || 'document';
-        const customerName = selectedEstimateForDocs?.customer_name?.replace(/[^\w\-]+/g, '_') || '';
-        const fileName = customerName ? `${docName}_${customerName}.pdf` : `${docName}.pdf`;
-        pdf.save(fileName);
-
-        notification.success({
-          message: 'PDF Downloaded',
-          description: `${doc.document_title} has been downloaded`,
-          title: 'Success'
-        });
       } else {
         // For existing PDFs or other file types, download directly
         const docName = doc.document_title?.replace(/[^\w\-]+/g, '_') || 'document';
@@ -263,7 +175,7 @@ const Estimates: React.FC = () => {
       console.error('Error downloading document:', error);
       notification.error({
         message: 'Download Error',
-        description: 'Failed to download document',
+        description: 'Failed to download document from server',
         title: 'Error'
       });
     }

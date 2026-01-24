@@ -1137,6 +1137,117 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(estimate_document)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'])
+    def download_pdf(self, request, pk=None):
+        """
+        Download the document as a server-side generated PDF
+        GET /estimate-documents/{id}/download_pdf/?token=xxx (public token for signing, no auth)
+        OR GET /estimate-documents/{id}/download_pdf/ (authenticated user)
+        """
+        estimate_document = self.get_object()
+        
+        # Get the processed content (replaces all tags including {{estimate_line_items_table}})
+        serializer = self.get_serializer(estimate_document)
+        html_content = serializer.data.get('processed_content')
+        
+        if not html_content:
+            return Response({'error': 'Document content is not available or not an HTML document'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Remove problematic Unicode characters that render as black boxes in xhtml2pdf
+        import re
+        # Remove zero-width spaces, BOM, and other invisible characters
+        html_content = re.sub(r'[\u200b-\u200f\u2028-\u202f\ufeff]', '', html_content)
+        # Remove any remaining control characters except newlines and tabs
+        html_content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', html_content)
+        
+        # Build full HTML for PDF rendering (simplified for xhtml2pdf compatibility)
+        full_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {{
+            size: A4;
+            margin: 20mm;
+        }}
+        body {{
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #000000;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }}
+        th, td {{
+            border: 1px solid #000000;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }}
+        th {{
+            background-color: #f4f4f4;
+            font-weight: bold;
+        }}
+        img {{
+            max-width: 100%;
+        }}
+    </style>
+</head>
+<body>
+{html_content}
+</body>
+</html>"""
+        
+        # Generate PDF using xhtml2pdf
+        try:
+            from xhtml2pdf import pisa
+            from .utils import convert_images_to_base64
+            
+            # Convert images to base64
+            full_html = convert_images_to_base64(full_html)
+            
+            pdf_buffer = BytesIO()
+            pisa_status = pisa.CreatePDF(
+                full_html,
+                dest=pdf_buffer,
+                encoding='utf-8'
+            )
+            
+            if pisa_status.err:
+                # Return HTML as fallback for debugging
+                response = HttpResponse(full_html, content_type='text/html')
+                response['Content-Disposition'] = 'attachment; filename="debug.html"'
+                return response
+            
+            pdf_bytes = pdf_buffer.getvalue()
+            
+            if len(pdf_bytes) == 0:
+                return Response({'error': 'PDF generation produced empty file'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # Create filename with document title and customer name
+            doc_title = estimate_document.document.title.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            if estimate_document.estimate and estimate_document.estimate.customer:
+                customer_name = estimate_document.estimate.customer.full_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            else:
+                customer_name = "Customer"
+            
+            # Format: DocumentTitle_CustomerName.pdf
+            filename = f"{doc_title}_{customer_name}.pdf"
+            
+            # Return PDF
+            pdf_buffer.seek(0)
+            response = FileResponse(pdf_buffer, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+            
+        except ImportError:
+            return Response({'error': 'PDF library not available'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as e:
+            return Response({'error': f'PDF generation error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=True, methods=['post'], permission_classes=[AllowAny])
     def submit_document(self, request, pk=None):
         """

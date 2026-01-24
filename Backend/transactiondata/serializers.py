@@ -376,6 +376,11 @@ class EstimateDocumentSerializer(serializers.ModelSerializer):
             
             # Process template tags
             from .utils import process_document_template
+            import re
+            
+            # Clean invisible/control characters before processing
+            html_content = re.sub(r'[\u200b-\u200f\u2028-\u202f\ufeff]', '', html_content)
+            html_content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', html_content)
             
             # Pass customer_signature and customer_text_inputs (JSON strings with indexed data)
             processed = process_document_template(
@@ -385,6 +390,10 @@ class EstimateDocumentSerializer(serializers.ModelSerializer):
                 signatures=obj.customer_signature,  # This is JSON string like {"0": "base64...", "1": "base64..."}
                 text_inputs=obj.customer_text_inputs  # This is JSON string like {"0": "text...", "1": "text..."}
             )
+            
+            # Clean again after processing
+            processed = re.sub(r'[\u200b-\u200f\u2028-\u202f\ufeff]', '', processed)
+            processed = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', processed)
             
             return processed
         except Exception as e:

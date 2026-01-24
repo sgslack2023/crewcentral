@@ -1,6 +1,9 @@
 from decimal import Decimal
+import logging
 from .models import Estimate, EstimateLineItem, ChargeType
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def create_estimate_from_template(template, customer, weight=None, labour_hours=None, 
@@ -178,7 +181,20 @@ def process_document_template(html_content, customer=None, estimate=None, signat
     """
     if not html_content:
         return html_content
-    
+
+    # Normalize hidden chars / nbsp that break tag matching (SunEditor often inserts these)
+    # Keep this BEFORE any tag checks.
+    try:
+        html_content = (
+            html_content
+            .replace('\\u200b', '')  # zero-width space
+            .replace('\\ufeff', '')  # BOM
+            .replace('&nbsp;', ' ')
+            .replace('&#160;', ' ')
+        )
+    except Exception:
+        pass
+
     # Customer tags
     if customer:
         html_content = html_content.replace('{{job_number}}', str(customer.job_number) if customer.job_number else '')
@@ -205,10 +221,13 @@ def process_document_template(html_content, customer=None, estimate=None, signat
         html_content = html_content.replace('{{weight}}', f'{estimate.weight_lbs} lbs' if estimate.weight_lbs else '')
         html_content = html_content.replace('{{labour_hours}}', f'{estimate.labour_hours} hours' if estimate.labour_hours else '')
         
-        # Generate line items table
-        if '{{estimate_line_items_table}}' in html_content:
+        # Generate line items table (tolerate whitespace + escaped braces)
+        import re
+        # NOTE: braces must be escaped once for regex (NOT double-escaped)
+        table_pattern = r'(\{\{|&#123;&#123;)(?:\s|&nbsp;|&#160;)*estimate_line_items_table(?:\s|&nbsp;|&#160;)*(\}\}|&#125;&#125;)'
+        if re.search(table_pattern, html_content, flags=re.IGNORECASE):
             table_html = generate_line_items_table(estimate)
-            html_content = html_content.replace('{{estimate_line_items_table}}', table_html)
+            html_content = re.sub(table_pattern, table_html, html_content, flags=re.IGNORECASE)
     
     # Signature fields - handle multiple signatures with unique IDs
     import re
@@ -292,17 +311,17 @@ def process_document_template(html_content, customer=None, estimate=None, signat
 
 def generate_line_items_table(estimate):
     """
-    Generate a professional HTML table with all estimate line items
+    Generate a compact HTML table with all estimate line items
     """
     rows_html = ''
-    
-    for item in estimate.items.all():
+
+    for item in estimate.items.all().order_by('display_order', 'id'):
         # Build details column based on charge type
         details = ''
         if item.charge_type == ChargeType.PER_LB:
             details = f'${item.rate:.2f}/lb × {estimate.weight_lbs or 0} lbs'
         elif item.charge_type == ChargeType.HOURLY:
-            details = f'${item.rate:.2f}/hour × {estimate.labour_hours or 0} hours'
+            details = f'${item.rate:.2f}/hr × {estimate.labour_hours or 0} hrs'
         elif item.charge_type == ChargeType.FLAT:
             details = f'${item.rate:.2f} × {item.quantity}'
         elif item.charge_type == ChargeType.PERCENT:
@@ -310,10 +329,10 @@ def generate_line_items_table(estimate):
         
         rows_html += f'''
         <tr>
-            <td style="border: 1px solid #000; padding: 10px;">{item.charge_name}</td>
-            <td style="border: 1px solid #000; padding: 10px; text-align: center;">{item.get_charge_type_display()}</td>
-            <td style="border: 1px solid #000; padding: 10px; text-align: center;">{details}</td>
-            <td style="border: 1px solid #000; padding: 10px; text-align: right;">${item.amount:,.2f}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{item.charge_name}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{item.get_charge_type_display()}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{details}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${item.amount:,.2f}</td>
         </tr>
         '''
     
@@ -322,23 +341,23 @@ def generate_line_items_table(estimate):
     if estimate.tax_percentage and estimate.tax_percentage > 0:
         tax_row = f'''
             <tr style="background-color: #fff7e6;">
-                <td colspan="3" style="border: 1px solid #000; padding: 12px; text-align: right;">
+                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
                     <strong>Sales Tax ({estimate.tax_percentage:.2f}%):</strong>
                 </td>
-                <td style="border: 1px solid #000; padding: 12px; text-align: right;">
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
                     <strong>${estimate.tax_amount:,.2f}</strong>
                 </td>
             </tr>
         '''
     
     table_html = f'''
-    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 2px solid #000;">
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
         <thead>
-            <tr style="background-color: #f4f4f4;">
-                <th style="border: 1px solid #000; padding: 12px; text-align: left;">Charge Description</th>
-                <th style="border: 1px solid #000; padding: 12px; text-align: center;">Type</th>
-                <th style="border: 1px solid #000; padding: 12px; text-align: center;">Details</th>
-                <th style="border: 1px solid #000; padding: 12px; text-align: right;">Amount</th>
+            <tr style="background-color: #e8e8e8;">
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Description</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Details</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
             </tr>
         </thead>
         <tbody>
@@ -346,20 +365,20 @@ def generate_line_items_table(estimate):
         </tbody>
         <tfoot>
             <tr style="background-color: #f0f9ff;">
-                <td colspan="3" style="border: 1px solid #000; padding: 12px; text-align: right;">
+                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
                     <strong>Subtotal:</strong>
                 </td>
-                <td style="border: 1px solid #000; padding: 12px; text-align: right;">
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
                     <strong>${estimate.subtotal:,.2f}</strong>
                 </td>
             </tr>
             {tax_row}
-            <tr style="background-color: #f6ffed;">
-                <td colspan="3" style="border: 1px solid #000; padding: 12px; text-align: right;">
-                    <strong>TOTAL AMOUNT:</strong>
+            <tr style="background-color: #e6ffe6;">
+                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
+                    <strong>TOTAL:</strong>
                 </td>
-                <td style="border: 1px solid #000; padding: 12px; text-align: right;">
-                    <strong style="font-size: 16px;">${estimate.total_amount:,.2f}</strong>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
+                    <strong>${estimate.total_amount:,.2f}</strong>
                 </td>
             </tr>
         </tfoot>
