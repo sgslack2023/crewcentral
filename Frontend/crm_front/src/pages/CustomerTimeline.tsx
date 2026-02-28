@@ -20,20 +20,21 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getCustomerActivities } from '../utils/functions';
+import { getAuthToken, getCustomerActivities, getCurrentUser } from '../utils/functions';
 import { CustomerActivitiesUrl, CustomersUrl } from '../utils/network';
 import { CustomerActivityProps, CustomerProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
+import { BlackButton, WhiteButton, SearchBar, PageLoader } from '../components';
 
 const STAGE_OPTIONS = [
-  { value: 'new_lead', label: 'New Lead', color: '#fa8c16' },
-  { value: 'in_progress', label: 'In Progress', color: '#1890ff' },
-  { value: 'opportunity', label: 'Opportunity', color: '#13c2c2' },
-  { value: 'booked', label: 'Booked', color: '#722ed1' },
-  { value: 'closed', label: 'Closed', color: '#52c41a' },
-  { value: 'bad_lead', label: 'Bad Lead', color: '#ff7a45' },
-  { value: 'lost', label: 'Lost', color: '#ff4d4f' }
+  { value: 'new_lead', label: 'New Lead', color: '#c7d2ff' },
+  { value: 'in_progress', label: 'In Progress', color: '#8ea5ff' },
+  { value: 'opportunity', label: 'Opportunity', color: '#7c8cfb' },
+  { value: 'booked', label: 'Booked', color: '#5b6cf9' },
+  { value: 'closed', label: 'Closed', color: '#4a56c4' },
+  { value: 'bad_lead', label: 'Bad Lead', color: '#8e8ea8' },
+  { value: 'lost', label: 'Lost', color: '#6b7280' }
 ];
 
 const CustomerTimeline: React.FC = () => {
@@ -47,11 +48,7 @@ const CustomerTimeline: React.FC = () => {
   const [noteForm] = Form.useForm();
   const [stageUpdating, setStageUpdating] = useState(false);
 
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     if (customerId) {
@@ -143,49 +140,35 @@ const CustomerTimeline: React.FC = () => {
   };
 
   const getActivityIcon = (activityType: string) => {
-    const iconStyle = { fontSize: '16px' };
+    const iconStyle = { fontSize: '14px' };
     const icons: Record<string, any> = {
-      'estimate_created': <FileTextOutlined style={{ ...iconStyle, color: '#1890ff' }} />,
-      'estimate_updated': <EditOutlined style={{ ...iconStyle, color: '#722ed1' }} />,
-      'estimate_sent': <SendOutlined style={{ ...iconStyle, color: '#13c2c2' }} />,
-      'estimate_approved': <CheckCircleOutlined style={{ ...iconStyle, color: '#52c41a' }} />,
-      'estimate_rejected': <CloseCircleOutlined style={{ ...iconStyle, color: '#ff4d4f' }} />,
-      'customer_contacted': <UserOutlined style={{ ...iconStyle, color: '#faad14' }} />,
-      'note_added': <CommentOutlined style={{ ...iconStyle, color: '#8c8c8c' }} />,
-      'status_changed': <ClockCircleOutlined style={{ ...iconStyle, color: '#fa8c16' }} />,
-      'other': <FileTextOutlined style={{ ...iconStyle, color: '#1890ff' }} />
+      'estimate_created': <FileTextOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'estimate_updated': <EditOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'estimate_sent': <SendOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'estimate_approved': <CheckCircleOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'estimate_rejected': <CloseCircleOutlined style={{ ...iconStyle, color: '#8e8ea8' }} />,
+      'customer_contacted': <UserOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'note_added': <CommentOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'status_changed': <ClockCircleOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'email_sent': <MailOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />,
+      'email_opened': <EyeOutlined style={{ ...iconStyle, color: '#10b981' }} />,
+      'other': <FileTextOutlined style={{ ...iconStyle, color: '#5b6cf9' }} />
     };
-    return icons[activityType] || <ClockCircleOutlined style={{ ...iconStyle, color: '#8c8c8c' }} />;
+    return icons[activityType] || <ClockCircleOutlined style={{ ...iconStyle, color: '#8e8ea8' }} />;
   };
 
   const getActivityColor = (activityType: string): string => {
-    const colors: Record<string, string> = {
-      'estimate_created': '#1890ff',
-      'estimate_updated': '#722ed1',
-      'estimate_sent': '#13c2c2',
-      'estimate_approved': '#52c41a',
-      'estimate_rejected': '#ff4d4f',
-      'customer_contacted': '#faad14',
-      'note_added': '#8c8c8c',
-      'status_changed': '#fa8c16',
-      'other': '#1890ff'
-    };
-    return colors[activityType] || '#8c8c8c';
+    const blueStates = ['estimate_created', 'estimate_updated', 'estimate_sent', 'estimate_approved', 'customer_contacted', 'status_changed', 'email_sent'];
+    if (blueStates.includes(activityType)) return '#5b6cf9';
+    if (activityType === 'email_opened') return '#10b981';
+    return '#8e8ea8';
   };
 
   const getActivityBgColor = (activityType: string): string => {
-    const bgColors: Record<string, string> = {
-      'estimate_created': '#e6f7ff',
-      'estimate_updated': '#f9f0ff',
-      'estimate_sent': '#e6fffb',
-      'estimate_approved': '#f6ffed',
-      'estimate_rejected': '#fff1f0',
-      'customer_contacted': '#fffbe6',
-      'note_added': '#fafafa',
-      'status_changed': '#fff7e6',
-      'other': '#e6f7ff'
-    };
-    return bgColors[activityType] || '#fafafa';
+    const blueStates = ['estimate_created', 'estimate_updated', 'estimate_sent', 'estimate_approved', 'customer_contacted', 'status_changed', 'email_sent'];
+    if (blueStates.includes(activityType)) return '#f0f2ff';
+    if (activityType === 'email_opened') return '#ecfdf5';
+    return '#f4f4f7';
   };
 
   const getStageColor = (stage: string): string => {
@@ -194,31 +177,28 @@ const CustomerTimeline: React.FC = () => {
   };
 
   return (
-    <div>
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
+    <>
+      <div style={{ padding: '8px 16px 24px 16px', height: '100%', display: 'flex', flexDirection: 'column' }}>    {/* Header */}
+        <div style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>
                 Activity Timeline
               </h1>
-              <p style={{ color: '#666', margin: 0 }}>
+              <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>
                 Track all activities for: <strong>{customer?.full_name}</strong>
               </p>
             </div>
-            <Button 
+            <WhiteButton
               icon={<ArrowLeftOutlined />}
-              onClick={() => navigate('/customers')}
+              onClick={() => navigate(-1)}
             >
               Back
-            </Button>
+            </WhiteButton>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px', flex: 1, minHeight: 0 }}>
           {/* Modern Customer Info Card */}
           {customer && (
             <div style={{
@@ -226,98 +206,90 @@ const CustomerTimeline: React.FC = () => {
               borderRadius: '12px',
               border: '1px solid #e5e7eb',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              position: 'sticky',
-              top: '24px',
-              alignSelf: 'start',
-              overflow: 'hidden'
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '100%',
+              overflowY: 'auto',
+              alignSelf: 'start'
             }}>
-              {/* Header with Avatar */}
+              {/* Header with Avatar - Compact Side-by-Side */}
               <div style={{
-                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
-                padding: '24px',
-                textAlign: 'center'
+                background: 'linear-gradient(135deg, #f0f2ff 0%, #c7d2ff 100%)',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
               }}>
-                <Avatar 
-                  size={80} 
-                  style={{ 
-                    backgroundColor: '#2563eb',
-                    fontSize: '32px',
-                    marginBottom: '12px',
-                    border: '4px solid #fff',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                <Avatar
+                  size={48}
+                  style={{
+                    backgroundColor: '#5b6cf9',
+                    fontSize: '20px',
+                    border: '2px solid #fff',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    flexShrink: 0
                   }}
                 >
                   {customer.full_name?.charAt(0) || 'C'}
                 </Avatar>
-                <h3 style={{ fontSize: '20px', fontWeight: 600, margin: '0 0 12px 0', color: '#111827' }}>
-                  {customer.full_name}
-                </h3>
-                <Select
-                  value={customer.stage}
-                  onChange={handleStageChange}
-                  loading={stageUpdating}
-                  style={{
-                    width: '180px',
-                    borderRadius: '8px'
-                  }}
-                  size="middle"
-                  suffixIcon={<EditOutlined style={{ fontSize: '12px', color: '#6b7280' }} />}
-                  dropdownStyle={{ borderRadius: '8px' }}
-                  options={STAGE_OPTIONS.map(stage => ({
-                    value: stage.value,
-                    label: (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '10px',
-                          height: '10px',
-                          borderRadius: '50%',
-                          backgroundColor: stage.color,
-                          flexShrink: 0
-                        }} />
-                        <span style={{ fontWeight: 500 }}>{stage.label}</span>
-                      </div>
-                    )
-                  }))}
-                  placeholder="Select stage"
-                  disabled={stageUpdating}
-                />
+                <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 4px 0', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {customer.full_name}
+                  </h3>
+                  <Select
+                    value={customer.stage}
+                    onChange={handleStageChange}
+                    loading={stageUpdating}
+                    style={{ width: '100%', maxWidth: '130px' }}
+                    size="small"
+                    suffixIcon={<EditOutlined style={{ fontSize: '10px', color: '#6b7280' }} />}
+                    options={STAGE_OPTIONS.map(stage => ({
+                      value: stage.value,
+                      label: (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: stage.color }} />
+                          <span style={{ fontSize: '12px' }}>{stage.label}</span>
+                        </div>
+                      )
+                    }))}
+                  />
+                </div>
               </div>
 
               {/* Contact Information */}
-              <div style={{ padding: '20px' }}>
-                <h4 style={{ 
-                  fontSize: '12px', 
-                  fontWeight: 600, 
+              <div style={{ padding: '16px' }}>
+                <h4 style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
                   color: '#6b7280',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
-                  margin: '0 0 16px 0'
+                  margin: '0 0 10px 0'
                 }}>
-                  Contact Information
+                  Contact
                 </h4>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {/* Email */}
                   <div style={{
-                    padding: '12px',
+                    padding: '8px 10px',
                     backgroundColor: '#f9fafb',
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    transition: 'all 0.2s ease'
+                    borderRadius: '6px',
+                    border: '1px solid #e5e7eb'
                   }}>
-                    <div style={{ 
-                      fontSize: '11px', 
-                      color: '#2563eb', 
-                      fontWeight: 500, 
-                      marginBottom: '6px',
+                    <div style={{
+                      fontSize: '10px',
+                      color: '#5b6cf9',
+                      fontWeight: 600,
+                      marginBottom: '2px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '4px'
                     }}>
-                      <MailOutlined style={{ fontSize: '12px' }} />
+                      <MailOutlined style={{ fontSize: '11px' }} />
                       EMAIL
                     </div>
-                    <div style={{ fontSize: '13px', color: '#111827', wordBreak: 'break-word', lineHeight: '1.4' }}>
+                    <div style={{ fontSize: '12px', color: '#111827', wordBreak: 'break-all' }}>
                       {customer.email}
                     </div>
                   </div>
@@ -325,25 +297,24 @@ const CustomerTimeline: React.FC = () => {
                   {/* Phone */}
                   {customer.phone && (
                     <div style={{
-                      padding: '12px',
+                      padding: '8px 10px',
                       backgroundColor: '#f9fafb',
-                      borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      transition: 'all 0.2s ease'
+                      borderRadius: '6px',
+                      border: '1px solid #e5e7eb'
                     }}>
-                      <div style={{ 
-                        fontSize: '11px', 
-                        color: '#16a34a', 
-                        fontWeight: 500, 
-                        marginBottom: '6px',
+                      <div style={{
+                        fontSize: '10px',
+                        color: '#5b6cf9',
+                        fontWeight: 600,
+                        marginBottom: '2px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        gap: '4px'
                       }}>
-                        <PhoneOutlined style={{ fontSize: '12px' }} />
+                        <PhoneOutlined style={{ fontSize: '11px' }} />
                         PHONE
                       </div>
-                      <div style={{ fontSize: '13px', color: '#111827' }}>
+                      <div style={{ fontSize: '12px', color: '#111827' }}>
                         {customer.phone}
                       </div>
                     </div>
@@ -352,25 +323,24 @@ const CustomerTimeline: React.FC = () => {
                   {/* Location */}
                   {(customer.city || customer.state) && (
                     <div style={{
-                      padding: '12px',
+                      padding: '8px 10px',
                       backgroundColor: '#f9fafb',
-                      borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      transition: 'all 0.2s ease'
+                      borderRadius: '6px',
+                      border: '1px solid #e5e7eb'
                     }}>
-                      <div style={{ 
-                        fontSize: '11px', 
-                        color: '#ea580c', 
-                        fontWeight: 500, 
-                        marginBottom: '6px',
+                      <div style={{
+                        fontSize: '10px',
+                        color: '#5b6cf9',
+                        fontWeight: 600,
+                        marginBottom: '2px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        gap: '4px'
                       }}>
-                        <HomeOutlined style={{ fontSize: '12px' }} />
+                        <HomeOutlined style={{ fontSize: '11px' }} />
                         LOCATION
                       </div>
-                      <div style={{ fontSize: '13px', color: '#111827' }}>
+                      <div style={{ fontSize: '12px', color: '#111827' }}>
                         {[customer.city, customer.state].filter(Boolean).join(', ')}
                       </div>
                     </div>
@@ -381,47 +351,43 @@ const CustomerTimeline: React.FC = () => {
               {/* Additional Details */}
               {(customer.service_type_name || customer.move_date) && (
                 <>
-                  <div style={{ 
-                    height: '1px', 
+                  <div style={{
+                    height: '1px',
                     backgroundColor: '#e5e7eb',
                     margin: '0 20px'
                   }} />
-                  
-                  <div style={{ padding: '20px' }}>
-                    <h4 style={{ 
-                      fontSize: '12px', 
-                      fontWeight: 600, 
+
+                  <div style={{ padding: '4px 16px 16px 16px' }}>
+                    <h4 style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
                       color: '#6b7280',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
-                      margin: '0 0 16px 0'
+                      margin: '0 0 10px 0'
                     }}>
-                      Move Details
+                      Move Info
                     </h4>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       {/* Service Type */}
                       {customer.service_type_name && (
                         <div style={{
-                          padding: '12px',
+                          padding: '6px 8px',
                           backgroundColor: '#f9fafb',
-                          borderRadius: '8px',
-                          border: '1px solid #e5e7eb',
-                          transition: 'all 0.2s ease'
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
                         }}>
-                          <div style={{ 
-                            fontSize: '11px', 
-                            color: '#9333ea', 
-                            fontWeight: 500, 
-                            marginBottom: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
+                          <div style={{
+                            fontSize: '9px',
+                            color: '#5b6cf9',
+                            fontWeight: 600,
+                            marginBottom: '1px',
+                            display: 'flex', whiteSpace: 'nowrap'
                           }}>
-                            <TagsOutlined style={{ fontSize: '12px' }} />
-                            SERVICE TYPE
+                            SERVICE
                           </div>
-                          <div style={{ fontSize: '13px', color: '#111827' }}>
+                          <div style={{ fontSize: '11px', color: '#111827', fontWeight: 500 }}>
                             {customer.service_type_name}
                           </div>
                         </div>
@@ -430,29 +396,24 @@ const CustomerTimeline: React.FC = () => {
                       {/* Move Date */}
                       {customer.move_date && (
                         <div style={{
-                          padding: '12px',
+                          padding: '6px 8px',
                           backgroundColor: '#f9fafb',
-                          borderRadius: '8px',
-                          border: '1px solid #e5e7eb',
-                          transition: 'all 0.2s ease'
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
                         }}>
-                          <div style={{ 
-                            fontSize: '11px', 
-                            color: '#d97706', 
-                            fontWeight: 500, 
-                            marginBottom: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
+                          <div style={{
+                            fontSize: '9px',
+                            color: '#5b6cf9',
+                            fontWeight: 600,
+                            marginBottom: '1px',
+                            display: 'flex', whiteSpace: 'nowrap'
                           }}>
-                            <CalendarOutlined style={{ fontSize: '12px' }} />
-                            MOVE DATE
+                            DATE
                           </div>
-                          <div style={{ fontSize: '13px', color: '#111827' }}>
+                          <div style={{ fontSize: '11px', color: '#111827', fontWeight: 500 }}>
                             {new Date(customer.move_date).toLocaleDateString('en-US', {
-                              month: 'long',
-                              day: 'numeric',
-                              year: 'numeric'
+                              month: 'short',
+                              day: 'numeric'
                             })}
                           </div>
                         </div>
@@ -469,267 +430,246 @@ const CustomerTimeline: React.FC = () => {
             backgroundColor: '#fff',
             borderRadius: '12px',
             border: '1px solid #e5e7eb',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0
           }}>
             {/* Header */}
             <div style={{
-              padding: '20px 24px',
+              padding: '12px 20px',
               borderBottom: '1px solid #e5e7eb',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #f0f2ff 0%, #c7d2ff 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <ClockCircleOutlined style={{ fontSize: '18px', color: '#2563eb' }} />
+                  <ClockCircleOutlined style={{ fontSize: '16px', color: '#5b6cf9' }} />
                 </div>
                 <div>
-                  <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: '#111827' }}>
-                    Activity Timeline
+                  <h2 style={{ fontSize: '16px', fontWeight: 600, margin: 0, color: '#111827' }}>
+                    Activities
                   </h2>
-                  <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-                    {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
-                  </p>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
                 <Button
                   icon={<EyeOutlined />}
                   onClick={() => setViewNotesModalVisible(true)}
+                  size="small"
                   style={{
-                    backgroundColor: '#e0f2fe',
-                    color: '#0284c7',
-                    border: '1px solid #7dd3fc',
-                    borderRadius: '8px',
-                    fontWeight: 500,
-                    height: '36px',
-                    padding: '0 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
+                    backgroundColor: '#f0f2ff',
+                    color: '#5b6cf9',
+                    border: '1px solid #c7d2ff',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    height: '28px'
                   }}
                 >
                   View Notes
                 </Button>
-                <Button
+                <BlackButton
                   icon={<PlusOutlined />}
                   onClick={() => setNoteModalVisible(true)}
+                  size="small"
                   style={{
-                    backgroundColor: '#dcfce7',
-                    color: '#16a34a',
-                    border: '1px solid #86efac',
-                    borderRadius: '8px',
-                    fontWeight: 500,
-                    height: '36px',
-                    padding: '0 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
+                    fontSize: '12px',
+                    height: '28px',
+                    borderRadius: '6px'
                   }}
                 >
                   Add Note
-                </Button>
+                </BlackButton>
               </div>
             </div>
 
             {/* Content */}
-            <div style={{ padding: '24px' }}>
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px' }}>
-                <ClockCircleOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-                <div style={{ color: '#999' }}>Loading activities...</div>
-              </div>
-            ) : activities.length === 0 ? (
-              <Empty 
-                description="No activities yet" 
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                style={{ padding: '60px 0' }}
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px' }}>
-                {activities.map((activity, index) => (
-                  <div 
-                    key={activity.id}
-                    style={{
-                      display: 'flex',
-                      gap: '20px',
-                      position: 'relative',
-                      paddingBottom: index !== activities.length - 1 ? '24px' : '0'
-                    }}
-                  >
-                    {/* Timeline line connector */}
-                    {index !== activities.length - 1 && (
+            <div style={{ padding: '8px 16px', overflowY: 'auto', flex: 1 }}>
+              {loading ? (
+                <PageLoader text="Loading activities..." />
+              ) : activities.length === 0 ? (
+                <Empty
+                  description="No activities yet"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  style={{ padding: '32px 0' }}
+                />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                  {activities.map((activity, index) => (
+                    <div
+                      key={activity.id}
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        position: 'relative',
+                        paddingBottom: index !== activities.length - 1 ? '8px' : '0'
+                      }}
+                    >
+                      {/* Timeline line connector */}
+                      {index !== activities.length - 1 && (
+                        <div style={{
+                          position: 'absolute',
+                          left: '15px',
+                          top: '32px',
+                          bottom: '-8px',
+                          width: '1px',
+                          background: '#e5e7eb',
+                          zIndex: 0
+                        }} />
+                      )}
+
+                      {/* Icon Badge */}
                       <div style={{
-                        position: 'absolute',
-                        left: '23px',
-                        top: '52px',
-                        bottom: '-24px',
-                        width: '2px',
-                        background: 'linear-gradient(to bottom, #e5e7eb 0%, #f3f4f6 100%)',
-                        zIndex: 0
-                      }} />
-                    )}
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: getActivityBgColor(activity.activity_type),
+                        border: `1px solid ${getActivityColor(activity.activity_type)}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        zIndex: 1,
+                        position: 'relative'
+                      }}>
+                        {getActivityIcon(activity.activity_type)}
+                      </div>
 
-                    {/* Icon Badge */}
-                    <div style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '12px',
-                      background: getActivityBgColor(activity.activity_type),
-                      border: `2px solid ${getActivityColor(activity.activity_type)}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                      zIndex: 1,
-                      position: 'relative'
-                    }}>
-                      {getActivityIcon(activity.activity_type)}
-                    </div>
-
-                    {/* Activity Content Card */}
-                    <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          padding: '20px',
-                          backgroundColor: '#fff',
-                          borderRadius: '12px',
-                          border: '1px solid #e5e7eb',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                          transition: 'all 0.2s ease',
-                          cursor: 'default'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-                          e.currentTarget.style.transform = 'translateX(4px)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-                          e.currentTarget.style.transform = 'translateX(0)';
-                        }}
-                      >
-                        {/* Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                          <div style={{ flex: 1 }}>
-                            <h3 style={{ 
-                              fontSize: '16px', 
-                              fontWeight: 600, 
-                              color: '#111827',
-                              margin: '0 0 8px 0'
-                            }}>
-                              {activity.title}
-                            </h3>
-                            <div style={{ 
-                              fontSize: '13px', 
-                              color: '#6b7280', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '16px',
-                              flexWrap: 'wrap'
-                            }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <ClockCircleOutlined style={{ fontSize: '12px' }} />
-                                {new Date(activity.created_at!).toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <UserOutlined style={{ fontSize: '12px' }} />
-                                {activity.created_by_name}
-                              </span>
-                            </div>
-                          </div>
-                          <Tag 
-                            style={{ 
-                              margin: 0, 
-                              fontSize: '11px', 
-                              fontWeight: 500,
-                              padding: '4px 12px',
-                              borderRadius: '6px',
-                              backgroundColor: getActivityBgColor(activity.activity_type),
-                              color: getActivityColor(activity.activity_type),
-                              border: `1px solid ${getActivityColor(activity.activity_type)}`
-                            }}
-                          >
-                            {activity.activity_type.replace('_', ' ').toUpperCase()}
-                          </Tag>
-                        </div>
-
-                        {/* Description */}
-                        {activity.description && (
-                          <div style={{ 
-                            fontSize: '14px', 
-                            color: '#4b5563',
-                            lineHeight: '1.6',
-                            marginTop: '12px',
-                            padding: '14px',
-                            backgroundColor: '#f9fafb',
+                      {/* Activity Content Card */}
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: '#fff',
                             borderRadius: '8px',
-                            borderLeft: `3px solid ${getActivityColor(activity.activity_type)}`
-                          }}>
-                            {activity.description}
-                          </div>
-                        )}
-
-                        {/* Estimate Link */}
-                        {activity.estimate_id && (
-                          <div style={{ 
-                            marginTop: '16px',
-                            paddingTop: '16px',
-                            borderTop: '1px solid #e5e7eb',
-                            display: 'flex',
-                            gap: '10px',
-                            alignItems: 'center'
-                          }}>
-                            <Button
-                              size="small"
-                              icon={<EyeOutlined />}
-                              onClick={() => navigate(`/estimate-editor/${activity.estimate_id}`)}
+                            border: '1px solid #e5e7eb',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                            transition: 'all 0.2s ease',
+                            cursor: 'default'
+                          }}
+                        >
+                          {/* Header */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                            <div style={{ flex: 1 }}>
+                              <h3 style={{
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                color: '#111827',
+                                margin: '0 0 2px 0'
+                              }}>
+                                {activity.title}
+                              </h3>
+                              <div style={{
+                                fontSize: '11px',
+                                color: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                flexWrap: 'wrap'
+                              }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <ClockCircleOutlined style={{ fontSize: '11px' }} />
+                                  {new Date(activity.created_at!).toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <UserOutlined style={{ fontSize: '11px' }} />
+                                  {activity.created_by_name}
+                                </span>
+                              </div>
+                            </div>
+                            <Tag
                               style={{
-                                backgroundColor: '#dbeafe',
-                                color: '#2563eb',
-                                border: '1px solid #93c5fd',
-                                borderRadius: '8px',
-                                fontWeight: 500,
-                                height: '32px',
-                                padding: '0 16px'
-                              }}
-                            >
-                              View Estimate
-                            </Button>
-                            <Tag 
-                              style={{ 
                                 margin: 0,
-                                backgroundColor: '#eff6ff',
-                                color: '#1e40af',
-                                border: '1px solid #bfdbfe',
-                                borderRadius: '6px',
-                                padding: '4px 10px',
-                                fontSize: '12px'
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: getActivityBgColor(activity.activity_type),
+                                color: getActivityColor(activity.activity_type),
+                                border: `1px solid ${getActivityColor(activity.activity_type)}`
                               }}
                             >
-                              <FileTextOutlined /> Estimate #{activity.estimate_id}
+                              {activity.activity_type.replace('_', ' ').toUpperCase()}
                             </Tag>
                           </div>
-                        )}
+
+                          {/* Description */}
+                          {activity.description && (
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#4b5563',
+                              lineHeight: '1.5',
+                              marginTop: '6px',
+                              padding: '8px 10px',
+                              backgroundColor: '#f9fafb',
+                              borderRadius: '6px',
+                              borderLeft: `2px solid ${getActivityColor(activity.activity_type)}`
+                            }}>
+                              {activity.description}
+                            </div>
+                          )}
+
+                          {/* Estimate Link */}
+                          {activity.estimate_id && (
+                            <div style={{
+                              marginTop: '10px',
+                              paddingTop: '8px',
+                              borderTop: '1px solid #e5e7eb',
+                              display: 'flex',
+                              gap: '10px',
+                              alignItems: 'center'
+                            }}>
+                              <Button
+                                size="small"
+                                icon={<EyeOutlined />}
+                                onClick={() => navigate(`/estimate-editor/${activity.estimate_id}`)}
+                                style={{
+                                  backgroundColor: '#dbeafe',
+                                  color: '#2563eb',
+                                  border: '1px solid #93c5fd',
+                                  borderRadius: '8px',
+                                  fontWeight: 500,
+                                  height: '32px',
+                                  padding: '0 16px'
+                                }}
+                              >
+                                View Estimate
+                              </Button>
+                              <Tag
+                                style={{
+                                  margin: 0,
+                                  backgroundColor: '#eff6ff',
+                                  color: '#1e40af',
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: '6px',
+                                  padding: '4px 10px',
+                                  fontSize: '12px'
+                                }}
+                              >
+                                <FileTextOutlined /> Estimate #{activity.estimate_id}
+                              </Tag>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -762,7 +702,7 @@ const CustomerTimeline: React.FC = () => {
             label="Note Title"
             rules={[{ required: true, message: 'Please enter a note title' }]}
           >
-            <Input 
+            <Input
               placeholder="Enter a brief title for this note..."
               size="large"
             />
@@ -782,22 +722,20 @@ const CustomerTimeline: React.FC = () => {
           </Form.Item>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
-            <Button 
+            <WhiteButton
               onClick={() => {
                 setNoteModalVisible(false);
                 noteForm.resetFields();
               }}
             >
               Cancel
-            </Button>
-            <Button 
-              type="primary" 
+            </WhiteButton>
+            <BlackButton
               htmlType="submit"
               icon={<PlusOutlined />}
-              style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
             >
               Add Note
-            </Button>
+            </BlackButton>
           </div>
         </Form>
       </Modal>
@@ -813,9 +751,9 @@ const CustomerTimeline: React.FC = () => {
         open={viewNotesModalVisible}
         onCancel={() => setViewNotesModalVisible(false)}
         footer={[
-          <Button key="close" onClick={() => setViewNotesModalVisible(false)}>
+          <WhiteButton key="close" onClick={() => setViewNotesModalVisible(false)}>
             Close
-          </Button>
+          </WhiteButton>
         ]}
         width={700}
         style={{
@@ -906,7 +844,7 @@ const CustomerTimeline: React.FC = () => {
           </div>
         )}
       </Modal>
-    </div>
+    </>
   );
 };
 

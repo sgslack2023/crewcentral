@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Input, Button, Tag, notification, Table, Space, Modal, List } from 'antd';
-import { 
-  SearchOutlined, 
+import { Card, Button, Tag, notification, Space, Modal, List } from 'antd';
+import {
   EyeOutlined,
   EditOutlined,
   DownloadOutlined,
@@ -15,20 +14,21 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getEstimateById, getEstimates } from '../utils/functions';
+import { getAuthToken, getEstimateById, getEstimates, getCurrentUser } from '../utils/functions';
 import { EstimatesUrl, EstimateDocumentsUrl } from '../utils/network';
 import { EstimateProps, EstimateDocumentProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
-import Header from '../components/Header';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
+import { WhiteButton, BlackButton, SearchBar } from '../components';
+import FixedTable from '../components/FixedTable';
 
 const Estimates: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const customerIdParam = searchParams.get('customer');
-  
+
   const [estimates, setEstimates] = useState<EstimateProps[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,11 +38,7 @@ const Estimates: React.FC = () => {
   const [estimateDocuments, setEstimateDocuments] = useState<EstimateDocumentProps[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
 
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     fetchEstimates();
@@ -117,7 +113,7 @@ const Estimates: React.FC = () => {
         const { BaseUrl } = await import('../utils/network');
         // Construct the URL for the detail action - NO trailing slash (router has trailing_slash=False)
         const downloadUrl = `${BaseUrl}transactiondata/estimate-documents/${doc.id}/download_pdf`;
-        
+
         const response = await fetch(downloadUrl, {
           method: 'GET',
           headers: {
@@ -130,13 +126,13 @@ const Estimates: React.FC = () => {
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          
+
           const contentDisposition = response.headers.get('Content-Disposition');
           let fileName = `${doc.document_title || 'document'}.pdf`;
           if (contentDisposition && contentDisposition.includes('filename=')) {
             fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
           }
-          
+
           link.download = fileName;
           document.body.appendChild(link);
           link.click();
@@ -156,7 +152,7 @@ const Estimates: React.FC = () => {
         const docName = doc.document_title?.replace(/[^\w\-]+/g, '_') || 'document';
         const customerName = selectedEstimateForDocs?.customer_name?.replace(/[^\w\-]+/g, '_') || '';
         const downloadName = customerName ? `${docName}_${customerName}` : docName;
-        
+
         const link = document.createElement('a');
         link.href = doc.document_url!;
         link.download = downloadName;
@@ -198,16 +194,16 @@ const Estimates: React.FC = () => {
       const fileSafeCustomer = (e.customer_name || 'Customer').replace(/[^\w\-]+/g, '_');
       const createdAt = e.created_at ? new Date(e.created_at) : null;
       const issueDateText = createdAt ? createdAt.toLocaleDateString() : new Date().toLocaleDateString();
-      
+
       // Header band
       doc.setFillColor(24, 144, 255);
       doc.rect(0, 0, pageWidth, 26, 'F');
-      
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(255, 255, 255);
       doc.text(companyName, marginX, 16);
-      
+
       doc.setFontSize(12);
       doc.text('Estimate', rightX, 16, { align: 'right' });
 
@@ -221,7 +217,7 @@ const Estimates: React.FC = () => {
       doc.setFontSize(10);
       doc.setTextColor(90, 90, 90);
       doc.text(`Issue Date: ${issueDateText}`, rightX, 38, { align: 'right' });
-      
+
       // Customer block
       const boxTop = 44;
       doc.setDrawColor(230, 230, 230);
@@ -241,7 +237,7 @@ const Estimates: React.FC = () => {
       doc.setFontSize(10);
       doc.setTextColor(90, 90, 90);
       doc.text(`Service Type: ${e.service_type_name || '-'}`, marginX + 4, boxTop + 23);
-      
+
       // Move details (right side of customer block)
       const moveLeftX = pageWidth / 2 + 10;
       doc.setFont('helvetica', 'bold');
@@ -376,10 +372,10 @@ const Estimates: React.FC = () => {
         const wrapped = doc.splitTextToSize(notes, pageWidth - marginX * 2);
         doc.text(wrapped, marginX, notesBodyY);
       }
-      
+
       // Save PDF
       doc.save(`Estimate_${e.id ?? 'NA'}_${fileSafeCustomer}.pdf`);
-      
+
       notification.success({
         message: 'PDF Downloaded',
         description: `Estimate #${e.id} has been downloaded as PDF`,
@@ -396,79 +392,77 @@ const Estimates: React.FC = () => {
 
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
+      id: 'id',
+      label: '#',
       width: 80,
-      render: (id: number) => (
-        <Tag 
+      fixed: true,
+      render: (value: any, record: EstimateProps) => (
+        <Tag
           style={{
-            backgroundColor: '#eff6ff',
-            color: '#1e40af',
-            border: '1px solid #bfdbfe',
+            backgroundColor: '#f0f2ff',
+            color: '#5b6cf9',
+            border: '1px solid #a5affd',
             borderRadius: '6px',
             fontWeight: 500
           }}
         >
-          #{id}
+          #{record.id}
         </Tag>
       )
     },
     {
-      title: 'Customer',
-      dataIndex: 'customer_name',
-      key: 'customer_name',
-      render: (name: string) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      id: 'customer_name',
+      label: 'Customer',
+      width: 200,
+      render: (value: any, record: EstimateProps) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left', padding: '4px 8px' }}>
           <div style={{
             width: '32px',
             height: '32px',
             borderRadius: '8px',
-            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            background: 'linear-gradient(135deg, #f0f2ff 0%, #a5affd 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <UserOutlined style={{ color: '#2563eb', fontSize: '14px' }} />
+            <UserOutlined style={{ color: '#5b6cf9', fontSize: '14px' }} />
           </div>
-          <span style={{ fontWeight: 500, color: '#111827' }}>{name}</span>
+          <span style={{ fontWeight: 500, color: '#111827' }}>{record.customer_name}</span>
         </div>
       )
     },
     {
-      title: 'Service Type',
-      dataIndex: 'service_type_name',
-      key: 'service_type_name',
+      id: 'service_type_name',
+      label: 'Service Type',
       width: 140,
-      render: (name: string) => (
-        <Tag 
+      render: (value: any, record: EstimateProps) => (
+        <Tag
           style={{
-            backgroundColor: '#dcfce7',
-            color: '#16a34a',
-            border: '1px solid #86efac',
+            backgroundColor: '#f0f2ff',
+            color: '#5b6cf9',
+            border: '1px solid #a5affd',
             borderRadius: '6px',
             fontWeight: 500,
             padding: '4px 12px'
           }}
         >
-          <CarOutlined /> {name}
+          <CarOutlined /> {record.service_type_name}
         </Tag>
       )
     },
     {
-      title: 'Template',
-      dataIndex: 'template_name',
-      key: 'template_name',
+      id: 'template_name',
+      label: 'Template',
       width: 150,
-      render: (name: string) => (
-        <span style={{ color: '#6b7280', fontSize: '13px' }}>{name || '-'}</span>
+      render: (value: any, record: EstimateProps) => (
+        <span style={{ color: '#6b7280', fontSize: '13px' }}>{record.template_name || '-'}</span>
       )
     },
     {
-      title: 'Details',
-      key: 'details',
+      id: 'details',
+      label: 'Details',
       width: 180,
-      render: (record: EstimateProps) => (
+      render: (value: any, record: EstimateProps) => (
         <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {record.weight_lbs && <div>📦 {record.weight_lbs} lbs</div>}
           {record.labour_hours && <div>⏱️ {record.labour_hours} hrs</div>}
@@ -477,10 +471,10 @@ const Estimates: React.FC = () => {
       )
     },
     {
-      title: 'Pickup',
-      key: 'pickup_dates',
+      id: 'pickup_dates',
+      label: 'Pickup',
       width: 140,
-      render: (record: EstimateProps) => {
+      render: (value: any, record: EstimateProps) => {
         if (!record.pickup_date_from && !record.pickup_date_to) return <span style={{ color: '#9ca3af' }}>-</span>;
         const fromDate = record.pickup_date_from ? new Date(record.pickup_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
         const toDate = record.pickup_date_to ? new Date(record.pickup_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
@@ -493,10 +487,10 @@ const Estimates: React.FC = () => {
       }
     },
     {
-      title: 'Delivery',
-      key: 'delivery_dates',
+      id: 'delivery_dates',
+      label: 'Delivery',
       width: 140,
-      render: (record: EstimateProps) => {
+      render: (value: any, record: EstimateProps) => {
         if (!record.delivery_date_from && !record.delivery_date_to) return <span style={{ color: '#9ca3af' }}>-</span>;
         const fromDate = record.delivery_date_from ? new Date(record.delivery_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
         const toDate = record.delivery_date_to ? new Date(record.delivery_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
@@ -509,23 +503,22 @@ const Estimates: React.FC = () => {
       }
     },
     {
-      title: 'Total Amount',
-      dataIndex: 'total_amount',
-      key: 'total_amount',
+      id: 'total_amount',
+      label: 'Total Amount',
       width: 140,
-      render: (amount: number) => {
-        const amountNum = amount ? Number(amount) : 0;
+      render: (value: any, record: EstimateProps) => {
+        const amountNum = record.total_amount ? Number(record.total_amount) : 0;
         return (
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
             padding: '6px 12px',
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #86efac',
+            backgroundColor: '#f0f2ff',
+            border: '1px solid #a5affd',
             borderRadius: '8px',
             fontWeight: 600,
-            color: '#16a34a',
+            color: '#5b6cf9',
             fontSize: '14px'
           }}>
             <DollarOutlined />
@@ -535,20 +528,20 @@ const Estimates: React.FC = () => {
       }
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
+      id: 'status',
+      label: 'Status',
       width: 110,
-      render: (status: string) => {
+      render: (value: any, record: EstimateProps) => {
+        const status = record.status || 'draft';
         const statusConfig: Record<string, { bg: string; text: string; border: string }> = {
-          'draft': { bg: '#fef3c7', text: '#d97706', border: '#fde68a' },
-          'sent': { bg: '#dbeafe', text: '#2563eb', border: '#93c5fd' },
-          'approved': { bg: '#dcfce7', text: '#16a34a', border: '#86efac' },
-          'rejected': { bg: '#fee2e2', text: '#dc2626', border: '#fca5a5' }
+          'draft': { bg: '#f5f5f5', text: '#8c8c8c', border: '#d9d9d9' },
+          'sent': { bg: '#f0f2ff', text: '#5b6cf9', border: '#a5affd' },
+          'approved': { bg: '#5b6cf9', text: '#ffffff', border: '#5b6cf9' },
+          'rejected': { bg: '#595959', text: '#ffffff', border: '#595959' }
         };
         const config = statusConfig[status] || { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db' };
         return (
-          <Tag 
+          <Tag
             style={{
               backgroundColor: config.bg,
               color: config.text,
@@ -565,24 +558,23 @@ const Estimates: React.FC = () => {
       }
     },
     {
-      title: 'Created',
-      dataIndex: 'created_at',
-      key: 'created_at',
+      id: 'created_at',
+      label: 'Created',
       width: 100,
-      render: (date: string) => (
+      render: (value: any, record: EstimateProps) => (
         <span style={{ fontSize: '13px', color: '#6b7280' }}>
-          {new Date(date).toLocaleDateString('en-US', {
+          {record.created_at ? new Date(record.created_at).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric'
-          })}
+          }) : 'N/A'}
         </span>
       )
     },
     {
-      title: 'Actions',
-      key: 'actions',
+      id: 'actions',
+      label: 'Actions',
       width: 140,
-      render: (record: EstimateProps) => (
+      render: (value: any, record: EstimateProps) => (
         <Space size={4}>
           <Button
             size="small"
@@ -624,213 +616,210 @@ const Estimates: React.FC = () => {
 
 
   return (
-    <div>
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>
-                Estimates
-                {customerIdParam && filteredEstimates.length > 0 && (
-                  <Tag color="blue" style={{ marginLeft: '12px', fontSize: '13px' }}>
-                    <UserOutlined /> {filteredEstimates[0]?.customer_name}
-                  </Tag>
-                )}
-              </h1>
-              <p style={{ color: '#666', margin: 0 }}>
-                {customerIdParam 
-                  ? `Showing ${filteredEstimates.length} estimate${filteredEstimates.length !== 1 ? 's' : ''} for this customer`
-                  : `View and manage customer estimates (${filteredEstimates.length} of ${estimates.length})`
-                }
-              </p>
-            </div>
-            <Button 
-              icon={<ArrowLeftOutlined />}
-              onClick={() => navigate('/customers')}
-            >
-              Back
-            </Button>
+    <div style={{ padding: '8px 16px 24px 16px' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>
+              Estimates
+            </h1>
+            <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>
+              {customerIdParam
+                ? `Showing ${filteredEstimates.length} estimate${filteredEstimates.length !== 1 ? 's' : ''} for this customer`
+                : `View and manage customer estimates (${filteredEstimates.length} of ${estimates.length})`
+              }
+            </p>
           </div>
+          <WhiteButton
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate(-1)}
+          >
+            Back
+          </WhiteButton>
         </div>
+      </div>
 
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Input
-            placeholder="Search by customer, template, or service type..."
-            prefix={<SearchOutlined />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ maxWidth: '400px' }}
-            allowClear
-          />
-          {customerIdParam && (
-            <Button
-              onClick={() => navigate('/estimates')}
-              icon={<ArrowLeftOutlined />}
-            >
-              Show All Estimates
-            </Button>
-          )}
-        </div>
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <SearchBar
+          placeholder="Search by customer, template, or service type..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ maxWidth: '400px' }}
+          allowClear
+        />
+        {customerIdParam && (
+          <BlackButton
+            onClick={() => navigate('/estimates')}
+            icon={<ArrowLeftOutlined />}
+          >
+            Show All Estimates
+          </BlackButton>
+        )}
+      </div>
 
-        <Card bodyStyle={{ padding: 0 }}>
-          <Table
-            columns={columns}
-            dataSource={filteredEstimates}
-            loading={loading}
-            rowKey="id"
-            size="small"
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} estimates`
-            }}
-            scroll={{ x: 1000 }}
-          />
-        </Card>
+      <Card
+        style={{
+          borderRadius: '12px',
+          overflow: 'hidden',
+          height: 'calc(100vh - 200px)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        bodyStyle={{
+          padding: 0,
+          height: '100%',
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <FixedTable
+          columns={columns}
+          data={filteredEstimates}
+          tableName="estimates_table"
+        />
+      </Card>
 
-        {/* Documents Modal */}
-        <Modal
-          title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileTextOutlined />
-              Documents for Estimate #{selectedEstimateForDocs?.id}
-            </div>
-          }
-          open={documentsModalVisible}
-          onCancel={() => {
-            setDocumentsModalVisible(false);
-            setSelectedEstimateForDocs(null);
-            setEstimateDocuments([]);
-          }}
-          footer={null}
-          width={750}
-        >
-          {loadingDocuments ? (
-            <div style={{ padding: '40px', textAlign: 'center' }}>
-              Loading documents...
-            </div>
-          ) : estimateDocuments.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-              <FileTextOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-              <div>No documents attached to this estimate.</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {estimateDocuments.map((doc) => (
-                <Card
-                  key={doc.id}
-                  style={{
-                    borderRadius: '8px',
-                    border: doc.customer_signed ? '2px solid #86efac' : '1px solid #e5e7eb',
-                    backgroundColor: doc.customer_signed ? '#f0fdf4' : '#ffffff',
-                    transition: 'all 0.3s ease',
-                    cursor: 'default'
-                  }}
-                  bodyStyle={{ padding: '16px' }}
-                  hoverable={false}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* Left side - Document info */}
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div
-                        style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '8px',
-                          background: '#dbeafe',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#2563eb',
-                          fontSize: '20px',
-                          flexShrink: 0
-                        }}
-                      >
-                        <FileTextOutlined />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <span style={{ fontWeight: 600, fontSize: '14px', color: '#333' }}>
-                            {doc.document_title}
-                          </span>
-                          {doc.customer_signed && (
-                            <Tag icon={<CheckCircleOutlined />} color="success" style={{ margin: 0 }}>
-                              Signed
-                            </Tag>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
-                          {doc.document_type || 'Document'}
-                          {doc.requires_signature && !doc.customer_signed && (
-                            <Tag color="orange" style={{ marginLeft: '8px' }}>Signature Required</Tag>
-                          )}
-                        </div>
-                        {doc.customer_signed_at && (
-                          <div style={{ fontSize: '11px', color: '#52c41a', marginTop: '4px' }}>
-                            ✓ Signed on {new Date(doc.customer_signed_at).toLocaleDateString()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right side - Download button */}
-                    <Button
-                      icon={<DownloadOutlined />}
-                      onClick={() => handleDownloadDocument(doc)}
+      {/* Documents Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileTextOutlined />
+            Documents for Estimate #{selectedEstimateForDocs?.id}
+          </div>
+        }
+        open={documentsModalVisible}
+        onCancel={() => {
+          setDocumentsModalVisible(false);
+          setSelectedEstimateForDocs(null);
+          setEstimateDocuments([]);
+        }}
+        footer={null}
+        width={750}
+      >
+        {loadingDocuments ? (
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            Loading documents...
+          </div>
+        ) : estimateDocuments.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+            <FileTextOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
+            <div>No documents attached to this estimate.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {estimateDocuments.map((doc) => (
+              <Card
+                key={doc.id}
+                style={{
+                  borderRadius: '8px',
+                  border: doc.customer_signed ? '2px solid #86efac' : '1px solid #e5e7eb',
+                  backgroundColor: doc.customer_signed ? '#f0fdf4' : '#ffffff',
+                  transition: 'all 0.3s ease',
+                  cursor: 'default'
+                }}
+                bodyStyle={{ padding: '16px' }}
+                hoverable={false}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {/* Left side - Document info */}
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div
                       style={{
-                        height: '40px',
+                        width: '48px',
+                        height: '48px',
                         borderRadius: '8px',
-                        fontWeight: 500,
-                        backgroundColor: '#dbeafe',
-                        color: '#2563eb',
-                        border: '1px solid #93c5fd',
-                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                        background: '#dbeafe',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        padding: '0 20px',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#bfdbfe';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#dbeafe';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                        justifyContent: 'center',
+                        color: '#2563eb',
+                        fontSize: '20px',
+                        flexShrink: 0
                       }}
                     >
-                      Download PDF
-                    </Button>
+                      <FileTextOutlined />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '14px', color: '#333' }}>
+                          {doc.document_title}
+                        </span>
+                        {doc.customer_signed && (
+                          <Tag icon={<CheckCircleOutlined />} color="success" style={{ margin: 0 }}>
+                            Signed
+                          </Tag>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>
+                        {doc.document_type || 'Document'}
+                        {doc.requires_signature && !doc.customer_signed && (
+                          <Tag color="orange" style={{ marginLeft: '8px' }}>Signature Required</Tag>
+                        )}
+                      </div>
+                      {doc.customer_signed_at && (
+                        <div style={{ fontSize: '11px', color: '#52c41a', marginTop: '4px' }}>
+                          ✓ Signed on {new Date(doc.customer_signed_at).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </Card>
-              ))}
-            </div>
-          )}
 
-          {/* Close button at bottom */}
-          {!loadingDocuments && (
-            <div style={{ marginTop: '16px', textAlign: 'center' }}>
-              <Button
-                onClick={() => {
-                  setDocumentsModalVisible(false);
-                  setSelectedEstimateForDocs(null);
-                  setEstimateDocuments([]);
-                }}
-                style={{ minWidth: '120px' }}
-              >
-                Close
-              </Button>
-            </div>
-          )}
-        </Modal>
-      </div>
+                  {/* Right side - Download button */}
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={() => handleDownloadDocument(doc)}
+                    style={{
+                      height: '40px',
+                      borderRadius: '8px',
+                      fontWeight: 500,
+                      backgroundColor: '#dbeafe',
+                      color: '#2563eb',
+                      border: '1px solid #93c5fd',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '0 20px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#bfdbfe';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#dbeafe';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                    }}
+                  >
+                    Download PDF
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Close button at bottom */}
+        {!loadingDocuments && (
+          <div style={{ marginTop: '16px', textAlign: 'center' }}>
+            <Button
+              onClick={() => {
+                setDocumentsModalVisible(false);
+                setSelectedEstimateForDocs(null);
+                setEstimateDocuments([]);
+              }}
+              style={{ minWidth: '120px' }}
+            >
+              Close
+            </Button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

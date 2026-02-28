@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Button, 
-  Modal, 
-  notification, 
-  Tag, 
-  Card, 
+import {
+  Button,
+  Modal,
+  notification,
+  Tag,
+  Card,
   Input,
   Select,
   Space,
@@ -14,7 +14,8 @@ import {
   MenuProps,
   App
 } from 'antd';
-import { 
+import { BlackButton, WhiteButton, PageLoader } from './';
+import {
   UserOutlined,
   MailOutlined,
   EditOutlined,
@@ -33,6 +34,8 @@ import { getAuthToken } from '../utils/functions';
 import { UsersUrl, ForgotPasswordUrl } from '../utils/network';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import FixedTable from './FixedTable';
+import { Tooltip } from 'antd';
 
 const { Search } = Input;
 const { Title, Text } = Typography;
@@ -68,7 +71,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   selectedRole = 'all'
 }) => {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [resetPasswordModal, setResetPasswordModal] = useState<{
     visible: boolean;
     user: UserProps | null;
@@ -77,7 +79,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     user: null
   });
   const [resetLoading, setResetLoading] = useState(false);
-  
+
   const [suspendModal, setSuspendModal] = useState<{
     visible: boolean;
     user: UserProps | null;
@@ -86,7 +88,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     user: null
   });
   const [suspendLoading, setSuspendLoading] = useState(false);
-  
+
   const [deleteModal, setDeleteModal] = useState<{
     visible: boolean;
     user: UserProps | null;
@@ -95,7 +97,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     user: null
   });
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
   const [successModal, setSuccessModal] = useState<{
     visible: boolean;
     userName: string;
@@ -104,35 +106,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     userName: ""
   });
 
-  const [editModal, setEditModal] = useState<{
-    visible: boolean;
-    user: UserProps | null;
-    newRole: string;
-    newStatus: boolean;
-    newFullname: string;
-    newEmail: string;
-  }>({
-    visible: false,
-    user: null,
-    newRole: "",
-    newStatus: true,
-    newFullname: "",
-    newEmail: ""
-  });
-  const [editLoading, setEditLoading] = useState(false);
-
   // Filter users based on search and filters
   const filteredUsers = approvedUsers.filter(user => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       user.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesRole = selectedRole === "all" || user.role === selectedRole;
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "active" && user.is_active) ||
-      (statusFilter === "inactive" && !user.is_active);
-    
-    return matchesSearch && matchesRole && matchesStatus;
+    return matchesSearch && matchesRole;
   });
 
   // Summary stats
@@ -156,23 +137,23 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
     const userName = deleteModal.user.fullname;
     setDeleteLoading(true);
-    
+
     try {
       const headers = getAuthToken() as AuthTokenType;
       const response = await axios.delete(`${UsersUrl}/${deleteModal.user.id}`, headers);
 
       // Close the delete modal
       setDeleteModal({ visible: false, user: null });
-      
+
       // Refresh the users list immediately
       onRefreshUsers();
-      
+
       // Show custom success modal
       setSuccessModal({
         visible: true,
         userName: userName
       });
-      
+
     } catch (error: any) {
       notification.error({
         message: "Delete Error",
@@ -191,76 +172,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   };
 
   const handleEditUser = (user: UserProps) => {
-    setEditModal({
-      visible: true,
-      user: user,
-      newRole: user.role,
-      newStatus: user.is_active,
-      newFullname: user.fullname || "",
-      newEmail: user.email || ""
-    });
-  };
-
-  const confirmEditUser = async () => {
-    if (!editModal.user) return;
-
-    setEditLoading(true);
-    try {
-      const headers = getAuthToken() as AuthTokenType;
-      const updateData = {
-        ...editModal.user,
-        role: editModal.newRole,
-        is_active: editModal.newStatus,
-        fullname: editModal.newFullname,
-        email: editModal.newEmail
-      };
-
-      const response = await axios.put(`${UsersUrl}/${editModal.user.id}`, updateData, headers);
-
-      // Close the edit modal
-      setEditModal({ 
-        visible: false, 
-        user: null, 
-        newRole: "", 
-        newStatus: true, 
-        newFullname: "", 
-        newEmail: "" 
-      });
-      
-      // Show success notification
-      notification.success({
-        message: "User Updated Successfully",
-        description: `Changes to ${editModal.newFullname}'s account have been saved.`,
-        duration: 3,
-        placement: 'topRight',
-        title: "User Updated Successfully"
-      });
-
-      // Refresh the users list
-      onRefreshUsers();
-      
-    } catch (error: any) {
-      notification.error({
-        message: "Update Error",
-        description: error.response?.data?.error || "Failed to update user account.",
-        duration: 4.5,
-        placement: 'topRight',
-        title: "Update Error"
-      });
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const cancelEditUser = () => {
-    setEditModal({ 
-      visible: false, 
-      user: null, 
-      newRole: "", 
-      newStatus: true, 
-      newFullname: "", 
-      newEmail: "" 
-    });
+    onEditUser(user);
   };
 
   const handleToggleUserStatus = (user: UserProps) => {
@@ -319,8 +231,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
     setResetLoading(true);
     try {
-      const response = await axios.post(ForgotPasswordUrl, { 
-        email: resetPasswordModal.user.email 
+      const response = await axios.post(ForgotPasswordUrl, {
+        email: resetPasswordModal.user.email
       });
 
       notification.success({
@@ -350,19 +262,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       key: 'edit',
       label: 'Edit User',
       icon: <EditOutlined />,
-      onClick: () => handleEditUser(user)
+      onClick: ({ domEvent }) => { domEvent.stopPropagation(); handleEditUser(user); }
     },
     {
       key: 'reset-password',
       label: 'Reset Password',
       icon: <KeyOutlined />,
-      onClick: () => handleResetPassword(user)
+      onClick: ({ domEvent }) => { domEvent.stopPropagation(); handleResetPassword(user); }
     },
     {
       key: 'toggle-status',
       label: user.is_active ? 'Suspend User' : 'Activate User',
       icon: user.is_active ? <StopOutlined /> : <PlayCircleOutlined />,
-      onClick: () => handleToggleUserStatus(user)
+      onClick: ({ domEvent }) => { domEvent.stopPropagation(); handleToggleUserStatus(user); }
     },
     {
       type: 'divider'
@@ -372,115 +284,104 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       label: 'Delete User',
       icon: <DeleteOutlined />,
       danger: true,
-      onClick: () => handleDeleteUser(user)
+      onClick: ({ domEvent }) => { domEvent.stopPropagation(); handleDeleteUser(user); }
+    }
+  ];
+
+  const columns = [
+    {
+      id: 'fullname',
+      label: 'Full Name',
+      width: 200,
+      fixed: true,
+      render: (value: any, record: UserProps) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 8px' }}>
+          <UserOutlined style={{ fontSize: '16px', color: record.is_superuser ? '#f5222d' : '#1890ff' }} />
+          <div style={{ fontWeight: 600, color: '#1a1a2e' }}>{record.fullname}</div>
+        </div>
+      )
+    },
+    {
+      id: 'email',
+      label: 'Email',
+      width: 250,
+      render: (value: any) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px' }}>
+          <MailOutlined style={{ color: '#8e8ea8', fontSize: '12px' }} />
+          <span style={{ fontSize: '12px' }}>{value}</span>
+        </div>
+      )
+    },
+    {
+      id: 'role',
+      label: 'Role',
+      width: 120,
+      render: (value: any) => (
+        <Tag color={ROLE_CONFIG[value as keyof typeof ROLE_CONFIG]?.color || 'default'} style={{ margin: 0 }}>
+          {ROLE_CONFIG[value as keyof typeof ROLE_CONFIG]?.label || value}
+        </Tag>
+      )
+    },
+    {
+      id: 'is_active',
+      label: 'Status',
+      width: 100,
+      render: (value: any) => (
+        <Tag color={value ? 'green' : 'red'} style={{ margin: 0 }}>
+          {value ? 'Active' : 'Inactive'}
+        </Tag>
+      )
+    },
+    {
+      id: 'created_at',
+      label: 'Joined',
+      width: 140,
+      render: (value: any) => (
+        <span style={{ fontSize: '12px', color: '#595959' }}>
+          {dayjs(value).format('MMM DD, YYYY')}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      label: 'Actions',
+      width: 80,
+      render: (value: any, record: UserProps) => (
+        <Dropdown menu={{ items: getActionMenuItems(record) }} trigger={['click']}>
+          <Button type="text" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
+        </Dropdown>
+      )
     }
   ];
 
   return (
-    <div>
-      {/* Users Cards Grid */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>Loading...</div>
-      ) : filteredUsers.length === 0 ? (
-        <Card>
-          <div style={{ textAlign: 'center', padding: '50px' }}>
-            <h3 style={{ marginBottom: '16px' }}>No users found</h3>
-            <p style={{ color: '#666', marginBottom: '24px' }}>
-              {searchTerm || selectedRole !== 'all' || statusFilter !== 'all'
-                ? 'No users match your current filters.'
-                : 'Get started by adding your first user.'}
-            </p>
-          </div>
-        </Card>
-      ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-          gap: '24px' 
-        }}>
-          {filteredUsers.map((user) => (
-            <Card
-              key={user.id}
-              style={{ 
-                borderRadius: '12px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                transition: 'all 0.3s ease'
-              }}
-              hoverable
-              actions={[
-                <EditOutlined 
-                  key="edit" 
-                  style={{ fontSize: '16px' }}
-                  onClick={() => handleEditUser(user)}
-                />,
-                <KeyOutlined 
-                  key="reset" 
-                  style={{ fontSize: '16px', color: '#faad14' }}
-                  onClick={() => handleResetPassword(user)}
-                />,
-                user.is_active ? (
-                  <StopOutlined 
-                    key="suspend" 
-                    style={{ fontSize: '16px', color: '#ff4d4f' }}
-                    onClick={() => handleToggleUserStatus(user)}
-                  />
-                ) : (
-                  <PlayCircleOutlined 
-                    key="activate" 
-                    style={{ fontSize: '16px', color: '#52c41a' }}
-                    onClick={() => handleToggleUserStatus(user)}
-                  />
-                ),
-                <DeleteOutlined 
-                  key="delete" 
-                  style={{ fontSize: '16px', color: '#ff4d4f' }}
-                  onClick={() => handleDeleteUser(user)}
-                />
-              ]}
-            >
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <UserOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-                    {user.fullname}
-                  </h3>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <Tag color={ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG]?.color || 'default'}>
-                    {ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG]?.label || user.role}
-                  </Tag>
-                  <Tag color={user.is_active ? 'green' : 'red'}>
-                    {user.is_active ? 'Active' : 'Inactive'}
-                  </Tag>
-                </div>
-              </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <MailOutlined style={{ color: '#666' }} />
-                  <span style={{ fontSize: '14px', color: '#333' }}>{user.email}</span>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CalendarOutlined style={{ color: '#666' }} />
-                  <span style={{ fontSize: '14px', color: '#333' }}>
-                    Joined: {dayjs(user.created_at).format('MMM DD, YYYY')}
-                  </span>
-                </div>
-
-                {user.last_login && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CalendarOutlined style={{ color: '#666' }} />
-                    <span style={{ fontSize: '14px', color: '#333' }}>
-                      Last Login: {dayjs(user.last_login).format('MMM DD, YYYY HH:mm')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {loading ? (
+          <PageLoader text="Fetching users..." />
+        ) : filteredUsers.length === 0 ? (
+          <Card>
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+              <h3 style={{ marginBottom: '16px' }}>No users found</h3>
+              <p style={{ color: '#666', marginBottom: '24px' }}>
+                {searchTerm || selectedRole !== 'all'
+                  ? 'No users match your current filters.'
+                  : 'Get started by adding your first user.'}
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <Card style={{ borderRadius: '12px', overflow: 'hidden', height: 'calc(100vh - 320px)' }} bodyStyle={{ padding: 0, height: '100%' }}>
+            <FixedTable
+              columns={columns}
+              data={filteredUsers}
+              tableName="users_management_table"
+              onRowClick={(record) => handleEditUser(record)}
+            />
+          </Card>
+        )}
+      </div>
 
       {/* Reset Password Modal */}
       <Modal
@@ -488,28 +389,26 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         open={resetPasswordModal.visible}
         onCancel={cancelResetPassword}
         footer={[
-          <Button key="cancel" onClick={cancelResetPassword}>
+          <WhiteButton key="cancel" onClick={cancelResetPassword}>
             Cancel
-          </Button>,
-          <Button 
-            key="confirm" 
-            type="primary" 
+          </WhiteButton>,
+          <BlackButton
+            key="confirm"
             icon={<KeyOutlined />}
             loading={resetLoading}
             onClick={confirmResetPassword}
-            style={{ backgroundColor: '#1890ff', borderColor: '#1890ff' }}
           >
-            Send Reset Email
-          </Button>
+            Reset Password
+          </BlackButton>
         ]}
       >
         {resetPasswordModal.user && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 16 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              marginBottom: 16
             }}>
               <div style={{ fontWeight: 500, marginBottom: 4 }}>
                 <UserOutlined style={{ marginRight: 8, color: '#1890ff' }} />
@@ -527,9 +426,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               </div>
             </div>
 
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#e6f7ff', 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#e6f7ff',
               borderRadius: 6,
               border: '1px solid #91d5ff'
             }}>
@@ -540,9 +439,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     Password Reset Process
                   </div>
                   <div style={{ fontSize: '14px', color: '#595959', lineHeight: '1.5' }}>
-                    • A secure reset link will be sent to the user's email<br/>
-                    • The link will expire in 1 hour for security<br/>
-                    • User will be able to set a new password<br/>
+                    • A secure reset link will be sent to the user's email<br />
+                    • The link will expire in 1 hour for security<br />
+                    • User will be able to set a new password<br />
                     • Current password will remain active until reset
                   </div>
                 </div>
@@ -558,32 +457,30 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         open={suspendModal.visible}
         onCancel={cancelToggleStatus}
         footer={[
-          <Button key="cancel" onClick={cancelToggleStatus}>
+          <WhiteButton key="cancel" onClick={cancelToggleStatus}>
             Cancel
-          </Button>,
-          <Button 
-            key="confirm" 
-            type="primary" 
+          </WhiteButton>,
+          <BlackButton
+            key="confirm"
             icon={suspendModal.user?.is_active ? <StopOutlined /> : <PlayCircleOutlined />}
             loading={suspendLoading}
             onClick={confirmToggleStatus}
-            style={{ 
-              backgroundColor: suspendModal.user?.is_active ? '#ff4d4f' : '#52c41a', 
-              borderColor: suspendModal.user?.is_active ? '#ff4d4f' : '#52c41a' 
+            style={{
+              backgroundColor: suspendModal.user?.is_active ? '#ff4d4f' : '#52c41a',
+              borderColor: suspendModal.user?.is_active ? '#ff4d4f' : '#52c41a'
             }}
-            danger={suspendModal.user?.is_active}
           >
             {suspendModal.user?.is_active ? "Suspend User" : "Activate User"}
-          </Button>
+          </BlackButton>
         ]}
       >
         {suspendModal.user && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 16 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              marginBottom: 16
             }}>
               <div style={{ fontWeight: 500, marginBottom: 4 }}>
                 <UserOutlined style={{ marginRight: 8, color: '#1890ff' }} />
@@ -607,38 +504,38 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               </div>
             </div>
 
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: suspendModal.user.is_active ? '#fff2f0' : '#f6ffed', 
+            <div style={{
+              padding: 16,
+              backgroundColor: suspendModal.user.is_active ? '#fff2f0' : '#f6ffed',
               borderRadius: 6,
               border: suspendModal.user.is_active ? '1px solid #ffccc7' : '1px solid #b7eb8f'
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                {suspendModal.user.is_active ? 
+                {suspendModal.user.is_active ?
                   <StopOutlined style={{ color: '#ff4d4f', marginTop: 2 }} /> :
                   <PlayCircleOutlined style={{ color: '#52c41a', marginTop: 2 }} />
                 }
                 <div>
-                  <div style={{ 
-                    fontWeight: 500, 
-                    marginBottom: 4, 
-                    color: suspendModal.user.is_active ? '#ff4d4f' : '#52c41a' 
+                  <div style={{
+                    fontWeight: 500,
+                    marginBottom: 4,
+                    color: suspendModal.user.is_active ? '#ff4d4f' : '#52c41a'
                   }}>
                     {suspendModal.user.is_active ? 'Suspend Account' : 'Activate Account'}
                   </div>
                   <div style={{ fontSize: '14px', color: '#595959', lineHeight: '1.5' }}>
                     {suspendModal.user.is_active ? (
                       <>
-                        • User will not be able to log in<br/>
-                        • All active sessions will be terminated<br/>
-                        • Account can be reactivated later<br/>
+                        • User will not be able to log in<br />
+                        • All active sessions will be terminated<br />
+                        • Account can be reactivated later<br />
                         • User data will be preserved
                       </>
                     ) : (
                       <>
-                        • User will be able to log in again<br/>
-                        • Full access to system features<br/>
-                        • All permissions will be restored<br/>
+                        • User will be able to log in again<br />
+                        • Full access to system features<br />
+                        • All permissions will be restored<br />
                         • Account will be fully functional
                       </>
                     )}
@@ -656,28 +553,27 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         open={deleteModal.visible}
         onCancel={cancelDeleteUser}
         footer={[
-          <Button key="cancel" onClick={cancelDeleteUser}>
+          <WhiteButton key="cancel" onClick={cancelDeleteUser}>
             Cancel
-          </Button>,
-          <Button 
-            key="delete" 
-            type="primary" 
+          </WhiteButton>,
+          <BlackButton
+            key="confirm"
             icon={<DeleteOutlined />}
             loading={deleteLoading}
             onClick={confirmDeleteUser}
-            danger
+            style={{ backgroundColor: '#ff4d4f', borderColor: '#ff4d4f' }}
           >
             Delete User
-          </Button>
+          </BlackButton>
         ]}
       >
         {deleteModal.user && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 16 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              marginBottom: 16
             }}>
               <div style={{ fontWeight: 500, marginBottom: 4 }}>
                 <UserOutlined style={{ marginRight: 8, color: '#1890ff' }} />
@@ -701,26 +597,26 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               </div>
             </div>
 
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#fff2f0', 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#fff2f0',
               borderRadius: 6,
               border: '1px solid #ffccc7'
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 <DeleteOutlined style={{ color: '#ff4d4f', marginTop: 2 }} />
                 <div>
-                  <div style={{ 
-                    fontWeight: 500, 
-                    marginBottom: 4, 
-                    color: '#ff4d4f' 
+                  <div style={{
+                    fontWeight: 500,
+                    marginBottom: 4,
+                    color: '#ff4d4f'
                   }}>
                     Permanent Deletion Warning
                   </div>
                   <div style={{ fontSize: '14px', color: '#595959', lineHeight: '1.5' }}>
-                    • This action cannot be undone<br/>
-                    • All user data will be permanently removed<br/>
-                    • User will lose access immediately<br/>
+                    • This action cannot be undone<br />
+                    • All user data will be permanently removed<br />
+                    • User will lose access immediately<br />
                     • This includes all activity history and records
                   </div>
                 </div>
@@ -730,145 +626,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         )}
       </Modal>
 
-      {/* Edit User Modal */}
-      <Modal
-        title="Edit User Account"
-        open={editModal.visible}
-        onCancel={cancelEditUser}
-        footer={[
-          <Button key="cancel" onClick={cancelEditUser}>
-            Cancel
-          </Button>,
-          <Button 
-            key="save" 
-            type="primary" 
-            icon={<EditOutlined />}
-            loading={editLoading}
-            onClick={confirmEditUser}
-            style={{ backgroundColor: '#1890ff', borderColor: '#1890ff' }}
-          >
-            Save Changes
-          </Button>
-        ]}
-        width={650}
-        style={{ top: 20 }}
-        bodyStyle={{ maxHeight: '70vh', overflowY: 'auto' }}
-      >
-        {editModal.user && (
-          <div style={{ marginBottom: 16 }}>
-            {/* User Info Header */}
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 24 
-            }}>
-              <div style={{ fontWeight: 500, marginBottom: 4 }}>
-                <UserOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-                Editing User Account
-              </div>
-              <div style={{ color: '#8c8c8c', fontSize: '12px' }}>
-                Make changes to user details, role, and account status
-              </div>
-            </div>
 
-            {/* Edit Form */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-              {/* Full Name */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: '14px' }}>
-                  Full Name
-                </label>
-                <Input
-                  value={editModal.newFullname}
-                  onChange={(e) => setEditModal({ ...editModal, newFullname: e.target.value })}
-                  placeholder="Enter full name"
-                  prefix={<UserOutlined />}
-                  size="middle"
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: '14px' }}>
-                  Email Address
-                </label>
-                <Input
-                  value={editModal.newEmail}
-                  onChange={(e) => setEditModal({ ...editModal, newEmail: e.target.value })}
-                  placeholder="Enter email address"
-                  prefix={<MailOutlined />}
-                  type="email"
-                  size="middle"
-                />
-              </div>
-
-              {/* Role */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: '14px' }}>
-                  User Role
-                </label>
-                <Select
-                  value={editModal.newRole}
-                  onChange={(value) => setEditModal({ ...editModal, newRole: value })}
-                  style={{ width: '100%' }}
-                  placeholder="Select role"
-                  size="middle"
-                >
-                  {Object.entries(ROLE_CONFIG).map(([role, config]) => (
-                    <Select.Option key={role} value={role}>
-                      <Tag color={config.color} style={{ marginRight: 6, fontSize: '11px' }}>
-                        {config.label}
-                      </Tag>
-                    </Select.Option>
-                  ))}
-                </Select>
-              </div>
-
-              {/* Status */}
-              <div>
-                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: '14px' }}>
-                  Account Status
-                </label>
-                <Select
-                  value={editModal.newStatus}
-                  onChange={(value) => setEditModal({ ...editModal, newStatus: value })}
-                  style={{ width: '100%' }}
-                  placeholder="Select status"
-                  size="middle"
-                >
-                  <Select.Option value={true}>
-                    <Tag color="green" style={{ marginRight: 6, fontSize: '11px' }}>Active</Tag>
-                    <span style={{ fontSize: '12px' }}>User can access the system</span>
-                  </Select.Option>
-                  <Select.Option value={false}>
-                    <Tag color="red" style={{ marginRight: 6, fontSize: '11px' }}>Inactive</Tag>
-                    <span style={{ fontSize: '12px' }}>User cannot access the system</span>
-                  </Select.Option>
-                </Select>
-              </div>
-            </div>
-
-            {/* Role Description - Compact */}
-            {editModal.newRole && ROLE_CONFIG[editModal.newRole as keyof typeof ROLE_CONFIG] && (
-              <div style={{ 
-                padding: 10, 
-                backgroundColor: '#f0f9ff', 
-                borderRadius: 4,
-                border: '1px solid #bae6fd',
-                fontSize: '12px'
-              }}>
-                <span style={{ fontWeight: 500, color: '#0284c7' }}>
-                  {ROLE_CONFIG[editModal.newRole as keyof typeof ROLE_CONFIG].label}:
-                </span>
-                <span style={{ color: '#64748b', marginLeft: 6 }}>
-                  {ROLE_CONFIG[editModal.newRole as keyof typeof ROLE_CONFIG].description}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
 
       {/* Custom Success Modal */}
       <Modal
@@ -876,14 +634,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         open={successModal.visible}
         onCancel={() => setSuccessModal({ visible: false, userName: "" })}
         footer={[
-          <Button 
-            key="close" 
-            type="primary" 
+          <BlackButton
+            key="close"
             onClick={() => setSuccessModal({ visible: false, userName: "" })}
             style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', minWidth: '100px' }}
           >
             Close
-          </Button>
+          </BlackButton>
         ]}
         centered
         width={480}
@@ -891,50 +648,50 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       >
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           {/* Success Icon */}
-          <div style={{ 
-            width: '60px', 
-            height: '60px', 
-            backgroundColor: '#f6ffed', 
+          <div style={{
+            width: '60px',
+            height: '60px',
+            backgroundColor: '#f6ffed',
             border: '2px solid #52c41a',
-            borderRadius: '50%', 
-            display: 'flex', 
-            alignItems: 'center', 
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 16px auto'
           }}>
-            <div style={{ 
-              color: '#52c41a', 
-              fontSize: '28px', 
-              fontWeight: 'bold' 
+            <div style={{
+              color: '#52c41a',
+              fontSize: '28px',
+              fontWeight: 'bold'
             }}>
               ✓
             </div>
           </div>
-          
+
           {/* Success Title */}
-          <div style={{ 
-            fontSize: '20px', 
-            fontWeight: '600', 
-            color: '#262626', 
-            marginBottom: '12px' 
+          <div style={{
+            fontSize: '20px',
+            fontWeight: '600',
+            color: '#262626',
+            marginBottom: '12px'
           }}>
             User Deleted Successfully
           </div>
-          
+
           {/* Success Message */}
-          <div style={{ 
-            fontSize: '14px', 
-            color: '#595959', 
+          <div style={{
+            fontSize: '14px',
+            color: '#595959',
             marginBottom: '16px',
             lineHeight: '1.5'
           }}>
             The user account for <strong>{successModal.userName}</strong> has been permanently deleted from the system.
           </div>
-          
+
           {/* Additional Info */}
-          <div style={{ 
-            padding: '12px 16px', 
-            backgroundColor: '#f6ffed', 
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: '#f6ffed',
             borderRadius: '6px',
             border: '1px solid #b7eb8f',
             fontSize: '12px',
@@ -944,9 +701,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             <div style={{ fontWeight: '500', marginBottom: '4px', color: '#52c41a' }}>
               What happened:
             </div>
-            • All user data has been permanently removed<br/>
-            • The user no longer has access to the system<br/>
-            • All activity history and records have been deleted<br/>
+            • All user data has been permanently removed<br />
+            • The user no longer has access to the system<br />
+            • All activity history and records have been deleted<br />
             • This action cannot be undone
           </div>
         </div>

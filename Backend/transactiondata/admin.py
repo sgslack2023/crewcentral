@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     TimeWindow, ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem,
-    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch
+    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch,
+    TransactionCategory, Expense, Purchase
 )
 
 
@@ -121,3 +122,27 @@ class EstimateDocumentAdmin(admin.ModelAdmin):
     list_filter = ('requires_signature', 'customer_signed', 'customer_viewed', 'created_at')
     search_fields = ('estimate__customer__full_name', 'document__title')
     readonly_fields = ('customer_viewed', 'customer_viewed_at', 'customer_signed', 'customer_signed_at', 'created_at')
+
+
+@admin.register(TransactionCategory)
+class TransactionCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category_type', 'description', 'created_at')
+    list_filter = ('category_type', 'created_at')
+    search_fields = ('name', 'description')
+    readonly_fields = ('created_at', 'updated_at', 'created_by')
+
+
+@admin.register(Expense)
+class ExpenseAdmin(admin.ModelAdmin):
+    list_display = ('title', 'amount', 'expense_date', 'category', 'customer', 'work_order', 'created_at')
+    list_filter = ('expense_date', 'category', 'created_at')
+    search_fields = ('title', 'description', 'customer__full_name', 'work_order__order_number')
+    readonly_fields = ('created_at', 'updated_at', 'created_by')
+
+
+@admin.register(Purchase)
+class PurchaseAdmin(admin.ModelAdmin):
+    list_display = ('item_name', 'vendor', 'quantity', 'unit_price', 'total_amount', 'purchase_date', 'category', 'created_at')
+    list_filter = ('purchase_date', 'category', 'created_at')
+    search_fields = ('item_name', 'vendor', 'description')
+    readonly_fields = ('created_at', 'updated_at', 'created_by', 'total_amount')

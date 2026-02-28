@@ -1,7 +1,9 @@
 import React, { FC, useEffect, useState } from "react";
 import { Modal, notification, Form, InputNumber, Button, Select, Tabs, Input, Switch, Card } from "antd";
-import { 
-  DollarOutlined, 
+import BlackButton from './BlackButton';
+import ThinScroll from './ThinScroll';
+import {
+  DollarOutlined,
   PercentageOutlined,
   PlusOutlined,
   UnorderedListOutlined,
@@ -71,7 +73,7 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
   const fetchServiceTypes = async () => {
     getServiceTypes((data) => {
       setServiceTypes(data.filter((st: ServiceTypeProps) => st.enabled));
-    }, () => {});
+    }, () => { });
   };
 
   const handleFormClose = () => {
@@ -86,7 +88,7 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
   const handleChargeChange = (chargeId: number) => {
     const charge = chargeDefinitions.find(cd => cd.id === chargeId);
     setSelectedCharge(charge || null);
-    
+
     if (charge) {
       // Set default values from charge definition
       form.setFieldsValue({
@@ -99,7 +101,7 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
 
   const onSubmit = async (values: any) => {
     if (!estimateId || !selectedCharge) return;
-    
+
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
 
@@ -116,10 +118,10 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
 
     try {
       await axios.post(EstimateLineItemsUrl, submitData, headers);
-      
+
       // Trigger recalculation on backend (backend already does this, but being explicit)
       await axios.post(`${EstimatesUrl}/${estimateId}/recalculate`, {}, headers);
-      
+
       notification.success({
         message: "Line Item Added",
         description: "New charge has been added and estimate recalculated.",
@@ -143,7 +145,7 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
 
   const onSubmitNewCharge = async (values: any) => {
     if (!estimateId) return;
-    
+
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
 
@@ -178,10 +180,10 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
       };
 
       await axios.post(EstimateLineItemsUrl, lineItemData, headers);
-      
+
       // Trigger recalculation
       await axios.post(`${EstimatesUrl}/${estimateId}/recalculate`, {}, headers);
-      
+
       notification.success({
         message: "Charge Created & Added",
         description: `New charge "${newCharge.name}" has been created and added to the estimate.`,
@@ -212,282 +214,287 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
       footer={null}
       destroyOnClose
       width={600}
+      style={{ top: 20 }}
     >
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane 
+        <TabPane
           tab={
             <span>
               <UnorderedListOutlined />
               Select Existing
             </span>
-          } 
+          }
           key="existing"
         >
-          <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ quantity: 1 }}>
-            <Form.Item
-              label="Charge Definition"
-              name="charge"
-              rules={[{ required: true, message: 'Please select a charge!' }]}
-              style={{ marginBottom: '12px' }}
-            >
-              <Select
-                placeholder="Select Charge Definition"
-                onChange={handleChargeChange}
-                showSearch
-                optionFilterProp="children"
-                filterOption={(input, option) => {
-                  const charge = chargeDefinitions.find(cd => cd.id === option?.value);
-                  if (!charge) return false;
-                  const searchText = input.toLowerCase();
-                  return (
-                    charge.name.toLowerCase().includes(searchText) ||
-                    charge.category_name?.toLowerCase().includes(searchText) ||
-                    charge.charge_type.toLowerCase().includes(searchText)
-                  );
-                }}
+          <ThinScroll maxHeight="60vh" style={{ paddingRight: '8px' }}>
+            <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ quantity: 1 }}>
+              <Form.Item
+                label="Charge Definition"
+                name="charge"
+                rules={[{ required: true, message: 'Please select a charge!' }]}
+                style={{ marginBottom: '12px' }}
               >
-                {chargeDefinitions.map(cd => (
-                  <Option key={cd.id} value={cd.id}>
-                    <div>
-                      <div>{cd.name} {cd.is_estimate_only && <span style={{color: '#f59e0b', fontSize: '11px'}}>(Estimate Only)</span>}</div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        {cd.category_name} • {cd.charge_type}
+                <Select
+                  placeholder="Select Charge Definition"
+                  onChange={handleChargeChange}
+                  showSearch
+                  optionFilterProp="children"
+                  filterOption={(input, option) => {
+                    const charge = chargeDefinitions.find(cd => cd.id === option?.value);
+                    if (!charge) return false;
+                    const searchText = input.toLowerCase();
+                    return (
+                      charge.name.toLowerCase().includes(searchText) ||
+                      charge.category_name?.toLowerCase().includes(searchText) ||
+                      charge.charge_type.toLowerCase().includes(searchText)
+                    );
+                  }}
+                >
+                  {chargeDefinitions.map(cd => (
+                    <Option key={cd.id} value={cd.id}>
+                      <div>
+                        <div>{cd.name} {cd.is_estimate_only && <span style={{ color: '#f59e0b', fontSize: '11px' }}>(Estimate Only)</span>}</div>
+                        <div style={{ fontSize: '12px', color: '#999' }}>
+                          {cd.category_name} • {cd.charge_type}
+                        </div>
                       </div>
-                    </div>
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
 
-            {selectedCharge && (
-              <div style={{
-                padding: '12px',
-                backgroundColor: '#f0f9ff',
-                borderRadius: '6px',
-                border: '1px solid #bae6fd',
-                marginBottom: '16px'
-              }}>
-                <div style={{ fontSize: '12px', color: '#0284c7' }}>
-                  <strong>Type:</strong> {selectedCharge.charge_type} | 
-                  <strong> Category:</strong> {selectedCharge.category_name}
+              {selectedCharge && (
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#f0f9ff',
+                  borderRadius: '6px',
+                  border: '1px solid #bae6fd',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ fontSize: '12px', color: '#0284c7' }}>
+                    <strong>Type:</strong> {selectedCharge.charge_type} |
+                    <strong> Category:</strong> {selectedCharge.category_name}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {selectedCharge?.charge_type === 'percent' ? (
-              <Form.Item
-                label="Percentage"
-                name="percentage"
-                rules={[{ required: true, message: 'Please input the percentage!' }]}
-                style={{ marginBottom: '12px' }}
-              >
-                <InputNumber 
-                  placeholder={`${selectedCharge.default_percentage || 0}`}
-                  style={{ width: '100%' }}
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  addonAfter="%"
-                />
-              </Form.Item>
-            ) : (
-              <Form.Item
-                label="Rate"
-                name="rate"
-                rules={[{ required: true, message: 'Please input the rate!' }]}
-                style={{ marginBottom: '12px' }}
-              >
-                <InputNumber 
-                  placeholder={`${selectedCharge?.default_rate || 0}`}
-                  style={{ width: '100%' }}
-                  min={0}
-                  step={0.01}
-                  addonBefore="$"
-                />
-              </Form.Item>
-            )}
+              {selectedCharge?.charge_type === 'percent' ? (
+                <Form.Item
+                  label="Percentage"
+                  name="percentage"
+                  rules={[{ required: true, message: 'Please input the percentage!' }]}
+                  style={{ marginBottom: '12px' }}
+                >
+                  <InputNumber
+                    placeholder={`${selectedCharge.default_percentage || 0}`}
+                    style={{ width: '100%' }}
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    addonAfter="%"
+                  />
+                </Form.Item>
+              ) : (
+                <Form.Item
+                  label="Rate"
+                  name="rate"
+                  rules={[{ required: true, message: 'Please input the rate!' }]}
+                  style={{ marginBottom: '12px' }}
+                >
+                  <InputNumber
+                    placeholder={`${selectedCharge?.default_rate || 0}`}
+                    style={{ width: '100%' }}
+                    min={0}
+                    step={0.01}
+                    addonBefore="$"
+                  />
+                </Form.Item>
+              )}
 
-            {selectedCharge?.charge_type === 'flat' && (
-              <Form.Item
-                label="Quantity"
-                name="quantity"
-                style={{ marginBottom: '12px' }}
-              >
-                <InputNumber 
-                  placeholder="1" 
-                  style={{ width: '100%' }}
-                  min={0}
-                  step={1}
-                />
-              </Form.Item>
-            )}
+              {selectedCharge?.charge_type === 'flat' && (
+                <Form.Item
+                  label="Quantity"
+                  name="quantity"
+                  style={{ marginBottom: '12px' }}
+                >
+                  <InputNumber
+                    placeholder="1"
+                    style={{ width: '100%' }}
+                    min={0}
+                    step={1}
+                  />
+                </Form.Item>
+              )}
 
-            <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-              <Button htmlType="submit" type="primary" block loading={loading} size="large">
-                Add Charge
-              </Button>
-            </Form.Item>
-          </Form>
+              <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
+                <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+                  Save
+                </BlackButton>
+              </Form.Item>
+            </Form>
+          </ThinScroll>
         </TabPane>
 
-        <TabPane 
+        <TabPane
           tab={
             <span>
               <PlusOutlined />
               Create New
             </span>
-          } 
+          }
           key="new"
         >
-          <Form 
-            layout="vertical" 
-            onFinish={onSubmitNewCharge} 
-            form={newChargeForm} 
-            initialValues={{ quantity: 1, is_estimate_only: true, applies_to: [] }}
-          >
-            <Card size="small" style={{ marginBottom: '16px', backgroundColor: '#fffbeb', borderColor: '#fcd34d' }}>
-              <div style={{ fontSize: '12px', color: '#92400e' }}>
-                <strong>Note:</strong> You can create a new charge definition from scratch. By default, it will be marked as "Estimate Only" and won't appear in the Configure section.
-              </div>
-            </Card>
-
-            <Form.Item
-              label="Charge Name"
-              name="name"
-              rules={[{ required: true, message: 'Please input the charge name!' }]}
-              style={{ marginBottom: '12px' }}
+          <ThinScroll maxHeight="60vh" style={{ paddingRight: '8px' }}>
+            <Form
+              layout="vertical"
+              onFinish={onSubmitNewCharge}
+              form={newChargeForm}
+              initialValues={{ quantity: 1, is_estimate_only: true, applies_to: [] }}
             >
-              <Input prefix={<DollarOutlined />} placeholder="e.g., Special Handling Fee" />
-            </Form.Item>
+              <Card size="small" style={{ marginBottom: '16px', backgroundColor: '#fffbeb', borderColor: '#fcd34d' }}>
+                <div style={{ fontSize: '12px', color: '#92400e' }}>
+                  <strong>Note:</strong> You can create a new charge definition from scratch. By default, it will be marked as "Estimate Only" and won't appear in the Configure section.
+                </div>
+              </Card>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <Form.Item
-                label="Category"
-                name="category"
-                rules={[{ required: true, message: 'Please select a category!' }]}
+                label="Charge Name"
+                name="name"
+                rules={[{ required: true, message: 'Please input the charge name!' }]}
                 style={{ marginBottom: '12px' }}
               >
-                <Select placeholder="Select Category">
-                  {categories.map(cat => (
-                    <Option key={cat.id} value={cat.id}>
-                      {cat.name}
+                <Input prefix={<DollarOutlined />} placeholder="e.g., Special Handling Fee" />
+              </Form.Item>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <Form.Item
+                  label="Category"
+                  name="category"
+                  rules={[{ required: true, message: 'Please select a category!' }]}
+                  style={{ marginBottom: '12px' }}
+                >
+                  <Select placeholder="Select Category">
+                    {categories.map(cat => (
+                      <Option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+
+                <Form.Item
+                  label="Charge Type"
+                  name="charge_type"
+                  rules={[{ required: true, message: 'Please select charge type!' }]}
+                  style={{ marginBottom: '12px' }}
+                >
+                  <Select placeholder="Select Type" onChange={setNewChargeType}>
+                    <Option value="per_lb">Per Pound</Option>
+                    <Option value="percent">Percentage</Option>
+                    <Option value="flat">Flat Fee</Option>
+                    <Option value="hourly">Hourly</Option>
+                  </Select>
+                </Form.Item>
+              </div>
+
+              {newChargeType === 'percent' ? (
+                <Form.Item
+                  label="Default Percentage"
+                  name="default_percentage"
+                  rules={[{ required: true, message: 'Please input the percentage!' }]}
+                  style={{ marginBottom: '12px' }}
+                >
+                  <InputNumber
+                    placeholder="10.00"
+                    style={{ width: '100%' }}
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    addonAfter="%"
+                  />
+                </Form.Item>
+              ) : newChargeType ? (
+                <Form.Item
+                  label="Default Rate"
+                  name="default_rate"
+                  rules={[{ required: true, message: 'Please input the rate!' }]}
+                  style={{ marginBottom: '12px' }}
+                >
+                  <InputNumber
+                    placeholder="0.00"
+                    style={{ width: '100%' }}
+                    min={0}
+                    step={0.01}
+                    addonBefore="$"
+                  />
+                </Form.Item>
+              ) : null}
+
+              {newChargeType === 'flat' && (
+                <Form.Item
+                  label="Quantity"
+                  name="quantity"
+                  style={{ marginBottom: '12px' }}
+                >
+                  <InputNumber
+                    placeholder="1"
+                    style={{ width: '100%' }}
+                    min={0}
+                    step={1}
+                  />
+                </Form.Item>
+              )}
+
+              <Form.Item
+                label="Description (Optional)"
+                name="description"
+                style={{ marginBottom: '12px' }}
+              >
+                <TextArea
+                  placeholder="Brief description of this charge"
+                  rows={2}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Applies To Service Types (Optional)"
+                name="applies_to"
+                style={{ marginBottom: '12px' }}
+                help="Leave empty to apply to all service types"
+              >
+                <Select
+                  mode="multiple"
+                  placeholder="Select Service Types"
+                  allowClear
+                >
+                  {serviceTypes.map(st => (
+                    <Option key={st.id} value={st.id}>
+                      {st.service_type}
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
 
               <Form.Item
-                label="Charge Type"
-                name="charge_type"
-                rules={[{ required: true, message: 'Please select charge type!' }]}
+                label="Estimate Only"
+                name="is_estimate_only"
+                valuePropName="checked"
                 style={{ marginBottom: '12px' }}
+                help="If checked, this charge will only appear for estimates and won't show in the Configure section"
               >
-                <Select placeholder="Select Type" onChange={setNewChargeType}>
-                  <Option value="per_lb">Per Pound</Option>
-                  <Option value="percent">Percentage</Option>
-                  <Option value="flat">Flat Fee</Option>
-                  <Option value="hourly">Hourly</Option>
-                </Select>
-              </Form.Item>
-            </div>
-
-            {newChargeType === 'percent' ? (
-              <Form.Item
-                label="Default Percentage"
-                name="default_percentage"
-                rules={[{ required: true, message: 'Please input the percentage!' }]}
-                style={{ marginBottom: '12px' }}
-              >
-                <InputNumber 
-                  placeholder="10.00" 
-                  style={{ width: '100%' }}
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  addonAfter="%"
+                <Switch
+                  checkedChildren="Yes"
+                  unCheckedChildren="No"
                 />
               </Form.Item>
-            ) : newChargeType ? (
-              <Form.Item
-                label="Default Rate"
-                name="default_rate"
-                rules={[{ required: true, message: 'Please input the rate!' }]}
-                style={{ marginBottom: '12px' }}
-              >
-                <InputNumber 
-                  placeholder="0.00" 
-                  style={{ width: '100%' }}
-                  min={0}
-                  step={0.01}
-                  addonBefore="$"
-                />
+
+              <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
+                <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+                  Save
+                </BlackButton>
               </Form.Item>
-            ) : null}
-
-            {newChargeType === 'flat' && (
-              <Form.Item
-                label="Quantity"
-                name="quantity"
-                style={{ marginBottom: '12px' }}
-              >
-                <InputNumber 
-                  placeholder="1" 
-                  style={{ width: '100%' }}
-                  min={0}
-                  step={1}
-                />
-              </Form.Item>
-            )}
-
-            <Form.Item
-              label="Description (Optional)"
-              name="description"
-              style={{ marginBottom: '12px' }}
-            >
-              <TextArea 
-                placeholder="Brief description of this charge" 
-                rows={2}
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="Applies To Service Types (Optional)"
-              name="applies_to"
-              style={{ marginBottom: '12px' }}
-              help="Leave empty to apply to all service types"
-            >
-              <Select 
-                mode="multiple"
-                placeholder="Select Service Types"
-                allowClear
-              >
-                {serviceTypes.map(st => (
-                  <Option key={st.id} value={st.id}>
-                    {st.service_type}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              label="Estimate Only"
-              name="is_estimate_only"
-              valuePropName="checked"
-              style={{ marginBottom: '12px' }}
-              help="If checked, this charge will only appear for estimates and won't show in the Configure section"
-            >
-              <Switch 
-                checkedChildren="Yes" 
-                unCheckedChildren="No"
-              />
-            </Form.Item>
-
-            <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-              <Button htmlType="submit" type="primary" block loading={loading} size="large">
-                Create & Add Charge
-              </Button>
-            </Form.Item>
-          </Form>
+            </Form>
+          </ThinScroll>
         </TabPane>
       </Tabs>
     </Modal>

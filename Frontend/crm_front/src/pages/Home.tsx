@@ -1,21 +1,7 @@
-import { useContext } from "react";
-import { store } from "../utils/store";
-import Dashboard from "../components/Dashboard";
-import { fullname, role, email } from "../utils/data";
+import CustomDashboard from "./CustomDashboard";
 
-function Home(){
-  const { state } = useContext(store);
-  
-  // Get current user info from localStorage
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
-
-  return (
-    <Dashboard currentUser={currentUser} />
-  );
+function Home() {
+  return <CustomDashboard />;
 }
 
 export default Home;

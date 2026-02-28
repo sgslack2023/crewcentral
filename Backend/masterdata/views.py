@@ -1,30 +1,122 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils import timezone
+from datetime import timedelta
 from django.db.models import Count, Q
-from crm_back.custom_methods import isAuthenticatedCustom
-from .models import Customer, Branch, ServiceType, DocumentLibrary, DocumentServiceTypeBranchMapping, MoveType, RoomSize
+from crm_back.custom_methods import isAuthenticatedCustom, isAdminUser, HasSystemPermission
+from crm_back.mixins import OrganizationContextMixin
+from .models import (
+    Customer, Branch, ServiceType, DocumentLibrary, 
+    DocumentServiceTypeBranchMapping, MoveType, RoomSize,
+    EndpointConfiguration, RawEndpointLead
+)
+from django_q.models import Schedule
 from .serializers import (
     CustomerSerializer, CustomerStatsSerializer, BranchSerializer, 
     ServiceTypeSerializer, DocumentLibrarySerializer, DocumentMappingSerializer,
-    MoveTypeSerializer, RoomSizeSerializer
+    MoveTypeSerializer, RoomSizeSerializer,
+    EndpointConfigurationSerializer, RawEndpointLeadSerializer,
+    ScheduleSerializer
 )
 from rest_framework.views import APIView
+from users.models import Organization
+
+class LeadIngestionView(APIView):
+    """
+    Public endpoint for ingesting leads from external sources
+    """
+    authentication_classes = [] 
+    permission_classes = []
+
+    def post(self, request, config_id=None):
+        data = request.data
+        secret_key = request.headers.get('X-Endpoint-Secret') or request.query_params.get('secret')
+        
+        endpoint_config = None
+        
+        if config_id:
+            try:
+                endpoint_config = EndpointConfiguration.objects.get(id=config_id, is_active=True)
+            except EndpointConfiguration.DoesNotExist:
+                return Response({'error': 'Invalid or inactive endpoint configuration ID'}, status=status.HTTP_404_NOT_FOUND)
+        elif secret_key:
+            try:
+                endpoint_config = EndpointConfiguration.objects.get(secret_key=secret_key, is_active=True)
+            except EndpointConfiguration.DoesNotExist:
+                return Response({'error': 'Invalid or inactive secret key'}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response({'error': 'Endpoint ID in URL or X-Endpoint-Secret header is required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Save raw lead
+        raw_lead = RawEndpointLead.objects.create(
+            organization=endpoint_config.organization,
+            endpoint_config=endpoint_config,
+            raw_data=data
+        )
+
+        return Response({
+            'message': 'Data received and stored successfully', 
+            'id': raw_lead.id
+        }, status=status.HTTP_201_CREATED)
 
 
-class CustomerViewSet(viewsets.ModelViewSet):
+class EndpointConfigurationViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing organization endpoint configurations
+    """
+    queryset = EndpointConfiguration.objects.all()
+    serializer_class = EndpointConfigurationSerializer
+    permission_classes = (isAuthenticatedCustom,)
+
+    def perform_create(self, serializer):
+        kwargs = {}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+
+class RawEndpointLeadViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for viewing raw leads
+    """
+    queryset = RawEndpointLead.objects.all()
+    serializer_class = RawEndpointLeadSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    http_method_names = ['get', 'delete'] # Only allow viewing and deleting
+
+
+
+class CustomerViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing customers
     """
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
-    permission_classes = (isAuthenticatedCustom,)
+    permission_classes = (isAuthenticatedCustom, HasSystemPermission)
+    
+    required_permissions = {
+        'list': ['view_customers'],
+        'retrieve': ['view_customers'],
+        'create': ['create_customers', 'create_leads'], # 'create_leads' is essentially same as customers in this context
+        'update': ['edit_customers'],
+        'partial_update': ['edit_customers'],
+        'destroy': ['delete_customers'],
+        'archive': ['edit_customers'],
+        'unarchive': ['edit_customers']
+    }
     
     def get_queryset(self):
         """
         Optionally filter customers by stage, source, or assigned_to
         """
-        queryset = Customer.objects.all()
+        queryset = super().get_queryset()
+        
+        # Handle archiving: restrict to archived/active ONLY for list action
+        # This allows retrieve/archive/unarchive to find the object by ID regardless of status
+        if self.action == 'list':
+            show_archived = self.request.query_params.get('show_archived', 'false').lower() == 'true'
+            queryset = queryset.filter(is_archived=show_archived)
         
         # Filter by stage
         stage = self.request.query_params.get('stage', None)
@@ -55,10 +147,63 @@ class CustomerViewSet(viewsets.ModelViewSet):
             )
         
         return queryset
+
+    @action(detail=True, methods=['post'])
+    def archive(self, request, pk=None):
+        """
+        Archive a customer
+        """
+        customer = self.get_object()
+        customer.is_archived = True
+        customer.save()
+        
+        # Log activity
+        try:
+            from transactiondata.models import CustomerActivity
+            CustomerActivity.objects.create(
+                customer=customer,
+                activity_type='status_changed',
+                title='Customer Archived',
+                description='Customer has been moved to archives',
+                created_by=request.user
+            )
+        except Exception as e:
+            print(f"Failed to log activity: {e}")
+            
+        serializer = self.get_serializer(customer)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def unarchive(self, request, pk=None):
+        """
+        Unarchive a customer
+        """
+        customer = self.get_object()
+        customer.is_archived = False
+        customer.save()
+        
+        # Log activity
+        try:
+            from transactiondata.models import CustomerActivity
+            CustomerActivity.objects.create(
+                customer=customer,
+                activity_type='status_changed',
+                title='Customer Unarchived',
+                description='Customer has been restored from archives',
+                created_by=request.user
+            )
+        except Exception as e:
+            print(f"Failed to log activity: {e}")
+            
+        serializer = self.get_serializer(customer)
+        return Response(serializer.data)
     
     def perform_create(self, serializer):
         """Set the created_by field to the current user"""
-        customer = serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        customer = serializer.save(**kwargs)
         
         # Create activity for new customer
         try:
@@ -70,9 +215,24 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 description=f'New customer {customer.full_name} added to CRM',
                 created_by=self.request.user
             )
+            
+            # Send welcome email if customer has email
+            if customer.email:
+                from django_q.tasks import async_task
+                from transactiondata.tasks import send_new_lead_welcome_email, get_active_schedule
+                
+                # Link task to schedule for UI tracking
+                task_name = None
+                if hasattr(customer, 'organization') and customer.organization:
+                    schedule = get_active_schedule('new_lead', customer.organization.id)
+                    if schedule:
+                        task_name = schedule.name
+                
+                async_task(send_new_lead_welcome_email, customer.id, q_options={'name': task_name} if task_name else None)
+                
         except Exception as e:
-            # Don't fail the request if activity logging fails
-            print(f"Failed to log activity: {e}")
+            # Don't fail the request if activity logging or email fails
+            print(f"Failed to log activity or trigger lead email task: {e}")
     
     def perform_update(self, serializer):
         """Track stage changes when customer is updated"""
@@ -94,10 +254,61 @@ class CustomerViewSet(viewsets.ModelViewSet):
                     description=f'Customer stage changed from {old_stage} to {updated_customer.stage}',
                     created_by=self.request.user
                 )
+                
+                # Automation Triggers
+                self._trigger_stage_automations(updated_customer)
+                    
             except Exception as e:
-                # Don't fail the request if activity logging fails
-                print(f"Failed to log activity: {e}")
+                # Don't fail the request if activity logging or automation fails
+                print(f"Failed to log activity or trigger automation: {e}")
     
+    def _trigger_stage_automations(self, customer, frontend_url=None):
+        """Helper to trigger automations when stage changes"""
+        from django_q.tasks import async_task
+        from django.conf import settings
+        
+        # Use provided frontend_url or fall back to settings
+        if not frontend_url:
+            frontend_url = settings.FRONTEND_URL
+            
+        print(f"Checking automations for customer {customer.id}, stage: {customer.stage}, email: {customer.email}")
+
+        if customer.stage == 'new_lead' and customer.email:
+            print(f"Triggering new_lead automation for customer {customer.id}")
+            from transactiondata.tasks import send_new_lead_welcome_email, get_active_schedule
+            
+            task_name = None
+            if hasattr(customer, 'organization') and customer.organization:
+                schedule = get_active_schedule('new_lead', customer.organization.id)
+                if schedule:
+                    task_name = schedule.name
+            
+            async_task(send_new_lead_welcome_email, customer.id, q_options={'name': task_name} if task_name else None)
+        elif customer.stage == 'booked' and customer.email:
+            print(f"Triggering booked automation for customer {customer.id}")
+            from transactiondata.tasks import send_booked_async, get_active_schedule
+            
+            task_name = None
+            if hasattr(customer, 'organization') and customer.organization:
+                schedule = get_active_schedule('booked', customer.organization.id)
+                if schedule:
+                    task_name = schedule.name
+            
+            async_task(send_booked_async, customer.id, q_options={'name': task_name} if task_name else None)
+        elif customer.stage == 'closed' and customer.email:
+            print(f"Triggering closed automation for customer {customer.id}")
+            from transactiondata.tasks import send_closed_async, get_active_schedule
+            
+            task_name = None
+            if hasattr(customer, 'organization') and customer.organization:
+                schedule = get_active_schedule('closed', customer.organization.id)
+                if schedule:
+                    task_name = schedule.name
+            
+            async_task(send_closed_async, customer.id, frontend_url, q_options={'name': task_name} if task_name else None)
+        else:
+            print(f"No automation triggered for stage {customer.stage} (email present: {bool(customer.email)})")
+
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
         """
@@ -177,7 +388,12 @@ class CustomerViewSet(viewsets.ModelViewSet):
         except Exception as e:
             # Don't fail the request if activity logging fails
             print(f"Failed to log activity: {e}")
-        
+            
+        # Trigger automations for stage change
+        if old_stage != new_stage:
+            frontend_url = request.data.get('frontend_url', 'http://127.0.0.1:3000')
+            self._trigger_stage_automations(customer, frontend_url)
+            
         serializer = self.get_serializer(customer)
         return Response(serializer.data)
 
@@ -193,22 +409,27 @@ class CustomerStatisticsViewSet(viewsets.ViewSet):
         """
         Get customer statistics
         """
-        total_customers = Customer.objects.count()
-        total_leads = Customer.objects.filter(stage='lead').count()
-        unassigned_leads = Customer.objects.filter(
+        customers = Customer.objects.all()
+        # Apply org context filter manually since this is a ViewSet
+        if hasattr(request, 'organization') and request.organization:
+            customers = customers.filter(organization=request.organization)
+            
+        total_customers = customers.count()
+        total_leads = customers.filter(stage='lead').count()
+        unassigned_leads = customers.filter(
             stage='lead',
             assigned_to__isnull=True
         ).count()
         
         # Statistics by stage
         by_stage = {}
-        stage_stats = Customer.objects.values('stage').annotate(count=Count('id'))
+        stage_stats = customers.values('stage').annotate(count=Count('id'))
         for stat in stage_stats:
             by_stage[stat['stage']] = stat['count']
         
         # Statistics by source
         by_source = {}
-        source_stats = Customer.objects.values('source').annotate(count=Count('id'))
+        source_stats = customers.values('source').annotate(count=Count('id'))
         for stat in source_stats:
             by_source[stat['source']] = stat['count']
         
@@ -224,7 +445,7 @@ class CustomerStatisticsViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
 
-class BranchViewSet(viewsets.ModelViewSet):
+class BranchViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing branches
     """
@@ -233,7 +454,7 @@ class BranchViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = Branch.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -252,10 +473,13 @@ class BranchViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
 
 
-class ServiceTypeViewSet(viewsets.ModelViewSet):
+class ServiceTypeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing service types
     """
@@ -264,7 +488,7 @@ class ServiceTypeViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = ServiceType.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by enabled status
         enabled = self.request.query_params.get('enabled', None)
@@ -279,7 +503,10 @@ class ServiceTypeViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
 
 
 from django.http import HttpResponse, FileResponse
@@ -288,7 +515,7 @@ from django.utils.decorators import method_decorator
 import mimetypes
 import os
 
-class DocumentLibraryViewSet(viewsets.ModelViewSet):
+class DocumentLibraryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing documents
     """
@@ -305,7 +532,7 @@ class DocumentLibraryViewSet(viewsets.ModelViewSet):
         return context
     
     def get_queryset(self):
-        queryset = DocumentLibrary.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -328,13 +555,27 @@ class DocumentLibraryViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(title__icontains=search) |
                 Q(description__icontains=search) |
-                Q(document_type__icontains=search)
+                Q(document_type__icontains=search) |
+                Q(subject__icontains=search)
             )
+        
+        # Filter by category
+        category = self.request.query_params.get('category', None)
+        if category:
+            queryset = queryset.filter(category=category)
+        
+        # Exclude by category
+        exclude_category = self.request.query_params.get('exclude_category', None)
+        if exclude_category:
+            queryset = queryset.exclude(category=exclude_category)
         
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
 
     @method_decorator(xframe_options_exempt)
     @action(detail=True, methods=['get'])
@@ -384,7 +625,7 @@ class DocumentLibraryViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class DocumentMappingViewSet(viewsets.ModelViewSet):
+class DocumentMappingViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing document mappings
     """
@@ -393,7 +634,7 @@ class DocumentMappingViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = DocumentServiceTypeBranchMapping.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by document
         document_id = self.request.query_params.get('document', None)
@@ -413,10 +654,13 @@ class DocumentMappingViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
 
 
-class MoveTypeViewSet(viewsets.ModelViewSet):
+class MoveTypeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing move types
     """
@@ -425,7 +669,7 @@ class MoveTypeViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = MoveType.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -443,10 +687,13 @@ class MoveTypeViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
 
 
-class RoomSizeViewSet(viewsets.ModelViewSet):
+class RoomSizeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing room sizes
     """
@@ -455,7 +702,7 @@ class RoomSizeViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = RoomSize.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -473,4 +720,245 @@ class RoomSizeViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+class ScheduleViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing scheduled tasks (django_q.models.Schedule)
+    """
+    queryset = Schedule.objects.all()
+    serializer_class = ScheduleSerializer
+    permission_classes = (isAdminUser,) # Only admins should manage schedules
+
+    def get_queryset(self):
+        """
+        Filter schedules by organization context.
+        """
+        queryset = super().get_queryset()
+        user = self.request.user
+
+        # Superusers see all schedules
+        if user.is_superuser:
+            return queryset
+
+        # Standard admins see schedules explicitly tagged with their organization_id in kwargs
+        if hasattr(self.request, 'organization') and self.request.organization:
+            org_id = self.request.organization.id
+            
+            # Since kwargs is a text field or JSON in django-q, we need to filter carefully
+            # A more robust way is to iterate and filter if the DB doesn't support JSON queries well
+            # or if it's stored as a stringified dict as seen in get_active_schedule
+            
+            import json
+            import ast
+            
+            valid_ids = []
+            for s in queryset:
+                if not s.kwargs:
+                    continue
+                
+                kwargs = s.kwargs
+                if isinstance(kwargs, str):
+                    try:
+                        # Attempt to parse
+                        try:
+                            kwargs = ast.literal_eval(kwargs)
+                        except:
+                            kwargs = json.loads(kwargs.replace("'", '"'))
+                    except:
+                        continue
+                
+                if isinstance(kwargs, dict) and kwargs.get('organization_id') == org_id:
+                    valid_ids.append(s.id)
+            
+            return queryset.filter(id__in=valid_ids)
+            
+        return queryset.none()
+    
+    @action(detail=False, methods=['get'])
+    def logs(self, request):
+        """
+        Return the history of executed tasks.
+        """
+        from django_q.models import Task
+        from .serializers import TaskSerializer
+        from rest_framework.response import Response
+        import json
+        import ast
+        
+        user = request.user
+        tasks_qs = Task.objects.all().order_by('-stopped')
+        
+        if not user.is_superuser and hasattr(request, 'organization') and request.organization:
+            org_id = request.organization.id
+            valid_task_ids = []
+            
+            # Filter first 200 tasks to find matching ones (performance guard)
+            recent_tasks = tasks_qs[:200]
+            
+            for t in recent_tasks:
+                if not t.kwargs:
+                    continue
+                
+                kwargs = t.kwargs
+                if isinstance(kwargs, str):
+                    try:
+                        try:
+                            kwargs = ast.literal_eval(kwargs)
+                        except:
+                            kwargs = json.loads(kwargs.replace("'", '"'))
+                    except:
+                        continue
+                
+                if isinstance(kwargs, dict) and kwargs.get('organization_id') == org_id:
+                    valid_task_ids.append(t.id)
+            
+            tasks = Task.objects.filter(id__in=valid_task_ids).order_by('-stopped')[:50]
+        else:
+            tasks = tasks_qs[:50]
+
+        serializer = TaskSerializer(tasks, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def create_automation(self, request):
+        """
+        Create a new automation schedule with validation.
+        Expected payload: {
+            "name": "Send Invoices Daily",
+            "task_type": "invoices|receipts|estimates",
+            "schedule_type": "HOURLY|DAILY|WEEKLY|CRON",
+            "minutes": 60 (for hourly),
+            "repeats": -1 (infinite) or N (number of times)
+        }
+        """
+        from rest_framework.response import Response
+        from rest_framework import status
+        
+        task_type = request.data.get('task_type')
+        name = request.data.get('name')
+        schedule_type = request.data.get('schedule_type', 'HOURLY')
+        minutes = request.data.get('minutes', 60)
+        repeats = request.data.get('repeats', -1)
+        
+        # Map human-readable schedule types to django-q short codes
+        type_map = {
+            'HOURLY': 'H',
+            'DAILY': 'D',
+            'WEEKLY': 'W',
+            'MONTHLY': 'M',
+            'QUARTERLY': 'Q',
+            'YEARLY': 'Y',
+            'ONCE': 'O',
+            'MINUTES': 'I',
+        }
+        mapped_type = type_map.get(schedule_type, schedule_type)
+        
+        # Map task type to function path
+        task_functions = {
+            'invoices': 'transactiondata.tasks.send_pending_invoices',
+            'receipts': 'transactiondata.tasks.send_pending_receipts',
+            'estimates': 'transactiondata.tasks.send_pending_estimates',
+            'leads': 'masterdata.tasks.process_raw_endpoint_leads',
+            'new_lead': None,  # Event-driven
+            'booked': None,    # Event-driven
+            'closed': None     # Event-driven
+        }
+        
+        if task_type not in task_functions:
+            return Response(
+                {'error': f'Invalid task_type. Must be one of: {", ".join(task_functions.keys())}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        func_path = task_functions[task_type] or 'masterdata.tasks.noop_automation'
+        
+        # Handle document/template selection
+        document_id = request.data.get('document_id')
+        kwargs = {
+            'task_type': task_type
+        }
+        if document_id:
+            # Validate that the document belongs to the current organization
+            if hasattr(request, 'organization') and request.organization:
+                from .models import DocumentLibrary
+                try:
+                    DocumentLibrary.objects.get(id=document_id, organization=request.organization)
+                    kwargs['document_id'] = document_id
+                except DocumentLibrary.DoesNotExist:
+                    return Response(
+                        {'error': 'Invalid document_id. Document not found in your organization.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                kwargs['document_id'] = document_id
+            
+        # Add organization context to kwargs for multi-tenancy support
+        if hasattr(request, 'organization') and request.organization:
+            kwargs['organization_id'] = request.organization.id
+            
+        next_run = timezone.now()
+        if task_type in ['new_lead', 'booked', 'closed']:
+            mapped_type = 'D' # Daily (dummy)
+            repeats = -1 # Always active for logic checks
+            # Set next_run to the far future so it stays as a config placeholder
+            # and isn't picked up by the worker immediately.
+            next_run = timezone.now() + timedelta(days=365*50) 
+        
+        # Create schedule
+        default_name_map = {
+            'new_lead': 'New Lead Welcome Email',
+            'booked': 'Booking Confirmation Email',
+            'closed': 'Closed Email',
+        }
+        default_name = default_name_map.get(task_type, f"{task_type.replace('_', ' ').capitalize()} Automation")
+
+        schedule = Schedule.objects.create(
+            name=name or default_name,
+            func=func_path,
+            schedule_type=mapped_type,
+            minutes=minutes if mapped_type == 'H' else None,
+            repeats=repeats,
+            next_run=next_run,
+            kwargs=kwargs if kwargs else None
+        )
+        
+        serializer = self.get_serializer(schedule)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'])
+    def run_now(self, request, pk=None):
+        """
+        Manually trigger a schedule immediately.
+        """
+        from rest_framework.response import Response
+        from rest_framework import status
+        import importlib
+        
+        schedule = self.get_object()
+        
+        try:
+            # Parse function path
+            module_path, func_name = schedule.func.rsplit('.', 1)
+            module = importlib.import_module(module_path)
+            func = getattr(module, func_name)
+            
+            # Execute the function
+            result = func()
+            
+            return Response({
+                'success': True,
+                'message': f'Task "{schedule.name}" executed successfully',
+                'result': result
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+

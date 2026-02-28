@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Input, Button, Tag, notification, Modal } from 'antd';
-import { 
-  SearchOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
+import { Card, Button, Tag, notification, Modal } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
   TagsOutlined,
   BgColorsOutlined,
@@ -14,14 +13,17 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken } from '../utils/functions';
+import { getAuthToken, getCurrentUser } from '../utils/functions';
 import { ServiceTypesUrl } from '../utils/network';
 import { ServiceTypeProps } from '../utils/types';
-import { fullname, role, email } from '../utils/data';
-import Header from '../components/Header';
 import AddServiceTypeForm from '../components/AddServiceTypeForm';
+import { BlackButton, WhiteButton, SettingsCard, SearchBar, PageLoader } from '../components';
 
-const ServiceTypes: React.FC = () => {
+interface ServiceTypesProps {
+  hideHeader?: boolean;
+}
+
+const ServiceTypes: React.FC<ServiceTypesProps> = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeProps[]>([]);
   const [filteredServiceTypes, setFilteredServiceTypes] = useState<ServiceTypeProps[]>([]);
@@ -29,12 +31,6 @@ const ServiceTypes: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingServiceType, setEditingServiceType] = useState<ServiceTypeProps | null>(null);
-
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
 
   useEffect(() => {
     fetchServiceTypes();
@@ -101,212 +97,151 @@ const ServiceTypes: React.FC = () => {
   };
 
   return (
-    <div>
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        <div style={{ marginBottom: '24px' }}>
+    <div style={{
+      padding: hideHeader ? '0' : '8px 16px 24px 16px',
+      height: '100%',
+      flex: 1,
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      {!hideHeader && (
+        <div style={{ marginBottom: '16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>Service Types</h1>
-              <p style={{ color: '#666', margin: 0 }}>
-                Manage service types and scaling factors ({filteredServiceTypes.length} of {serviceTypes.length})
+              <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>Service Types</h1>
+              <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>
+                Manage types of services you provide ({filteredServiceTypes.length} of {serviceTypes.length})
               </p>
             </div>
-            <Button 
+            <WhiteButton
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate('/settings')}
             >
               Back
-            </Button>
+            </WhiteButton>
           </div>
         </div>
+      )}
 
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          <Input
-            placeholder="Search by service type..."
-            prefix={<SearchOutlined />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, minWidth: '250px' }}
-            allowClear
-          />
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingServiceType(null);
-              setIsAddFormVisible(true);
-            }}
-          >
-            Add Service Type
-          </Button>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>Loading...</div>
-        ) : filteredServiceTypes.length === 0 ? (
-          <Card>
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <h3 style={{ marginBottom: '16px' }}>No service types found</h3>
-              <p style={{ color: '#666', marginBottom: '24px' }}>
-                {searchTerm ? 'No service types match your current filters.' : 'Get started by adding your first service type.'}
-              </p>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setEditingServiceType(null);
-                  setIsAddFormVisible(true);
-                }}
-              >
-                Add Service Type
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-            gap: '20px' 
-          }}>
-            {filteredServiceTypes.map((st) => (
-              <Card
-                key={st.id}
-                style={{ 
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                  transition: 'all 0.3s ease',
-                  borderTop: `4px solid ${st.color || '#1890ff'}`
-                }}
-                bodyStyle={{ padding: '16px' }}
-                hoverable
-              >
-                <div style={{ marginBottom: '16px' }}>
-                  <h3 style={{ 
-                    margin: 0, 
-                    fontSize: '16px', 
-                    fontWeight: 600,
-                    color: '#000',
-                    marginBottom: '8px'
-                  }}>
-                    {st.service_type}
-                  </h3>
-                  <Tag color={st.enabled ? 'green' : 'red'} style={{ margin: 0, fontSize: '11px' }}>
-                    {st.enabled ? 'ENABLED' : 'DISABLED'}
-                  </Tag>
-                </div>
-
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{
-                    padding: '12px',
-                    backgroundColor: '#f6ffed',
-                    borderRadius: '8px',
-                    border: '1px solid #b7eb8f'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <PercentageOutlined style={{ fontSize: '12px', color: '#52c41a' }} />
-                      <span style={{ fontSize: '11px', color: '#52c41a', fontWeight: 500 }}>Scaling Factor</span>
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                      {st.scaling_factor}
-                    </div>
-                  </div>
-
-                  <div style={{
-                    padding: '12px',
-                    backgroundColor: st.color ? `${st.color}15` : '#f5f5f5',
-                    borderRadius: '8px',
-                    border: `1px solid ${st.color || '#d9d9d9'}`
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <BgColorsOutlined style={{ fontSize: '12px', color: st.color || '#666' }} />
-                      <span style={{ fontSize: '11px', color: st.color || '#666', fontWeight: 500 }}>Color</span>
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                      {st.color || 'None'}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '12px',
-                  color: '#999',
-                  paddingTop: '12px',
-                  borderTop: '1px solid #f0f0f0'
-                }}>
-                  <div>{st.created_by_name || 'System'}</div>
-                  <div>
-                    {new Date(st.created_at!).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </div>
-                </div>
-
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  display: 'flex',
-                  gap: '4px'
-                }}>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<EditOutlined />}
-                    onClick={() => {
-                      setEditingServiceType(st);
-                      setIsAddFormVisible(true);
-                    }}
-                    style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    onClick={() => st.id && handleDeleteServiceType(st.id)}
-                    danger
-                    style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Add/Edit Service Type Form */}
-        <AddServiceTypeForm
-          isVisible={isAddFormVisible}
-          onClose={() => {
-            setIsAddFormVisible(false);
-            setEditingServiceType(null);
-          }}
-          onSuccessCallBack={() => {
-            setIsAddFormVisible(false);
-            setEditingServiceType(null);
-            fetchServiceTypes();
-          }}
-          editingServiceType={editingServiceType}
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', flexShrink: 0 }}>
+        <SearchBar
+          placeholder="Search by service type..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ flex: 1, minWidth: '250px' }}
+          allowClear
         />
+        <BlackButton
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingServiceType(null);
+            setIsAddFormVisible(true);
+          }}
+        >
+          New Service Type
+        </BlackButton>
       </div>
+
+      {loading ? (
+        <PageLoader text="Loading service types..." />
+      ) : filteredServiceTypes.length === 0 ? (
+        <Card style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <h3 style={{ marginBottom: '16px' }}>No service types found</h3>
+            <p style={{ color: '#666', marginBottom: '24px' }}>
+              {searchTerm ? 'No service types match your current filters.' : 'Get started by adding your first service type.'}
+            </p>
+            <BlackButton
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingServiceType(null);
+                setIsAddFormVisible(true);
+              }}
+            >
+              New Service Type
+            </BlackButton>
+          </div>
+        </Card>
+      ) : (
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: '12px',
+          alignContent: 'flex-start'
+        }}>
+          {filteredServiceTypes.map((st) => (
+            <SettingsCard
+              key={st.id}
+              title={st.service_type}
+              statusTag={{ label: st.enabled ? 'ENABLED' : 'DISABLED', color: st.enabled ? 'green' : 'red' }}
+              fields={[
+                {
+                  label: 'Scaling Factor',
+                  value: st.scaling_factor,
+                  icon: <PercentageOutlined />
+                },
+                {
+                  label: 'Color',
+                  value: (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: st.color || '#d1d5db',
+                        border: '1px solid #e5e7eb'
+                      }} />
+                      {st.color || 'None'}
+                    </span>
+                  ),
+                  icon: <BgColorsOutlined />
+                }
+              ]}
+              footerLeft={st.created_by_name || 'System'}
+              footerRight={new Date(st.created_at!).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              })}
+              actions={[
+                {
+                  icon: <EditOutlined />,
+                  tooltip: 'Edit',
+                  onClick: () => {
+                    setEditingServiceType(st);
+                    setIsAddFormVisible(true);
+                  }
+                },
+                {
+                  icon: <DeleteOutlined />,
+                  tooltip: 'Delete',
+                  danger: true,
+                  onClick: () => st.id && handleDeleteServiceType(st.id)
+                }
+              ]}
+              fieldColumns={2}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Service Type Form */}
+      <AddServiceTypeForm
+        isVisible={isAddFormVisible}
+        onClose={() => {
+          setIsAddFormVisible(false);
+          setEditingServiceType(null);
+        }}
+        onSuccessCallBack={() => {
+          setIsAddFormVisible(false);
+          setEditingServiceType(null);
+          fetchServiceTypes();
+        }}
+        editingServiceType={editingServiceType}
+      />
     </div>
   );
 };

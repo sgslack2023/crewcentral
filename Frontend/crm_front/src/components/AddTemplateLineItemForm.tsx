@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, InputNumber, Button, Card, Switch, Select } from "antd";
-import { 
-  DollarOutlined, 
+import BlackButton from './BlackButton';
+import {
+  DollarOutlined,
   PercentageOutlined,
   OrderedListOutlined
 } from "@ant-design/icons";
@@ -69,7 +70,7 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
   const handleChargeChange = (chargeId: number) => {
     const charge = chargeDefinitions.find(cd => cd.id === chargeId);
     setSelectedCharge(charge || null);
-    
+
     if (charge) {
       // Set default values from charge definition
       form.setFieldsValue({
@@ -81,7 +82,7 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
 
   const onSubmit = async (values: any) => {
     if (!templateId) return;
-    
+
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
 
@@ -137,11 +138,11 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_editable: true, display_order: 0 }}>
         {/* Charge Selection Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <DollarOutlined />
               Charge Selection
             </span>
@@ -153,8 +154,8 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
             rules={[{ required: true, message: 'Please select a charge!' }]}
             style={{ marginBottom: '12px' }}
           >
-            <Select 
-              placeholder="Select Charge Definition" 
+            <Select
+              placeholder="Select Charge Definition"
               onChange={handleChargeChange}
               showSearch
               optionFilterProp="children"
@@ -170,7 +171,7 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
           {selectedCharge && (
             <div style={{
               padding: '12px',
-              backgroundColor: '#f6ffed',
+              backgroundColor: '#f0f2ffed',
               borderRadius: '6px',
               border: '1px solid #b7eb8f',
               marginBottom: '12px'
@@ -179,7 +180,7 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
                 <strong>Charge Details:</strong>
               </div>
               <div style={{ fontSize: '11px', color: '#666' }}>
-                Type: {selectedCharge.charge_type} | 
+                Type: {selectedCharge.charge_type} |
                 Category: {selectedCharge.category_name}
                 {selectedCharge.applies_to_names && selectedCharge.applies_to_names.length > 0 && (
                   <> | Applies to: {selectedCharge.applies_to_names.join(', ')}</>
@@ -190,11 +191,11 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
         </Card>
 
         {/* Pricing Override Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <PercentageOutlined />
               Pricing Override (Optional)
             </span>
@@ -207,7 +208,7 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
               style={{ marginBottom: '0' }}
               help={`Default: ${selectedCharge.default_percentage || 0}%`}
             >
-              <InputNumber 
+              <InputNumber
                 placeholder={`${selectedCharge.default_percentage || 0}`}
                 style={{ width: '100%' }}
                 min={0}
@@ -223,7 +224,7 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
               style={{ marginBottom: '0' }}
               help={`Default: $${selectedCharge?.default_rate || 0}`}
             >
-              <InputNumber 
+              <InputNumber
                 placeholder={`${selectedCharge?.default_rate || 0}`}
                 style={{ width: '100%' }}
                 min={0}
@@ -235,11 +236,11 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
         </Card>
 
         {/* Settings Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <OrderedListOutlined />
               Settings
             </span>
@@ -251,8 +252,8 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
               name="display_order"
               style={{ marginBottom: '12px' }}
             >
-              <InputNumber 
-                placeholder="0" 
+              <InputNumber
+                placeholder="0"
                 style={{ width: '100%' }}
                 min={0}
               />
@@ -270,9 +271,9 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingLineItem ? "Update Line Item" : "Add Line Item"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

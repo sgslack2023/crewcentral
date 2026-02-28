@@ -1,11 +1,20 @@
 import React, { FC, useEffect, useState } from "react";
-import { Drawer, notification, Form, Input, Select, Button } from "antd";
+import { Drawer, notification, Form, Input, Select, Card, Switch, Typography, Space } from "antd";
+import { BlackButton, WhiteButton } from './';
+import {
+  UserOutlined,
+  MailOutlined,
+  UnlockOutlined,
+  SafetyCertificateOutlined,
+  CheckCircleOutlined
+} from "@ant-design/icons";
 import { AuthTokenType, DataProps, AddUserFormModalProps, UserProps } from "../utils/types";
 import { getAuthToken } from "../utils/functions";
 import axios, { AxiosResponse } from "axios";
 import { CreateUserUrl, UsersUrl } from "../utils/network";
 
 const { Option } = Select;
+const { Text } = Typography;
 
 interface AddUserFormProps extends AddUserFormModalProps {
   editingUser?: UserProps | null;
@@ -16,29 +25,34 @@ const AddUserForm: FC<AddUserFormProps> = ({
   onSuccessCallBack,
   onClose,
   editingUser,
-  onCloseWithoutEditing, // new prop
-
+  onCloseWithoutEditing,
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+
   const handleFormClose = () => {
     form.resetFields();
     onClose?.();
     if (!form.isFieldsTouched()) {
-      onCloseWithoutEditing?.(); // Notify the parent about closing without editing
+      onCloseWithoutEditing?.();
     }
   };
 
   useEffect(() => {
     if (editingUser) {
-      form.setFieldsValue(editingUser);
+      form.setFieldsValue({
+        fullname: editingUser.fullname,
+        email: editingUser.email,
+        role: editingUser.role,
+        is_active: editingUser.is_active
+      });
     } else {
       form.resetFields();
+      form.setFieldsValue({ is_active: true });
     }
   }, [editingUser, form]);
 
-  const onSubmit = async (values: DataProps) => {
+  const onSubmit = async (values: any) => {
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
 
@@ -46,11 +60,19 @@ const AddUserForm: FC<AddUserFormProps> = ({
       let response: AxiosResponse;
 
       if (editingUser) {
-        // Editing user
         response = await axios.put(`${UsersUrl}/${editingUser.id}`, values, headers);
+        notification.success({
+          message: "User Updated",
+          description: "User account has been updated successfully.",
+          title: "Success"
+        });
       } else {
-        // Adding new user
         response = await axios.post(CreateUserUrl, values, headers);
+        notification.success({
+          message: "User Added",
+          description: "New user account has been created successfully.",
+          title: "Success"
+        });
       }
 
       setLoading(false);
@@ -58,12 +80,12 @@ const AddUserForm: FC<AddUserFormProps> = ({
       if (response) {
         form.resetFields();
         onSuccessCallBack?.();
-        onClose?.(); // Close the drawer
+        onClose?.();
       }
-    } catch (error) {
+    } catch (error: any) {
       notification.error({
         message: "Operation Error",
-        description: "An error occurred while processing your request.",
+        description: error.response?.data?.error || "An error occurred while processing your request.",
         title: "Operation Error"
       });
       setLoading(false);
@@ -72,42 +94,87 @@ const AddUserForm: FC<AddUserFormProps> = ({
 
   return (
     <Drawer
-      title={editingUser ? "Edit User" : "Add User"}
+      title={editingUser ? "Edit User Account" : "Add New User Account"}
       open={isVisible}
       onClose={handleFormClose}
       destroyOnClose
-      width={360}
+      width={450}
     >
-      <Form layout="vertical" onFinish={onSubmit} form={form} onValuesChange={() => setHasChanges(true)}>
-        <Form.Item
-          label="Name"
-          name="fullname"
-          rules={[{ required: true, message: 'Please input the full name!' }]}
+      <Form layout="vertical" onFinish={onSubmit} form={form}>
+        <Card
+          size="small"
+          style={{ marginBottom: '16px' }}
+          title={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
+              <UserOutlined />
+              Account Details
+            </span>
+          }
         >
-          <Input placeholder="Full Name" />
-        </Form.Item>
-        <Form.Item
-          label="Email"
-          name="email"
-          rules={[{ required: true, message: 'Please input the email!' }]}
-        >
-          <Input placeholder="Email" />
-        </Form.Item>
-        <Form.Item
-          label="Role"
-          name="role"
-          rules={[{ required: true, message: 'Please select the role!' }]}
-        >
-          <Select placeholder="Role">
-            <Option value="admin">Admin</Option>
-            <Option value="employee">Employee</Option>
-          </Select>
-        </Form.Item>
+          <Form.Item
+            label="Full Name"
+            name="fullname"
+            rules={[{ required: true, message: 'Please input the full name!' }]}
+            style={{ marginBottom: '16px' }}
+          >
+            <Input prefix={<UserOutlined />} placeholder="John Doe" />
+          </Form.Item>
 
-        <Form.Item>
-          <Button htmlType="submit" type="primary" block loading={loading}>
-            {editingUser ? "Update" : "Submit"}
-          </Button>
+          <Form.Item
+            label="Email Address"
+            name="email"
+            rules={[
+              { required: true, message: 'Please input the email!' },
+              { type: 'email', message: 'Please enter a valid email!' }
+            ]}
+            style={{ marginBottom: '16px' }}
+          >
+            <Input prefix={<MailOutlined />} placeholder="john@example.com" />
+          </Form.Item>
+
+          {!editingUser && (
+            <Form.Item
+              label="Temporary Password"
+              name="password"
+              rules={[{ required: true, message: 'Please set a temporary password!' }]}
+              style={{ marginBottom: '16px' }}
+              help="The user should change this upon their first login."
+            >
+              <Input.Password prefix={<UnlockOutlined />} placeholder="••••••••" />
+            </Form.Item>
+          )}
+
+          <Form.Item
+            label="System Role"
+            name="role"
+            rules={[{ required: true, message: 'Please select a role!' }]}
+            style={{ marginBottom: '16px' }}
+          >
+            <Select placeholder="Select role">
+              <Option value="Admin">Admin</Option>
+              <Option value="User">Standard User</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="Account Status"
+            name="is_active"
+            valuePropName="checked"
+            style={{ marginBottom: '0' }}
+          >
+            <Space>
+              <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+              <Text type="secondary" style={{ fontSize: '13px' }}>
+                Toggle to enable or disable access
+              </Text>
+            </Space>
+          </Form.Item>
+        </Card>
+
+        <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '45px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

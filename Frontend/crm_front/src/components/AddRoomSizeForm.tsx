@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, InputNumber, Button, Card, Switch } from "antd";
-import { 
-  HomeOutlined, 
+import BlackButton from './BlackButton';
+import {
+  HomeOutlined,
   FileTextOutlined,
   ColumnHeightOutlined,
   DashboardOutlined
@@ -90,11 +91,11 @@ const AddRoomSizeForm: FC<AddRoomSizeFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true, cubic_feet: 0, weight: 0 }}>
         {/* Room Size Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <HomeOutlined />
               Room Size Information
             </span>
@@ -114,8 +115,8 @@ const AddRoomSizeForm: FC<AddRoomSizeFormProps> = ({
             name="description"
             style={{ marginBottom: '12px' }}
           >
-            <Input.TextArea 
-              placeholder="Description of the room size" 
+            <Input.TextArea
+              placeholder="Description of the room size"
               rows={3}
             />
           </Form.Item>
@@ -126,9 +127,9 @@ const AddRoomSizeForm: FC<AddRoomSizeFormProps> = ({
             rules={[{ required: true, message: 'Please input the cubic feet!' }]}
             style={{ marginBottom: '12px' }}
           >
-            <InputNumber 
-              prefix={<ColumnHeightOutlined />} 
-              placeholder="0.00" 
+            <InputNumber
+              prefix={<ColumnHeightOutlined />}
+              placeholder="0.00"
               style={{ width: '100%' }}
               min={0}
               step={0.01}
@@ -141,9 +142,9 @@ const AddRoomSizeForm: FC<AddRoomSizeFormProps> = ({
             rules={[{ required: true, message: 'Please input the weight!' }]}
             style={{ marginBottom: '12px' }}
           >
-            <InputNumber 
-              prefix={<DashboardOutlined />} 
-              placeholder="0.00" 
+            <InputNumber
+              prefix={<DashboardOutlined />}
+              placeholder="0.00"
               style={{ width: '100%' }}
               min={0}
               step={0.01}
@@ -161,9 +162,9 @@ const AddRoomSizeForm: FC<AddRoomSizeFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingRoomSize ? "Update Room Size" : "Add Room Size"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from "react";
-import { Drawer, notification, Form, Input, Button, Card, Switch, Upload, message } from "antd";
-import { 
-  FileTextOutlined, 
+import { Drawer, notification, Form, Input, Button, Card, Switch, Upload, Select, message } from "antd";
+import BlackButton from './BlackButton';
+import {
+  FileTextOutlined,
   UploadOutlined,
   LinkOutlined
 } from "@ant-design/icons";
@@ -11,6 +12,7 @@ import axios, { AxiosResponse } from "axios";
 import { DocumentsUrl } from "../utils/network";
 
 const { TextArea } = Input;
+const { Option } = Select;
 
 interface AddDocumentFormProps {
   isVisible: boolean;
@@ -28,6 +30,7 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fileList, setFileList] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Other');
 
   const handleFormClose = () => {
     form.resetFields();
@@ -38,9 +41,11 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
   useEffect(() => {
     if (editingDocument) {
       form.setFieldsValue(editingDocument);
+      setSelectedCategory(editingDocument.category || 'Other');
       setFileList([]);
     } else {
       form.resetFields();
+      setSelectedCategory('Other');
       setFileList([]);
     }
   }, [editingDocument, form]);
@@ -61,11 +66,11 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
 
       // Create FormData for file upload
       const formData = new FormData();
-      formData.append('title', values.title);
-      if (values.description) formData.append('description', values.description);
-      if (values.document_type) formData.append('document_type', values.document_type);
+      if (values.title) formData.append('title', values.title);
+      if (values.category) formData.append('category', values.category);
+      if (values.document_purpose) formData.append('document_purpose', values.document_purpose);
       formData.append('is_active', values.is_active ? 'true' : 'false');
-      
+
       // Add file if uploaded
       if (fileList.length > 0) {
         const file = fileList[0].originFileObj || fileList[0];
@@ -130,11 +135,11 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true }}>
         {/* Document Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <FileTextOutlined />
               Document Information
             </span>
@@ -150,20 +155,47 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
           </Form.Item>
 
           <Form.Item
-            label="Document Type"
-            name="document_type"
+            label="Category"
+            name="category"
+            rules={[{ required: true, message: 'Please select a category!' }]}
             style={{ marginBottom: '12px' }}
           >
-            <Input placeholder="Policy, Form, Guide, etc." />
+            <Select
+              placeholder="Select category"
+              onChange={(value) => setSelectedCategory(value)}
+            >
+              <Option value="Email">Email</Option>
+              <Option value="Contract">Contract</Option>
+              <Option value="Invoice">Invoice</Option>
+              <Option value="Payment Receipt">Payment Receipt</Option>
+              <Option value="Work Order">Work Order</Option>
+              <Option value="Other">Other</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item
-            label="Description"
-            name="description"
+            label="System Mapping"
+            name="document_purpose"
             style={{ marginBottom: '12px' }}
+            help="Maps this document for automatic use in estimates and emails"
           >
-            <TextArea rows={3} placeholder="Brief description of the document..." />
+            <Select placeholder="Select mapping (e.g. Invoice Email, Closed Email)">
+              <Option value="none">None</Option>
+              <Option value="new_lead_email">New Lead Email</Option>
+              <Option value="booked_email">Booked Email</Option>
+              <Option value="closed_email">Closed Email</Option>
+              <Option value="invoice_email">Invoice Email</Option>
+              <Option value="receipt_email">Receipt Email</Option>
+              <Option value="endpoint_leads_task">Endpoint Leads task</Option>
+              <Option value="estimate_pdf">Estimate PDF</Option>
+              <Option value="invoice_pdf">Invoice PDF</Option>
+              <Option value="receipt_pdf">Receipt PDF</Option>
+              <Option value="work_order_pdf">Work Order PDF</Option>
+              <Option value="contract_pdf">Contract PDF</Option>
+            </Select>
           </Form.Item>
+
+
 
           <Form.Item
             label="Active Status"
@@ -176,11 +208,11 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
         </Card>
 
         {/* File Upload Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <UploadOutlined />
               File Upload
             </span>
@@ -200,9 +232,9 @@ const AddDocumentForm: FC<AddDocumentFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingDocument ? "Update Document" : "Add Document"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

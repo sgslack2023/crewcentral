@@ -1,8 +1,9 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, Select, Button, Card, Switch, InputNumber } from "antd";
-import { 
-  HomeOutlined, 
-  EnvironmentOutlined, 
+import BlackButton from './BlackButton';
+import {
+  HomeOutlined,
+  EnvironmentOutlined,
   SendOutlined,
   PercentageOutlined
 } from "@ant-design/icons";
@@ -92,11 +93,11 @@ const AddBranchForm: FC<AddBranchFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true, sales_tax_percentage: 0.00 }}>
         {/* Branch Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <HomeOutlined />
               Branch Information
             </span>
@@ -160,9 +161,9 @@ const AddBranchForm: FC<AddBranchFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingBranch ? "Update Branch" : "Add Branch"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, Button, Card, Switch, List, Space, Tag, Modal } from "antd";
-import { 
-  TagsOutlined, 
+import BlackButton from './BlackButton';
+import {
+  TagsOutlined,
   FileTextOutlined,
   EditOutlined,
   DeleteOutlined,
@@ -39,7 +40,7 @@ const AddChargeCategoryForm: FC<AddChargeCategoryFormProps> = ({
   }, [isVisible]);
 
   const fetchCategories = async () => {
-    getChargeCategories(setCategories, () => {});
+    getChargeCategories(setCategories, () => { });
   };
 
   const handleFormClose = () => {
@@ -147,14 +148,14 @@ const AddChargeCategoryForm: FC<AddChargeCategoryFormProps> = ({
       width={600}
     >
       {/* Existing Categories List */}
-      <Card 
-        size="small" 
+      <Card
+        size="small"
         title="Existing Categories"
         style={{ marginBottom: '16px' }}
         extra={
-          <Button 
-            type="primary" 
-            size="small" 
+          <Button
+            type="primary"
+            size="small"
             icon={<PlusOutlined />}
             onClick={handleNewCategory}
           >
@@ -169,18 +170,18 @@ const AddChargeCategoryForm: FC<AddChargeCategoryFormProps> = ({
           renderItem={(category) => (
             <List.Item
               actions={[
-                <Button 
+                <Button
                   key="edit"
-                  size="small" 
+                  size="small"
                   icon={<EditOutlined />}
                   onClick={() => handleEditCategory(category)}
                 >
                   Edit
                 </Button>,
-                <Button 
+                <Button
                   key="delete"
-                  size="small" 
-                  danger 
+                  size="small"
+                  danger
                   icon={<DeleteOutlined />}
                   onClick={() => category.id && handleDeleteCategory(category.id)}
                 >
@@ -210,55 +211,55 @@ const AddChargeCategoryForm: FC<AddChargeCategoryFormProps> = ({
       </Card>
 
       {/* Add/Edit Form */}
-      <Card 
+      <Card
         size="small"
         title={selectedCategory ? `Edit: ${selectedCategory.name}` : "Add New Category"}
       >
         <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true }}>
-        <div>
-          <Form.Item
-            label="Category Name"
-            name="name"
-            rules={[{ required: true, message: 'Please input the category name!' }]}
-            style={{ marginBottom: '12px' }}
-          >
-            <Input prefix={<TagsOutlined />} placeholder="Transportation" />
-          </Form.Item>
+          <div>
+            <Form.Item
+              label="Category Name"
+              name="name"
+              rules={[{ required: true, message: 'Please input the category name!' }]}
+              style={{ marginBottom: '12px' }}
+            >
+              <Input prefix={<TagsOutlined />} placeholder="Transportation" />
+            </Form.Item>
 
-          <Form.Item
-            label="Description"
-            name="description"
-            style={{ marginBottom: '12px' }}
-          >
-            <TextArea 
-              placeholder="Description of the charge category" 
-              rows={3}
-            />
-          </Form.Item>
+            <Form.Item
+              label="Description"
+              name="description"
+              style={{ marginBottom: '12px' }}
+            >
+              <TextArea
+                placeholder="Description of the charge category"
+                rows={3}
+              />
+            </Form.Item>
 
-          <Form.Item
-            label="Active Status"
-            name="is_active"
-            valuePropName="checked"
-            style={{ marginBottom: '0' }}
-          >
-            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-          </Form.Item>
-        </div>
+            <Form.Item
+              label="Active Status"
+              name="is_active"
+              valuePropName="checked"
+              style={{ marginBottom: '0' }}
+            >
+              <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+            </Form.Item>
+          </div>
 
-        <Form.Item style={{ marginBottom: '0', marginTop: '16px' }}>
-          <Space style={{ width: '100%' }}>
-            <Button htmlType="submit" type="primary" loading={loading}>
-              {selectedCategory ? "Update Category" : "Add Category"}
-            </Button>
-            {selectedCategory && (
-              <Button onClick={handleNewCategory}>
-                Cancel Edit
-              </Button>
-            )}
-          </Space>
-        </Form.Item>
-      </Form>
+          <Form.Item style={{ marginBottom: '0', marginTop: '16px' }}>
+            <Space style={{ width: '100%' }}>
+              <BlackButton htmlType="submit" loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+                Save
+              </BlackButton>
+              {selectedCategory && (
+                <Button onClick={handleNewCategory}>
+                  Cancel Edit
+                </Button>
+              )}
+            </Space>
+          </Form.Item>
+        </Form>
       </Card>
     </Drawer>
   );

@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Button, 
-  Space, 
-  Tag, 
-  Modal, 
-  notification, 
+import {
+  Button,
+  Space,
+  Tag,
+  Modal,
+  notification,
   Card,
   Typography,
   Tooltip,
   Popconfirm
 } from 'antd';
-import { 
-  CheckCircleOutlined, 
+import { BlackButton, WhiteButton } from './';
+import {
+  CheckCircleOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
   UserDeleteOutlined,
@@ -48,9 +49,9 @@ const ROLE_CONFIG = {
   }
 };
 
-const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({ 
-  deniedUsers, 
-  onRefreshUsers, 
+const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
+  deniedUsers,
+  onRefreshUsers,
   loading,
   searchTerm = '',
   selectedRole = 'all'
@@ -142,12 +143,12 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
 
   // Filter denied users based on search and role
   const filteredDeniedUsers = deniedUsers.filter(user => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       user.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesRole = selectedRole === "all" || user.role === selectedRole;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -168,15 +169,15 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
           </div>
         </Card>
       ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-          gap: '24px' 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+          gap: '24px'
         }}>
           {filteredDeniedUsers.map((user) => (
             <Card
               key={user.id}
-              style={{ 
+              style={{
                 borderRadius: '12px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                 transition: 'all 0.3s ease',
@@ -184,17 +185,16 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
               }}
               hoverable
               actions={[
-                <Button
+                <BlackButton
                   key="reapprove"
-                  type="primary"
                   size="small"
                   icon={<UndoOutlined />}
                   onClick={() => handleReapprove(user)}
                   disabled={loading || processing}
                 >
                   Re-approve
-                </Button>,
-                <Button
+                </BlackButton>,
+                <WhiteButton
                   key="delete"
                   size="small"
                   icon={<UserDeleteOutlined />}
@@ -203,7 +203,7 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
                   danger
                 >
                   Delete
-                </Button>
+                </WhiteButton>
               ]}
             >
               <div style={{ marginBottom: '16px' }}>
@@ -230,10 +230,10 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
                 </div>
 
                 {user.denial_reason && (
-                  <div style={{ 
-                    marginTop: '8px', 
-                    padding: '12px', 
-                    backgroundColor: '#fff1f0', 
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    backgroundColor: '#fff1f0',
                     borderRadius: '8px',
                     border: '1px solid #ffccc7'
                   }}>
@@ -246,9 +246,9 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
                   </div>
                 )}
 
-                <div style={{ 
-                  marginTop: '8px', 
-                  paddingTop: '12px', 
+                <div style={{
+                  marginTop: '8px',
+                  paddingTop: '12px',
                   borderTop: '1px solid #f0f0f0',
                   fontSize: '12px',
                   color: '#999'
@@ -267,28 +267,27 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
         open={reapprovalModal.visible}
         onCancel={() => setReapprovalModal({ visible: false, user: null, assignedRole: '', notes: '' })}
         footer={[
-          <Button key="cancel" onClick={() => setReapprovalModal({ visible: false, user: null, assignedRole: '', notes: '' })}>
+          <WhiteButton key="cancel" onClick={() => setReapprovalModal({ visible: false, user: null, assignedRole: '', notes: '' })}>
             Cancel
-          </Button>,
-          <Button 
-            key="approve" 
-            type="primary" 
+          </WhiteButton>,
+          <BlackButton
+            key="approve"
             icon={<CheckCircleOutlined />}
             loading={processing}
             onClick={submitReapproval}
             style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
           >
             Re-approve User
-          </Button>
+          </BlackButton>
         ]}
       >
         {reapprovalModal.user && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 16 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              marginBottom: 16
             }}>
               <div style={{ fontWeight: 500, marginBottom: 4 }}>
                 {reapprovalModal.user.fullname}
@@ -298,10 +297,10 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
               </div>
               <div style={{ marginBottom: 8 }}>
                 <Text strong>Previous Denial Reason:</Text>
-                <div style={{ 
-                  marginTop: 4, 
-                  padding: 8, 
-                  backgroundColor: '#fff2f0', 
+                <div style={{
+                  marginTop: 4,
+                  padding: 8,
+                  backgroundColor: '#fff2f0',
                   borderRadius: 4,
                   border: '1px solid #ffccc7'
                 }}>
@@ -319,10 +318,10 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
               <select
                 value={reapprovalModal.assignedRole}
                 onChange={(e) => setReapprovalModal(prev => ({ ...prev, assignedRole: e.target.value }))}
-                style={{ 
-                  width: '100%', 
-                  padding: '8px 12px', 
-                  border: '1px solid #d9d9d9', 
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
                   borderRadius: 6,
                   fontSize: '14px'
                 }}
@@ -343,11 +342,11 @@ const DeniedUsersPanel: React.FC<DeniedUsersPanelProps> = ({
                 value={reapprovalModal.notes}
                 onChange={(e) => setReapprovalModal(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Add any notes about this re-approval..."
-                style={{ 
-                  width: '100%', 
-                  minHeight: 80, 
-                  padding: '8px 12px', 
-                  border: '1px solid #d9d9d9', 
+                style={{
+                  width: '100%',
+                  minHeight: 80,
+                  padding: '8px 12px',
+                  border: '1px solid #d9d9d9',
                   borderRadius: 6,
                   fontSize: '14px',
                   resize: 'vertical'

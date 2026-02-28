@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from .models import (
     ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem, 
-    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow
+    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow,
+    Invoice, PaymentReceipt, Feedback, WorkOrder, ContractorEstimateLineItem,
+    TransactionCategory, Expense, Purchase
 )
 from users.models import CustomUser
 
@@ -152,6 +154,7 @@ class EstimateSerializer(serializers.ModelSerializer):
     items = EstimateLineItemSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
     document_signing_token = serializers.SerializerMethodField()
+    assigned_contractor_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Estimate
@@ -162,7 +165,8 @@ class EstimateSerializer(serializers.ModelSerializer):
             'delivery_date_from', 'delivery_date_to', 'delivery_time_window', 'delivery_time_window_display',
             'origin_address', 'destination_address',
             'discount_type', 'discount_value', 'subtotal', 'discount_amount', 'tax_percentage', 'tax_amount', 'total_amount',
-            'status', 'notes', 'created_at', 'updated_at', 'created_by', 'created_by_name',
+            'status', 'notes', 'external_notes', 'assigned_contractor', 'assigned_contractor_name',
+            'created_at', 'updated_at', 'created_by', 'created_by_name',
             'items', 'items_count',
             'public_token', 'email_sent_at', 'customer_viewed_at', 'customer_responded_at', 'link_active',
             'document_signing_token'
@@ -215,6 +219,11 @@ class EstimateSerializer(serializers.ModelSerializer):
                 return obj.document_batch.signing_token
         except:
             pass
+        return None
+
+    def get_assigned_contractor_name(self, obj):
+        if obj.assigned_contractor:
+            return obj.assigned_contractor.name
         return None
 
 
@@ -408,3 +417,157 @@ class DocumentSigningBatchSerializer(serializers.ModelSerializer):
         model = DocumentSigningBatch
         fields = ['id', 'estimate', 'signing_token', 'link_active', 'email_sent_at', 'created_at', 'created_by']
         read_only_fields = ['signing_token', 'created_at', 'created_by']
+
+
+class PaymentReceiptSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    estimate_public_token = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PaymentReceipt
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
+        
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+        
+    def get_estimate_public_token(self, obj):
+        return obj.invoice.estimate.public_token if obj.invoice and obj.invoice.estimate else None
+
+class InvoiceSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+    estimate_public_token = serializers.SerializerMethodField()
+    payments = PaymentReceiptSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Invoice
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+        
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+        
+    def get_customer_name(self, obj):
+        return obj.customer.full_name if obj.customer else None
+        
+    def get_estimate_public_token(self, obj):
+        return obj.estimate.public_token if obj.estimate else None
+
+
+class FeedbackSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Feedback
+        fields = [
+            'id', 'customer', 'customer_name', 'status', 'request_sent_at', 
+            'rating', 'comment', 'source', 'review_url', 'public_token',
+            'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+    
+    def get_customer_name(self, obj):
+        return obj.customer.full_name if obj.customer else None
+
+
+class ContractorEstimateLineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContractorEstimateLineItem
+        fields = '__all__'
+
+
+class WorkOrderSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    contractor_name = serializers.SerializerMethodField()
+    items = ContractorEstimateLineItemSerializer(many=True, read_only=True)
+    pickup_time_window_display = serializers.SerializerMethodField()
+    delivery_time_window_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = WorkOrder
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'public_token']
+        
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+        
+    def get_contractor_name(self, obj):
+        return obj.contractor.name if obj.contractor else 'Internal Team'
+
+    def get_pickup_time_window_display(self, obj):
+        if obj.pickup_time_window:
+            return str(obj.pickup_time_window)
+        return None
+
+    def get_delivery_time_window_display(self, obj):
+        if obj.delivery_time_window:
+            return str(obj.delivery_time_window)
+        return None
+
+
+class TransactionCategorySerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TransactionCategory
+        fields = [
+            'id', 'name', 'description', 'category_type', 'is_active',
+            'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+    work_order_id = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Expense
+        fields = [
+            'id', 'title', 'amount', 'expense_date', 'category', 'category_name',
+            'description', 'receipt_file', 'customer', 'customer_name', 'work_order', 'work_order_id',
+            'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
+    
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+    
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None
+
+    def get_customer_name(self, obj):
+        return obj.customer.full_name if obj.customer else None
+
+    def get_work_order_id(self, obj):
+        return obj.work_order.id if obj.work_order else None
+
+
+class PurchaseSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Purchase
+        fields = [
+            'id', 'item_name', 'vendor', 'quantity', 'unit_price', 'total_amount',
+            'purchase_date', 'category', 'category_name', 'description', 'attachment_file',
+            'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['total_amount', 'created_at', 'updated_at', 'created_by']
+    
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+    
+    def get_category_name(self, obj):
+        return obj.category.name if obj.category else None

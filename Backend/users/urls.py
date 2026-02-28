@@ -1,5 +1,5 @@
 from rest_framework import routers,urlpatterns
-from .views import(CreateUserView,LoginView,UpdatePasswordView,MeView,UserActivitiesView,UsersView)
+from .views import(CreateUserView,LoginView,UpdatePasswordView,MeView,UserActivitiesView,UsersView, OrganizationViewSet, OrganizationRoleViewSet, SystemPermissionViewSet)
 
 from .views import(ForgotPasswordView,ResetPasswordView)
 
@@ -19,6 +19,9 @@ router.register("Me",MeView,'Me')
 
 router.register("ForgotPasswordView",ForgotPasswordView,'ForgotPasswordView')
 router.register("ResetPasswordView",ResetPasswordView,'ResetPasswordView')
+router.register("organizations", OrganizationViewSet, 'organizations')
+router.register("roles", OrganizationRoleViewSet, 'roles')
+router.register("permissions", SystemPermissionViewSet, 'permissions')
 
 
 

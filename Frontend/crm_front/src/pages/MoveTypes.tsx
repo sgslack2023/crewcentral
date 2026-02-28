@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Input, Button, Tag, notification, Modal } from 'antd';
-import { 
-  SearchOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
+import { Card, Button, Tag, notification, Modal } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
   CarOutlined,
   ColumnHeightOutlined,
@@ -12,14 +11,19 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getMoveTypes } from '../utils/functions';
+import { getAuthToken, getMoveTypes, getCurrentUser } from '../utils/functions';
 import { MoveTypesUrl } from '../utils/network';
 import { MoveTypeProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddMoveTypeForm from '../components/AddMoveTypeForm';
+import { BlackButton, WhiteButton, SettingsCard, SearchBar, PageLoader } from '../components';
 
-const MoveTypes: React.FC = () => {
+interface MoveTypesProps {
+  hideHeader?: boolean;
+}
+
+const MoveTypes: React.FC<MoveTypesProps> = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const [moveTypes, setMoveTypes] = useState<MoveTypeProps[]>([]);
   const [filteredMoveTypes, setFilteredMoveTypes] = useState<MoveTypeProps[]>([]);
@@ -28,11 +32,7 @@ const MoveTypes: React.FC = () => {
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingMoveType, setEditingMoveType] = useState<MoveTypeProps | null>(null);
 
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     fetchMoveTypes();
@@ -87,226 +87,133 @@ const MoveTypes: React.FC = () => {
   };
 
   return (
-    <div>
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        <div style={{ marginBottom: '24px' }}>
+    <div style={{
+      padding: hideHeader ? '0' : '8px 16px 24px 16px',
+      height: '100%',
+      flex: 1,
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      {!hideHeader && (
+        <div style={{ marginBottom: '16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>Move Types</h1>
-              <p style={{ color: '#666', margin: 0 }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>Move Types</h1>
+              <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>
                 Manage move types with cubic feet and weight ({filteredMoveTypes.length} of {moveTypes.length})
               </p>
             </div>
-            <Button 
+            <WhiteButton
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate('/settings')}
             >
               Back
-            </Button>
+            </WhiteButton>
           </div>
         </div>
+      )}
 
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          <Input
-            placeholder="Search by name or description..."
-            prefix={<SearchOutlined />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, minWidth: '250px' }}
-            allowClear
-          />
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingMoveType(null);
-              setIsAddFormVisible(true);
-            }}
-          >
-            Add Move Type
-          </Button>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>Loading...</div>
-        ) : filteredMoveTypes.length === 0 ? (
-          <Card>
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <h3 style={{ marginBottom: '16px' }}>No move types found</h3>
-              <p style={{ color: '#666', marginBottom: '24px' }}>
-                {searchTerm ? 'No move types match your current filters.' : 'Get started by adding your first move type.'}
-              </p>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setEditingMoveType(null);
-                  setIsAddFormVisible(true);
-                }}
-              >
-                Add Move Type
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-            gap: '20px' 
-          }}>
-            {filteredMoveTypes.map((moveType) => (
-              <Card
-                key={moveType.id}
-                style={{ 
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  position: 'relative',
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                  transition: 'all 0.3s ease'
-                }}
-                bodyStyle={{ padding: '16px' }}
-                hoverable
-              >
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <h3 style={{ 
-                      margin: 0, 
-                      fontSize: '16px', 
-                      fontWeight: 600,
-                      color: '#000',
-                      marginBottom: '8px'
-                    }}>
-                      {moveType.name}
-                    </h3>
-                  </div>
-                  <Tag color={moveType.is_active ? 'green' : 'red'} style={{ margin: 0, fontSize: '11px' }}>
-                    {moveType.is_active ? 'ACTIVE' : 'INACTIVE'}
-                  </Tag>
-                </div>
-
-                {moveType.description && (
-                  <div style={{ 
-                    marginBottom: '16px',
-                    fontSize: '13px',
-                    color: '#666',
-                    lineHeight: '1.5'
-                  }}>
-                    {moveType.description.length > 100 
-                      ? `${moveType.description.substring(0, 100)}...` 
-                      : moveType.description}
-                  </div>
-                )}
-
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{
-                    padding: '12px',
-                    backgroundColor: '#e6f7ff',
-                    borderRadius: '8px',
-                    border: '1px solid #91d5ff'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <ColumnHeightOutlined style={{ fontSize: '12px', color: '#1890ff' }} />
-                      <span style={{ fontSize: '11px', color: '#1890ff', fontWeight: 500 }}>Cubic Feet</span>
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                      {moveType.cubic_feet}
-                    </div>
-                  </div>
-
-                  <div style={{
-                    padding: '12px',
-                    backgroundColor: '#fff7e6',
-                    borderRadius: '8px',
-                    border: '1px solid #ffd591'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <DashboardOutlined style={{ fontSize: '12px', color: '#fa8c16' }} />
-                      <span style={{ fontSize: '11px', color: '#fa8c16', fontWeight: 500 }}>Weight (lbs)</span>
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                      {moveType.weight}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: '12px',
-                  color: '#999',
-                  paddingTop: '12px',
-                  borderTop: '1px solid #f0f0f0'
-                }}>
-                  <div>{moveType.created_by_name || 'System'}</div>
-                  <div>
-                    {new Date(moveType.created_at!).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </div>
-                </div>
-
-                <div style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  display: 'flex',
-                  gap: '4px'
-                }}>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<EditOutlined />}
-                    onClick={() => {
-                      setEditingMoveType(moveType);
-                      setIsAddFormVisible(true);
-                    }}
-                    style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    onClick={() => moveType.id && handleDeleteMoveType(moveType.id)}
-                    danger
-                    style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Add/Edit Move Type Form */}
-        <AddMoveTypeForm
-          isVisible={isAddFormVisible}
-          onClose={() => {
-            setIsAddFormVisible(false);
-            setEditingMoveType(null);
-          }}
-          onSuccessCallBack={() => {
-            setIsAddFormVisible(false);
-            setEditingMoveType(null);
-            fetchMoveTypes();
-          }}
-          editingMoveType={editingMoveType}
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', flexShrink: 0 }}>
+        <SearchBar
+          placeholder="Search by name or description..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ flex: 1, minWidth: '250px' }}
+          allowClear
         />
+        <BlackButton
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingMoveType(null);
+            setIsAddFormVisible(true);
+          }}
+        >
+          New Move Type
+        </BlackButton>
       </div>
+
+      {loading ? (
+        <PageLoader text="Loading move types..." />
+      ) : filteredMoveTypes.length === 0 ? (
+        <Card style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <h3 style={{ marginBottom: '16px' }}>No move types found</h3>
+            <p style={{ color: '#666', marginBottom: '24px' }}>
+              {searchTerm ? 'No move types match your current filters.' : 'Get started by adding your first move type.'}
+            </p>
+            <BlackButton
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingMoveType(null);
+                setIsAddFormVisible(true);
+              }}
+            >
+              New Move Type
+            </BlackButton>
+          </div>
+        </Card>
+      ) : (
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: '12px',
+          alignContent: 'flex-start'
+        }}>
+          {filteredMoveTypes.map((moveType) => (
+            <SettingsCard
+              key={moveType.id}
+              title={moveType.name}
+              statusTag={{ label: moveType.is_active ? 'ACTIVE' : 'INACTIVE', color: moveType.is_active ? 'green' : 'red' }}
+              description={moveType.description ? (moveType.description.length > 100 ? `${moveType.description.substring(0, 100)}...` : moveType.description) : undefined}
+              fields={[
+                { label: 'Cubic Feet', value: moveType.cubic_feet, icon: <ColumnHeightOutlined /> },
+                { label: 'Weight (lbs)', value: moveType.weight, icon: <DashboardOutlined /> }
+              ]}
+              footerLeft={moveType.created_by_name || 'System'}
+              footerRight={new Date(moveType.created_at!).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              })}
+              actions={[
+                {
+                  icon: <EditOutlined />,
+                  tooltip: 'Edit',
+                  onClick: () => {
+                    setEditingMoveType(moveType);
+                    setIsAddFormVisible(true);
+                  }
+                },
+                {
+                  icon: <DeleteOutlined />,
+                  tooltip: 'Delete',
+                  danger: true,
+                  onClick: () => moveType.id && handleDeleteMoveType(moveType.id)
+                }
+              ]}
+              fieldColumns={2}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Move Type Form */}
+      <AddMoveTypeForm
+        isVisible={isAddFormVisible}
+        onClose={() => {
+          setIsAddFormVisible(false);
+          setEditingMoveType(null);
+        }}
+        onSuccessCallBack={() => {
+          setIsAddFormVisible(false);
+          setEditingMoveType(null);
+          fetchMoveTypes();
+        }}
+        editingMoveType={editingMoveType}
+      />
     </div>
   );
 };

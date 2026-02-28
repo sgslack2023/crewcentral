@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, Button, Card, Switch, Select } from "antd";
-import { 
-  FileTextOutlined, 
+import BlackButton from './BlackButton';
+import {
+  FileTextOutlined,
   CarOutlined
 } from "@ant-design/icons";
 import { AuthTokenType, EstimateTemplateProps, ServiceTypeProps } from "../utils/types";
@@ -38,7 +39,7 @@ const AddEstimateTemplateForm: FC<AddEstimateTemplateFormProps> = ({
   const fetchServiceTypes = async () => {
     getServiceTypes((data) => {
       setServiceTypes(data.filter((st: ServiceTypeProps) => st.enabled));
-    }, () => {});
+    }, () => { });
   };
 
   const handleFormClose = () => {
@@ -104,11 +105,11 @@ const AddEstimateTemplateForm: FC<AddEstimateTemplateFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form} initialValues={{ is_active: true }}>
         {/* Template Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <FileTextOutlined />
               Template Information
             </span>
@@ -143,8 +144,8 @@ const AddEstimateTemplateForm: FC<AddEstimateTemplateFormProps> = ({
             name="description"
             style={{ marginBottom: '12px' }}
           >
-            <TextArea 
-              placeholder="Description of the template" 
+            <TextArea
+              placeholder="Description of the template"
               rows={3}
             />
           </Form.Item>
@@ -160,9 +161,9 @@ const AddEstimateTemplateForm: FC<AddEstimateTemplateFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingTemplate ? "Update Template" : "Add Template"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

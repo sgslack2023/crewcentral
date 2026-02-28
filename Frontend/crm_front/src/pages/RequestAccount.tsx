@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Button, Card, Alert, Form, Input, Select } from 'antd';
-import { UserOutlined, MailOutlined, TeamOutlined, ArrowLeftOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { UserOutlined, MailOutlined, TeamOutlined, ArrowLeftOutlined, CheckCircleOutlined, ShopOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { CreateUserUrl } from '../utils/network';
 import { CustomAxiosError } from '../utils/types';
+import { BlackButton } from '../components';
 
 interface SignupData {
   name: string;
   email: string;
+  organizationName: string;
   requestedRole: string;
 }
 
@@ -33,27 +35,28 @@ function RequestAccount() {
   const handleSubmit = async (values: SignupData) => {
     setLoading(true);
     setError("");
-    
+
     try {
       // Create user with approved=false (pending approval)
       const userData = {
         fullname: values.name,
         email: values.email,
+        organization_name: values.organizationName,
         role: values.requestedRole,
         approved: false
       };
-      
+
       console.log('Sending userData:', userData);
       const response = await axios.post(CreateUserUrl, userData);
       console.log('Response received:', response);
-      
+
       if (response) {
         setSubmitted(true);
       }
     } catch (error) {
       console.error('Submit error:', error);
       const e = error as CustomAxiosError;
-      
+
       // Handle specific error cases
       const errorData = e.response?.data;
       if (errorData?.status) {
@@ -80,16 +83,16 @@ function RequestAccount() {
   // Success screen after submission
   if (submitted) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#f8f9fa',
         padding: '20px'
       }}>
-        <Card style={{ 
-          width: '100%', 
+        <Card style={{
+          width: '100%',
           maxWidth: '500px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           textAlign: 'center'
@@ -107,30 +110,22 @@ function RequestAccount() {
             }}>
               <CheckCircleOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
             </div>
-            
+
             <h2 style={{ fontSize: '24px', fontWeight: 500, marginBottom: '12px', color: '#262626' }}>
               Request Submitted
             </h2>
             <p style={{ color: '#8c8c8c', fontSize: '14px', lineHeight: '1.5', marginBottom: '32px' }}>
-              Your account request has been sent to an administrator for approval. 
+              Your account request has been sent to an administrator for approval.
               You'll receive an email notification once your account is reviewed.
             </p>
 
-            <Button 
-              type="primary" 
+            <BlackButton
               size="large"
               block
               onClick={() => navigate('/')}
-              style={{
-                backgroundColor: '#000',
-                borderColor: '#000',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 500
-              }}
             >
               Return to Sign In
-            </Button>
+            </BlackButton>
           </div>
         </Card>
       </div>
@@ -138,8 +133,8 @@ function RequestAccount() {
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
+    <div style={{
+      minHeight: '100vh',
       backgroundColor: '#f8f9fa',
       display: 'flex',
       alignItems: 'center',
@@ -163,7 +158,7 @@ function RequestAccount() {
             </div>
             <div style={{ textAlign: 'left' }}>
               <h1 style={{ fontSize: '24px', fontWeight: 500, margin: 0, color: '#000' }}>
-                EmployPro
+                Baltic Van Lines
               </h1>
               <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
               </p>
@@ -171,7 +166,7 @@ function RequestAccount() {
           </div>
         </div>
 
-        <Card style={{ 
+        <Card style={{
           backgroundColor: '#ffffff',
           border: '1px solid rgba(0, 0, 0, 0.1)',
           borderRadius: '12px',
@@ -206,7 +201,7 @@ function RequestAccount() {
                 message={error}
                 type="error"
                 showIcon
-                style={{ 
+                style={{
                   backgroundColor: '#fef2f2',
                   border: '1px solid #fecaca',
                   color: '#b91c1c',
@@ -222,6 +217,7 @@ function RequestAccount() {
               initialValues={{
                 name: "",
                 email: "",
+                organizationName: "",
                 requestedRole: "User"
               }}
               style={{ display: 'flex', flexDirection: 'column' }}
@@ -289,6 +285,36 @@ function RequestAccount() {
                 />
               </Form.Item>
 
+              {/* Organization Name Field */}
+              <Form.Item
+                name="organizationName"
+                label={<span style={{ fontSize: '14px', fontWeight: 500, color: '#000' }}>Organization Name</span>}
+                rules={[{ required: true, message: 'Please enter your organization name' }]}
+                style={{ marginBottom: '16px' }}
+              >
+                <Input
+                  prefix={<ShopOutlined style={{ fontSize: '16px', color: '#666' }} />}
+                  placeholder="Enter your company or organization name"
+                  style={{
+                    height: '40px',
+                    backgroundColor: '#f3f3f5',
+                    border: '1px solid rgba(0, 0, 0, 0.1)',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.backgroundColor = 'transparent';
+                    e.target.style.borderColor = '#000';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(0, 0, 0, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.backgroundColor = '#f3f3f5';
+                    e.target.style.borderColor = 'rgba(0, 0, 0, 0.1)';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </Form.Item>
+
               {/* Role Selection */}
               <Form.Item
                 name="requestedRole"
@@ -325,23 +351,14 @@ function RequestAccount() {
 
               {/* Submit Button */}
               <Form.Item style={{ marginBottom: 0, marginTop: '8px' }}>
-                <Button
-                  type="primary"
+                <BlackButton
                   htmlType="submit"
                   block
                   size="large"
                   loading={loading}
-                  style={{
-                    height: '40px',
-                    backgroundColor: '#000',
-                    borderColor: '#000',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: 500
-                  }}
                 >
                   {loading ? "Submitting Request..." : "Submit Request"}
-                </Button>
+                </BlackButton>
               </Form.Item>
             </Form>
 
@@ -349,13 +366,13 @@ function RequestAccount() {
             <Alert
               message={
                 <div style={{ fontSize: '14px' }}>
-                  <strong>Note:</strong> Your account will be reviewed by an administrator. 
+                  <strong>Note:</strong> Your account will be reviewed by an administrator.
                   You'll receive an email notification once approved and can then sign in to the system.
                 </div>
               }
               type="info"
               showIcon={false}
-              style={{ 
+              style={{
                 marginTop: '16px',
                 backgroundColor: '#f0f9ff',
                 border: '1px solid #e0f2fe',
@@ -368,7 +385,7 @@ function RequestAccount() {
         {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '32px' }}>
           <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>
-            © 2024 EmployPro. All rights reserved.
+            © 2024 Baltic Van Lines. All rights reserved.
           </p>
         </div>
       </div>

@@ -1,9 +1,9 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, Select, Button, Card, DatePicker } from "antd";
-import { 
-  UserOutlined, 
-  MailOutlined, 
-  PhoneOutlined, 
+import {
+  UserOutlined,
+  MailOutlined,
+  PhoneOutlined,
   TeamOutlined,
   HomeOutlined,
   TagsOutlined,
@@ -19,6 +19,7 @@ import { getAuthToken, getServiceTypes, getRoomSizes, getBranches } from "../uti
 import axios, { AxiosResponse } from "axios";
 import { CustomersUrl, UsersUrl, ServiceTypesUrl, RoomSizesUrl, BranchesUrl } from "../utils/network";
 import dayjs from 'dayjs';
+import BlackButton from './BlackButton';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -91,19 +92,19 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
   const fetchServiceTypes = async () => {
     getServiceTypes((data) => {
       setServiceTypes(data.filter((st: ServiceTypeProps) => st.enabled));
-    }, () => {});
+    }, () => { });
   };
 
   const fetchRoomSizes = async () => {
     getRoomSizes((data) => {
       setRoomSizes(data.filter((rs: RoomSizeProps) => rs.is_active));
-    }, () => {});
+    }, () => { });
   };
 
   const fetchBranches = async () => {
     getBranches((data) => {
       setBranches(data.filter((b: BranchProps) => b.is_active));
-    }, () => {});
+    }, () => { });
   };
 
   const handleFormClose = () => {
@@ -174,7 +175,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
 
   return (
     <Drawer
-      title={editingCustomer ? "Edit Customer" : "Add New Customer"}
+      title={editingCustomer ? "Edit Lead" : "Add New Lead"}
       open={isVisible}
       onClose={handleFormClose}
       destroyOnClose
@@ -182,11 +183,11 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form}>
         {/* Basic Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <UserOutlined />
               Basic Information
             </span>
@@ -235,11 +236,11 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         </Card>
 
         {/* Address Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <HomeOutlined />
               Address Information
             </span>
@@ -291,11 +292,11 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         </Card>
 
         {/* Move Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <CarOutlined />
               Move Information
             </span>
@@ -373,11 +374,11 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         </Card>
 
         {/* CRM Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <TagsOutlined />
               CRM Information
             </span>
@@ -422,8 +423,8 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
             name="assigned_to"
             style={{ marginBottom: '0' }}
           >
-            <Select 
-              placeholder="Select User (Optional)" 
+            <Select
+              placeholder="Select User (Optional)"
               allowClear
               loading={loadingUsers}
             >
@@ -437,11 +438,11 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         </Card>
 
         {/* Notes Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <FileTextOutlined />
               Notes
             </span>
@@ -456,9 +457,9 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingCustomer ? "Update Customer" : "Add Customer"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Input, Button, Tag, notification, Modal, Form, TimePicker, Switch, InputNumber } from 'antd';
-import { 
-  SearchOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
+import {
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
   ArrowLeftOutlined,
@@ -11,11 +10,12 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken } from '../utils/functions';
+import { getAuthToken, getCurrentUser } from '../utils/functions';
 import { BaseUrl } from '../utils/network';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import dayjs from 'dayjs';
+import { BlackButton, WhiteButton, SettingsCard, SearchBar, AddTimeWindowForm, PageLoader } from '../components';
 
 const TimeWindowsUrl = BaseUrl + 'transactiondata/time-windows';
 
@@ -33,7 +33,11 @@ interface TimeWindowProps {
   created_by_name?: string;
 }
 
-const TimeWindows: React.FC = () => {
+interface TimeWindowsProps {
+  hideHeader?: boolean;
+}
+
+const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
   const navigate = useNavigate();
   const [timeWindows, setTimeWindows] = useState<TimeWindowProps[]>([]);
   const [filteredTimeWindows, setFilteredTimeWindows] = useState<TimeWindowProps[]>([]);
@@ -44,11 +48,7 @@ const TimeWindows: React.FC = () => {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
 
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     fetchTimeWindows();
@@ -90,16 +90,8 @@ const TimeWindows: React.FC = () => {
   const handleOpenForm = (window?: TimeWindowProps) => {
     if (window) {
       setEditingWindow(window);
-      form.setFieldsValue({
-        name: window.name,
-        start_time: dayjs(window.start_time, 'HH:mm:ss'),
-        end_time: dayjs(window.end_time, 'HH:mm:ss'),
-        is_active: window.is_active !== false,
-        display_order: window.display_order || 0
-      });
     } else {
       setEditingWindow(null);
-      form.resetFields();
     }
     setIsFormVisible(true);
   };
@@ -107,49 +99,6 @@ const TimeWindows: React.FC = () => {
   const handleCloseForm = () => {
     setIsFormVisible(false);
     setEditingWindow(null);
-    form.resetFields();
-  };
-
-  const handleSave = async (values: any) => {
-    setSaving(true);
-    try {
-      const headers = getAuthToken() as any;
-      
-      const data = {
-        name: values.name,
-        start_time: values.start_time.format('HH:mm:ss'),
-        end_time: values.end_time.format('HH:mm:ss'),
-        is_active: values.is_active !== false,
-        display_order: values.display_order || 0
-      };
-
-      if (editingWindow) {
-        await axios.put(`${TimeWindowsUrl}/${editingWindow.id}`, data, headers);
-        notification.success({
-          message: 'Time Window Updated',
-          description: 'Time window has been updated successfully',
-          title: 'Success'
-        });
-      } else {
-        await axios.post(TimeWindowsUrl, data, headers);
-        notification.success({
-          message: 'Time Window Created',
-          description: 'Time window has been created successfully',
-          title: 'Success'
-        });
-      }
-
-      fetchTimeWindows();
-      handleCloseForm();
-    } catch (error) {
-      notification.error({
-        message: 'Save Error',
-        description: 'Failed to save time window',
-        title: 'Error'
-      });
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleDelete = async (windowId: number) => {
@@ -180,223 +129,109 @@ const TimeWindows: React.FC = () => {
   };
 
   return (
-    <div>
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        <div style={{ marginBottom: '24px' }}>
+    <div style={{
+      padding: hideHeader ? '0' : '8px 16px 24px 16px',
+      height: '100%',
+      flex: 1,
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      {!hideHeader && (
+        <div style={{ marginBottom: '16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>
-                <ClockCircleOutlined style={{ marginRight: '12px', color: '#fa541c' }} />
+              <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>
                 Time Windows
               </h1>
-              <p style={{ color: '#666', margin: 0 }}>
+              <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>
                 Configure arrival time windows for pickups and deliveries ({filteredTimeWindows.length} of {timeWindows.length})
               </p>
             </div>
-            <Button 
+            <WhiteButton
               icon={<ArrowLeftOutlined />}
               onClick={() => navigate('/settings')}
             >
               Back to Settings
-            </Button>
+            </WhiteButton>
           </div>
         </div>
+      )}
 
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          <Input
-            placeholder="Search by name..."
-            prefix={<SearchOutlined />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, minWidth: '250px' }}
-            allowClear
-          />
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => handleOpenForm()}
-          >
-            Add Time Window
-          </Button>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>Loading...</div>
-        ) : filteredTimeWindows.length === 0 ? (
-          <Card>
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <ClockCircleOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-              <h3 style={{ marginBottom: '16px' }}>No time windows found</h3>
-              <p style={{ color: '#666', marginBottom: '24px' }}>
-                {searchTerm ? 'No time windows match your search.' : 'Get started by adding your first time window.'}
-              </p>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => handleOpenForm()}
-              >
-                Add Time Window
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-            gap: '20px' 
-          }}>
-            {filteredTimeWindows.map((window) => (
-              <Card 
-                key={window.id}
-                hoverable
-                style={{ 
-                  borderRadius: '12px',
-                  border: '1px solid #e8e8e8',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <ClockCircleOutlined style={{ fontSize: '20px', color: '#fa541c' }} />
-                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{window.name}</h3>
-                    </div>
-                    <Tag color={window.is_active ? 'green' : 'red'} style={{ fontSize: '11px' }}>
-                      {window.is_active ? 'ACTIVE' : 'INACTIVE'}
-                    </Tag>
-                  </div>
-                </div>
-
-                <div style={{ 
-                  padding: '12px', 
-                  backgroundColor: '#fff7e6', 
-                  borderRadius: '8px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#fa541c', textAlign: 'center' }}>
-                    {window.time_display}
-                  </div>
-                </div>
-
-                <div style={{ 
-                  display: 'flex', 
-                  gap: '8px',
-                  paddingTop: '12px',
-                  borderTop: '1px solid #f0f0f0'
-                }}>
-                  <Button
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={() => handleOpenForm(window)}
-                    style={{ flex: 1 }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => window.id && handleDelete(window.id)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Add/Edit Form Modal */}
-        <Modal
-          title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ClockCircleOutlined />
-              {editingWindow ? 'Edit Time Window' : 'Add Time Window'}
-            </div>
-          }
-          open={isFormVisible}
-          onCancel={handleCloseForm}
-          footer={null}
-          width={500}
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', flexShrink: 0 }}>
+        <SearchBar
+          placeholder="Search by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ flex: 1, minWidth: '250px' }}
+          allowClear
+        />
+        <BlackButton
+          icon={<PlusOutlined />}
+          onClick={() => handleOpenForm()}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSave}
-            initialValues={{ is_active: true, display_order: 0 }}
-          >
-            <Form.Item
-              label="Name"
-              name="name"
-              rules={[{ required: true, message: 'Please enter a name' }]}
-            >
-              <Input placeholder="e.g., Morning, Afternoon, Evening" />
-            </Form.Item>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <Form.Item
-                label="Start Time"
-                name="start_time"
-                rules={[{ required: true, message: 'Please select start time' }]}
-              >
-                <TimePicker 
-                  format="HH:mm"
-                  style={{ width: '100%' }}
-                  placeholder="Select time"
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="End Time"
-                name="end_time"
-                rules={[{ required: true, message: 'Please select end time' }]}
-              >
-                <TimePicker 
-                  format="HH:mm"
-                  style={{ width: '100%' }}
-                  placeholder="Select time"
-                />
-              </Form.Item>
-            </div>
-
-            <Form.Item
-              label="Display Order"
-              name="display_order"
-              help="Lower numbers appear first"
-            >
-              <InputNumber 
-                style={{ width: '100%' }}
-                min={0}
-                placeholder="0"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="Active"
-              name="is_active"
-              valuePropName="checked"
-            >
-              <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-            </Form.Item>
-
-            <Form.Item style={{ marginBottom: 0, marginTop: '24px' }}>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                <Button onClick={handleCloseForm}>
-                  Cancel
-                </Button>
-                <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
-                  {editingWindow ? 'Update' : 'Create'}
-                </Button>
-              </div>
-            </Form.Item>
-          </Form>
-        </Modal>
+          New Time Window
+        </BlackButton>
       </div>
-    </div>
+
+      {loading ? (
+        <PageLoader text="Loading time windows..." />
+      ) : filteredTimeWindows.length === 0 ? (
+        <Card style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <ClockCircleOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
+            <h3 style={{ marginBottom: '16px' }}>No time windows found</h3>
+            <p style={{ color: '#666', marginBottom: '24px' }}>
+              {searchTerm ? 'No time windows match your search.' : 'Get started by adding your first time window.'}
+            </p>
+            <BlackButton
+              icon={<PlusOutlined />}
+              onClick={() => handleOpenForm()}
+            >
+              New Time Window
+            </BlackButton>
+          </div>
+        </Card>
+      ) : (
+        <div style={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: '12px',
+          alignContent: 'flex-start'
+        }}>
+          {filteredTimeWindows.map((window) => (
+            <SettingsCard
+              key={window.id}
+              title={window.name}
+              statusTag={{ label: window.is_active ? 'ACTIVE' : 'INACTIVE', color: window.is_active ? 'green' : 'red' }}
+              fields={[
+                { label: 'Window', value: window.time_display || '-', icon: <ClockCircleOutlined /> }
+              ]}
+              footerLeft={window.created_by_name || 'System'}
+              footerRight={window.created_at ? new Date(window.created_at).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              }) : undefined}
+              actions={[
+                { icon: <EditOutlined />, tooltip: 'Edit', onClick: () => handleOpenForm(window) },
+                { icon: <DeleteOutlined />, tooltip: 'Delete', danger: true, onClick: () => window.id && handleDelete(window.id) }
+              ]}
+              fieldColumns={1}
+            />
+          ))}
+        </div>
+      )}
+      <AddTimeWindowForm
+        isVisible={isFormVisible}
+        onClose={handleCloseForm}
+        onSuccessCallBack={fetchTimeWindows}
+        editingWindow={editingWindow}
+      />
+    </div >
   );
 };
 
 export default TimeWindows;
-

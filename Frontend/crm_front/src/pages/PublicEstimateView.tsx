@@ -16,6 +16,7 @@ import axios from 'axios';
 import { EstimatesUrl } from '../utils/network';
 import { EstimateProps, EstimateLineItemProps } from '../utils/types';
 import logo from '../assets/logo.png';
+import { PageLoader } from '../components';
 
 const PublicEstimateView: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -39,7 +40,7 @@ const PublicEstimateView: React.FC = () => {
       setEstimate(response.data);
       setLineItems(response.data.items || []);
       setError(null);
-      
+
       // If estimate is already approved, show the modal
       if (response.data.status === 'approved') {
         setShowApprovalModal(true);
@@ -104,7 +105,7 @@ const PublicEstimateView: React.FC = () => {
       key: 'charge_type',
       width: 120,
       render: (type: string) => (
-        <Tag color="purple">{type.replace('_', ' ').toUpperCase()}</Tag>
+        <Tag color="blue">{type.replace('_', ' ').toUpperCase()}</Tag>
       )
     },
     {
@@ -151,12 +152,7 @@ const PublicEstimateView: React.FC = () => {
   ];
 
   if (loading) {
-    return (
-      <div style={{ padding: '60px', textAlign: 'center' }}>
-        <FileTextOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-        <div>Loading estimate...</div>
-      </div>
-    );
+    return <PageLoader fullPage text="Loading estimate..." />;
   }
 
   // Don't show error if estimate is approved - show the content with modal instead
@@ -191,9 +187,9 @@ const PublicEstimateView: React.FC = () => {
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ marginBottom: '16px' }}>
-              <img 
-                src={logo} 
-                alt="Baltic Van Lines" 
+              <img
+                src={logo}
+                alt="Baltic Van Lines"
                 style={{ maxHeight: '60px', width: 'auto' }}
               />
             </div>
@@ -202,11 +198,11 @@ const PublicEstimateView: React.FC = () => {
                 Job Number: {estimate.customer_job_number}
               </div>
             )}
-            <Tag 
+            <Tag
               color={
-                estimate.status === 'approved' ? 'green' : 
-                estimate.status === 'rejected' ? 'red' : 
-                estimate.status === 'sent' ? 'blue' : 'orange'
+                estimate.status === 'approved' ? 'green' :
+                  estimate.status === 'rejected' ? 'red' :
+                    estimate.status === 'sent' ? 'blue' : 'orange'
               }
               style={{ fontSize: '12px' }}
             >
@@ -259,10 +255,10 @@ const PublicEstimateView: React.FC = () => {
         {/* Service Type Estimate Content */}
         {estimate.service_type_estimate_content && (
           <Card style={{ borderRadius: '12px', marginBottom: '24px' }}>
-            <div 
-              style={{ 
-                fontSize: '14px', 
-                color: '#333', 
+            <div
+              style={{
+                fontSize: '14px',
+                color: '#333',
                 lineHeight: '1.8',
                 whiteSpace: 'pre-wrap',
                 textAlign: 'center',
@@ -270,6 +266,25 @@ const PublicEstimateView: React.FC = () => {
               }}
             >
               {estimate.service_type_estimate_content}
+            </div>
+          </Card>
+        )}
+
+        {/* External Notes for Customer */}
+        {estimate.external_notes && (
+          <Card
+            style={{ borderRadius: '12px', marginBottom: '24px', backgroundColor: '#fffbe6', border: '1px solid #ffe58f' }}
+            title={<span style={{ fontWeight: 600 }}>External Notes & Special Instructions</span>}
+          >
+            <div
+              style={{
+                fontSize: '14px',
+                color: '#333',
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap'
+              }}
+            >
+              {estimate.external_notes}
             </div>
           </Card>
         )}
@@ -371,7 +386,7 @@ const PublicEstimateView: React.FC = () => {
         )}
 
         {/* Line Items */}
-        <Card 
+        <Card
           style={{ borderRadius: '12px', marginBottom: '24px' }}
           bodyStyle={{ padding: 0 }}
         >
@@ -393,7 +408,7 @@ const PublicEstimateView: React.FC = () => {
               const taxAmount = estimate.tax_amount ? Number(estimate.tax_amount) : 0;
               const taxPercentage = estimate.tax_percentage ? Number(estimate.tax_percentage) : 0;
               const totalAmount = estimate.total_amount ? Number(estimate.total_amount) : 0;
-              
+
               return (
                 <Table.Summary>
                   {/* Subtotal Row */}
@@ -407,7 +422,7 @@ const PublicEstimateView: React.FC = () => {
                       </strong>
                     </Table.Summary.Cell>
                   </Table.Summary.Row>
-                  
+
                   {/* Discount Row */}
                   {discountAmount > 0 && (
                     <Table.Summary.Row style={{ backgroundColor: '#fff1f0' }}>
@@ -428,7 +443,7 @@ const PublicEstimateView: React.FC = () => {
                       </Table.Summary.Cell>
                     </Table.Summary.Row>
                   )}
-                  
+
                   {/* Tax Row */}
                   {taxAmount > 0 && (
                     <Table.Summary.Row style={{ backgroundColor: '#fff7e6' }}>
@@ -444,7 +459,7 @@ const PublicEstimateView: React.FC = () => {
                       </Table.Summary.Cell>
                     </Table.Summary.Row>
                   )}
-                  
+
                   {/* Total Row */}
                   <Table.Summary.Row style={{ backgroundColor: '#f6ffed' }}>
                     <Table.Summary.Cell index={0} colSpan={5}>

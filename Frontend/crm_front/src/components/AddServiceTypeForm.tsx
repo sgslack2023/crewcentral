@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, Input, InputNumber, Button, Card, Switch } from "antd";
+import BlackButton from './BlackButton';
 import {
   TagsOutlined,
   PercentageOutlined,
@@ -90,18 +91,18 @@ const AddServiceTypeForm: FC<AddServiceTypeFormProps> = ({
       destroyOnClose
       width={500}
     >
-      <Form 
-        layout="vertical" 
-        onFinish={onSubmit} 
-        form={form} 
+      <Form
+        layout="vertical"
+        onFinish={onSubmit}
+        form={form}
         initialValues={{ scaling_factor: 1.0, enabled: true }}
       >
         {/* Service Type Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <TagsOutlined />
               Service Type Information
             </span>
@@ -122,9 +123,9 @@ const AddServiceTypeForm: FC<AddServiceTypeFormProps> = ({
             rules={[{ required: true, message: 'Please input the scaling factor!' }]}
             style={{ marginBottom: '12px' }}
           >
-            <InputNumber 
-              prefix={<PercentageOutlined />} 
-              placeholder="1.0" 
+            <InputNumber
+              prefix={<PercentageOutlined />}
+              placeholder="1.0"
               step={0.1}
               min={0}
               style={{ width: '100%' }}
@@ -139,7 +140,7 @@ const AddServiceTypeForm: FC<AddServiceTypeFormProps> = ({
           >
             <Input
               prefix={<BgColorsOutlined />}
-              placeholder="#1890ff"
+              placeholder="#f0f2ff"
               maxLength={7}
             />
           </Form.Item>
@@ -169,9 +170,9 @@ const AddServiceTypeForm: FC<AddServiceTypeFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
-            {editingServiceType ? "Update Service Type" : "Add Service Type"}
-          </Button>
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
+            Save
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>

@@ -1,31 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Input, Select, Button, Badge, Tag, notification, Modal, Space } from 'antd';
-import { 
-  SearchOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined,
-  UserOutlined,
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  SearchOutlined,
+  PlusOutlined,
   MailOutlined,
   PhoneOutlined,
-  HomeOutlined,
-  TagOutlined,
-  TeamOutlined,
-  InfoCircleOutlined,
-  MoreOutlined,
-  CalculatorOutlined,
-  ClockCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  EnvironmentOutlined,
+  AimOutlined,
+  CameraOutlined,
+  InboxOutlined,
+  UndoOutlined,
+  FilterOutlined,
 } from '@ant-design/icons';
+import { Card, Input, Select, Button, Tag, notification, Modal, Tooltip, Space } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken } from '../utils/functions';
+import { getAuthToken, getCurrentUser } from '../utils/functions';
 import { CustomersUrl } from '../utils/network';
 import { CustomerProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
-import Header from '../components/Header';
 import AddCustomerForm from '../components/AddCustomerForm';
 import CreateEstimateForm from '../components/CreateEstimateForm';
+import ScheduleSiteVisitForm from "../components/ScheduleSiteVisitForm";
+import FixedTable from '../components/FixedTable';
+import { BlackButton, WhiteButton, ThemedSearch, ThemedSelect } from '../components';
 
 const { Option } = Select;
 
@@ -44,47 +44,55 @@ const STAGE_OPTIONS = [
   { value: 'new_lead', label: 'New Lead', color: 'orange' },
   { value: 'in_progress', label: 'In Progress', color: 'blue' },
   { value: 'opportunity', label: 'Opportunity', color: 'cyan' },
-  { value: 'booked', label: 'Booked', color: 'purple' },
+  { value: 'booked', label: 'Booked', color: 'blue' },
   { value: 'closed', label: 'Closed', color: 'green' },
   { value: 'bad_lead', label: 'Bad Lead', color: 'volcano' },
   { value: 'lost', label: 'Lost', color: 'red' },
 ];
 
+
+
 const Customers: React.FC = () => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<CustomerProps[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<CustomerProps[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStage, setSelectedStage] = useState<string>('all');
-  const [selectedSource, setSelectedSource] = useState<string>('all');
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerProps | null>(null);
   const [isCreateEstimateVisible, setIsCreateEstimateVisible] = useState(false);
+  const [isScheduleVisitVisible, setIsScheduleVisitVisible] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerProps | null>(null);
   const [isNotesModalVisible, setIsNotesModalVisible] = useState(false);
   const [notesCustomer, setNotesCustomer] = useState<CustomerProps | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState<string | undefined>(undefined);
+  const [sourceFilter, setSourceFilter] = useState<string | undefined>(undefined);
 
-  // Get current user info from localStorage
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
+  const currentUser = getCurrentUser();
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(c => {
+      const matchesSearch = search === '' ||
+        c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        c.email?.toLowerCase().includes(search.toLowerCase()) ||
+        c.phone?.toLowerCase().includes(search.toLowerCase());
+
+      const matchesStage = !stageFilter || c.stage === stageFilter;
+      const matchesSource = !sourceFilter || c.source === sourceFilter;
+
+      return matchesSearch && matchesStage && matchesSource;
+    });
+  }, [customers, search, stageFilter, sourceFilter]);
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
-
-  useEffect(() => {
-    filterCustomers();
-  }, [searchTerm, selectedStage, selectedSource, customers]);
+  }, [showArchived]);
 
   const fetchCustomers = async () => {
     setLoading(true);
     try {
       const headers = getAuthToken() as any;
-      const response = await axios.get(CustomersUrl, headers);
+      const response = await axios.get(`${CustomersUrl}?show_archived=${showArchived}`, headers);
       setCustomers(response.data);
     } catch (error) {
       notification.error({
@@ -95,32 +103,6 @@ const Customers: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterCustomers = () => {
-    let filtered = [...customers];
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(customer =>
-        customer.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (customer.company && customer.company.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (customer.phone && customer.phone.includes(searchTerm))
-      );
-    }
-
-    // Filter by stage
-    if (selectedStage !== 'all') {
-      filtered = filtered.filter(customer => customer.stage === selectedStage);
-    }
-
-    // Filter by source
-    if (selectedSource !== 'all') {
-      filtered = filtered.filter(customer => customer.source === selectedSource);
-    }
-
-    setFilteredCustomers(filtered);
   };
 
   const handleDeleteCustomer = async (customerId: number) => {
@@ -146,7 +128,93 @@ const Customers: React.FC = () => {
             title: 'Error'
           });
         }
-      }
+      },
+      footer: (_, { OkBtn, CancelBtn }) => (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+          <WhiteButton onClick={() => Modal.destroyAll()}>Cancel</WhiteButton>
+          <BlackButton
+            danger
+            onClick={async () => {
+              const headers = getAuthToken() as any;
+              await axios.delete(`${CustomersUrl}/${customerId}`, headers);
+              notification.success({ message: 'Customer Deleted', title: 'Success' });
+              fetchCustomers();
+              Modal.destroyAll();
+            }}
+          >
+            Delete
+          </BlackButton>
+        </div>
+      )
+    });
+  };
+
+  const handleArchiveCustomer = async (customerId: number) => {
+    Modal.confirm({
+      title: 'Archive Customer',
+      content: 'Are you sure you want to archive this customer? They will be moved to the archives.',
+      okText: 'Archive',
+      okType: 'danger',
+      onOk: async () => {
+        const headers = getAuthToken() as any;
+        await axios.post(`${CustomersUrl}/${customerId}/archive`, {}, headers);
+        notification.success({
+          message: 'Customer Archived',
+          description: 'Customer has been moved to archives',
+          title: 'Success'
+        });
+        fetchCustomers();
+      },
+      footer: (_, { OkBtn, CancelBtn }) => (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+          <WhiteButton onClick={() => Modal.destroyAll()}>Cancel</WhiteButton>
+          <BlackButton
+            onClick={async () => {
+              const headers = getAuthToken() as any;
+              await axios.post(`${CustomersUrl}/${customerId}/archive`, {}, headers);
+              notification.success({ message: 'Customer Archived', title: 'Success' });
+              fetchCustomers();
+              Modal.destroyAll();
+            }}
+          >
+            Archive
+          </BlackButton>
+        </div>
+      )
+    });
+  };
+
+  const handleUnarchiveCustomer = async (customerId: number) => {
+    Modal.confirm({
+      title: 'Unarchive Customer',
+      content: 'Are you sure you want to restore this customer to the active list?',
+      okText: 'Unarchive',
+      onOk: async () => {
+        const headers = getAuthToken() as any;
+        await axios.post(`${CustomersUrl}/${customerId}/unarchive`, {}, headers);
+        notification.success({
+          message: 'Customer Restored',
+          description: 'Customer has been restored from archives',
+          title: 'Success'
+        });
+        fetchCustomers();
+      },
+      footer: (_, { OkBtn, CancelBtn }) => (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+          <WhiteButton onClick={() => Modal.destroyAll()}>Cancel</WhiteButton>
+          <BlackButton
+            onClick={async () => {
+              const headers = getAuthToken() as any;
+              await axios.post(`${CustomersUrl}/${customerId}/unarchive`, {}, headers);
+              notification.success({ message: 'Customer Restored', title: 'Success' });
+              fetchCustomers();
+              Modal.destroyAll();
+            }}
+          >
+            Unarchive
+          </BlackButton>
+        </div>
+      )
     });
   };
 
@@ -172,468 +240,274 @@ const Customers: React.FC = () => {
     }, 1000);
   };
 
-  return (
-    <div>
-      {/* Header */}
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        {/* Page Title */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>Customers</h1>
-              <p style={{ color: '#666', margin: 0 }}>
-                Manage your customers and leads ({filteredCustomers.length} of {customers.length})
-              </p>
-            </div>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingCustomer(null);
-                setIsAddFormVisible(true);
-              }}
-            >
-              Add Customer
-            </Button>
+  const columns = [
+    {
+      id: 'full_name',
+      label: 'Customer',
+      width: 200,
+      fixed: true,
+      render: (value: any, record: CustomerProps) => (
+        <div style={{ textAlign: 'left', padding: '4px 8px' }}>
+          <div style={{ fontWeight: 600, color: '#1a1a2e' }}>{record.full_name}</div>
+          {record.job_number && (
+            <div style={{ fontSize: '11px', color: '#8e8ea8' }}>Job #{record.job_number}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      id: 'stage',
+      label: 'Status',
+      width: 150,
+      render: (value: any, record: CustomerProps) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', padding: '4px' }}>
+          <Tag color={getStageColor(record.stage)} style={{ margin: 0, fontSize: '10px', borderRadius: '4px' }}>
+            {record.stage.toUpperCase()}
+          </Tag>
+          <Tag color="geekblue" style={{ margin: 0, fontSize: '10px', borderRadius: '4px' }}>
+            {getSourceLabel(record.source)}
+          </Tag>
+        </div>
+      )
+    },
+    {
+      id: 'email',
+      label: 'Contact',
+      width: 250,
+      render: (value: any, record: CustomerProps) => (
+        <div style={{ fontSize: '12px', textAlign: 'left', padding: '4px 8px' }}>
+          <div style={{ marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <MailOutlined style={{ marginRight: '6px', color: '#bfbfbf' }} />{record.email}
           </div>
+          <div><PhoneOutlined style={{ marginRight: '6px', color: '#bfbfbf' }} />{record.phone}</div>
         </div>
+      )
+    },
+    {
+      id: 'company',
+      label: 'Details',
+      width: 200,
+      render: (value: any, record: CustomerProps) => (
+        <div style={{ fontSize: '12px', textAlign: 'left', padding: '4px 8px' }}>
+          <div style={{ fontWeight: 500, color: '#434343' }}>{record.company || 'Personal'}</div>
+          <div style={{ color: '#8e8ea8' }}>{[record.city, record.state].filter(Boolean).join(', ') || 'N/A'}</div>
+        </div>
+      )
+    },
+    {
+      id: 'created_at',
+      label: 'Created At',
+      width: 140,
+      render: (value: any) => (
+        <span style={{ fontSize: '12px', color: '#595959' }}>
+          {new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      label: 'Actions',
+      width: 100,
+      render: (value: any, record: CustomerProps) => (
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+          {record.is_archived ? (
+            <Tooltip title="Unarchive">
+              <Button
+                size="small"
+                icon={<UndoOutlined />}
+                onClick={(e) => { e.stopPropagation(); handleUnarchiveCustomer(record.id!); }}
+              />
+            </Tooltip>
+          ) : (
+            <>
+              <Tooltip title="Schedule Site Visit">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<CameraOutlined style={{ fontSize: '14px' }} />}
+                  onClick={(e) => { e.stopPropagation(); setSelectedCustomer(record); setIsScheduleVisitVisible(true); }}
+                  style={{ color: '#eb2f96' }}
+                />
+              </Tooltip>
+              <Tooltip title="Archive">
+                <Button
+                  size="small"
+                  icon={<InboxOutlined />}
+                  onClick={(e) => { e.stopPropagation(); handleArchiveCustomer(record.id!); }}
+                />
+              </Tooltip>
+            </>
+          )}
+        </div>
+      )
+    }
+  ];
 
-        {/* Filters */}
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          <Input
-            placeholder="Search by name, email, company, or phone..."
-            prefix={<SearchOutlined />}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ flex: 1, minWidth: '250px' }}
-            allowClear
+  return (
+    <div style={{ padding: '12px 16px 20px 16px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>Customers</h1>
+          <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>Manage and view all your leads and customer data</p>
+        </div>
+        <Space size="middle">
+          <ThemedSearch
+            placeholder="Search customers..."
+            onSearch={setSearch}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: 200 }}
           />
-          <Select
-            value={selectedStage}
-            onChange={setSelectedStage}
-            style={{ width: 180 }}
+          <ThemedSelect
             placeholder="Filter by Stage"
-          >
-            <Option value="all">All Stages</Option>
-            {STAGE_OPTIONS.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
-              </Option>
-            ))}
-          </Select>
-          <Select
-            value={selectedSource}
-            onChange={setSelectedSource}
-            style={{ width: 180 }}
+            style={{ width: 160 }}
+            allowClear
+            value={stageFilter}
+            onChange={setStageFilter}
+            prefixIcon={<FilterOutlined />}
+            options={STAGE_OPTIONS}
+          />
+          <ThemedSelect
             placeholder="Filter by Source"
+            style={{ width: 160 }}
+            allowClear
+            value={sourceFilter}
+            onChange={setSourceFilter}
+            prefixIcon={<AimOutlined />}
+            options={SOURCE_OPTIONS}
+          />
+          <WhiteButton
+            icon={showArchived ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+            onClick={() => setShowArchived(!showArchived)}
           >
-            <Option value="all">All Sources</Option>
-            {SOURCE_OPTIONS.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
-              </Option>
-            ))}
-          </Select>
-        </div>
+            {showArchived ? 'Active' : 'Archived'}
+          </WhiteButton>
+          <BlackButton
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditingCustomer(null);
+              setIsAddFormVisible(true);
+            }}
+          >
+            New Customer
+          </BlackButton>
+        </Space>
+      </div>
 
-        {/* Customer Cards Grid */}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>Loading...</div>
-        ) : filteredCustomers.length === 0 ? (
-          <Card>
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <h3 style={{ marginBottom: '16px' }}>No customers found</h3>
-              <p style={{ color: '#666', marginBottom: '24px' }}>
-                {searchTerm || selectedStage !== 'all' || selectedSource !== 'all'
-                  ? 'No customers match your current filters.'
-                  : 'Get started by adding your first customer.'}
-              </p>
-              <Button type="primary" icon={<PlusOutlined />}>
-                Add Customer
-              </Button>
+      {/* Customer Table */}
+      <Card style={{ borderRadius: '12px', overflow: 'hidden', height: 'calc(100vh - 150px)' }} bodyStyle={{ padding: 0, height: '100%' }}>
+        <FixedTable
+          columns={columns}
+          data={filteredCustomers}
+          loading={loading}
+          tableName="customers_table"
+          onRowClick={(record) => {
+            setEditingCustomer(record);
+            setIsAddFormVisible(true);
+          }}
+        />
+      </Card>
+
+      {/* Add/Edit Customer Form */}
+      <AddCustomerForm
+        isVisible={isAddFormVisible}
+        onClose={() => {
+          setIsAddFormVisible(false);
+          setEditingCustomer(null);
+        }}
+        onSuccessCallBack={() => {
+          setIsAddFormVisible(false);
+          setEditingCustomer(null);
+          fetchCustomers();
+        }}
+        editingCustomer={editingCustomer}
+      />
+
+      {/* Create Estimate Form */}
+      <CreateEstimateForm
+        isVisible={isCreateEstimateVisible}
+        customer={selectedCustomer}
+        onClose={() => {
+          setIsCreateEstimateVisible(false);
+          setSelectedCustomer(null);
+        }}
+        onSuccessCallBack={handleEstimateCreated}
+      />
+
+      {/* Schedule Site Visit Form */}
+      <ScheduleSiteVisitForm
+        isVisible={isScheduleVisitVisible}
+        customer_id={selectedCustomer?.id || 0}
+        customer_name={selectedCustomer?.full_name}
+        onClose={() => {
+          setIsScheduleVisitVisible(false);
+          setSelectedCustomer(null);
+        }}
+        onSuccessCallBack={() => {
+          setIsScheduleVisitVisible(false);
+          setSelectedCustomer(null);
+          fetchCustomers();
+        }}
+      />
+
+      {/* Notes Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileTextOutlined />
+            <span>Customer Notes</span>
+          </div>
+        }
+        open={isNotesModalVisible}
+        onCancel={() => {
+          setIsNotesModalVisible(false);
+          setNotesCustomer(null);
+        }}
+        footer={[
+          <Button
+            key="close"
+            onClick={() => {
+              setIsNotesModalVisible(false);
+              setNotesCustomer(null);
+            }}
+          >
+            Close
+          </Button>
+        ]}
+        width={600}
+      >
+        {notesCustomer && (
+          <div>
+            <div style={{
+              marginBottom: '12px',
+              padding: '12px',
+              backgroundColor: '#f0f2ff',
+              borderRadius: '8px',
+              border: '1px solid #bae6fd'
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: '4px', color: '#0284c7' }}>
+                {notesCustomer.full_name}
+              </div>
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                Job #{notesCustomer.job_number}
+              </div>
             </div>
-          </Card>
-        ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-            gap: '20px' 
-          }}>
-            {filteredCustomers.map((customer) => {
-              const stageOption = STAGE_OPTIONS.find(opt => opt.value === customer.stage);
-              const stageColor = stageOption?.color || 'default';
-              
-              return (
-                <Card
-                  key={customer.id}
-                  style={{ 
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid rgba(0,0,0,0.1)',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    transition: 'all 0.3s ease'
-                  }}
-                  bodyStyle={{ padding: '16px' }}
-                  hoverable
-                >
-                  {/* Header with Title */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <h3 style={{
-                          margin: 0,
-                          fontSize: '16px',
-                          fontWeight: 600,
-                          color: '#000',
-                          marginBottom: '4px'
-                        }}>
-                          {customer.full_name}
-                        </h3>
-                        {customer.job_number && (
-                          <div style={{
-                            fontSize: '12px',
-                            color: '#666',
-                            fontWeight: 500,
-                            marginBottom: '8px'
-                          }}>
-                            Job #{customer.job_number}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<InfoCircleOutlined />}
-                          style={{ padding: '4px' }}
-                        />
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<MoreOutlined />}
-                          style={{ padding: '4px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Could add dropdown menu here
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      <Tag color={stageColor} style={{ margin: 0, fontSize: '11px' }}>
-                        {customer.stage.toUpperCase()}
-                      </Tag>
-                      <Tag color="blue" style={{ margin: 0, fontSize: '11px' }}>
-                        {getSourceLabel(customer.source)}
-                      </Tag>
-                    </div>
-                  </div>
-
-                  {/* Contact Information */}
-                  <div style={{ marginBottom: '16px' }}>
-                    <p style={{ 
-                      fontSize: '12px', 
-                      color: '#999', 
-                      margin: '0 0 8px 0',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Contact Information
-                    </p>
-                    <div style={{ fontSize: '13px', color: '#666', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      {customer.email && <div>{customer.email}</div>}
-                      {customer.phone && <div>{customer.phone}</div>}
-                    </div>
-                  </div>
-
-                  {/* Info Grid - 2x2 colored boxes */}
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '8px',
-                    marginBottom: '16px'
-                  }}>
-                    {/* Company */}
-                    <div style={{
-                      padding: '12px',
-                      backgroundColor: '#e6f7ff',
-                      borderRadius: '8px',
-                      border: '1px solid #91d5ff'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        <TeamOutlined style={{ fontSize: '12px', color: '#1890ff' }} />
-                        <span style={{ fontSize: '11px', color: '#1890ff', fontWeight: 500 }}>Company</span>
-                      </div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                        {customer.company || 'N/A'}
-                      </div>
-                    </div>
-
-                    {/* Stage */}
-                    <div style={{
-                      padding: '12px',
-                      backgroundColor: '#fff7e6',
-                      borderRadius: '8px',
-                      border: '1px solid #ffd591'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        <TagOutlined style={{ fontSize: '12px', color: '#fa8c16' }} />
-                        <span style={{ fontSize: '11px', color: '#fa8c16', fontWeight: 500 }}>Stage</span>
-                      </div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                        {customer.stage.charAt(0).toUpperCase() + customer.stage.slice(1)}
-                      </div>
-                    </div>
-
-                    {/* Location */}
-                    <div style={{
-                      padding: '12px',
-                      backgroundColor: '#e6f7ff',
-                      borderRadius: '8px',
-                      border: '1px solid #91d5ff'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        <HomeOutlined style={{ fontSize: '12px', color: '#1890ff' }} />
-                        <span style={{ fontSize: '11px', color: '#1890ff', fontWeight: 500 }}>Location</span>
-                      </div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                        {customer.city || customer.state 
-                          ? [customer.city, customer.state].filter(Boolean).join(', ')
-                          : 'N/A'}
-                      </div>
-                    </div>
-
-                    {/* Assigned To */}
-                    <div style={{
-                      padding: '12px',
-                      backgroundColor: '#f6ffed',
-                      borderRadius: '8px',
-                      border: '1px solid #b7eb8f'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                        <UserOutlined style={{ fontSize: '12px', color: '#52c41a' }} />
-                        <span style={{ fontSize: '11px', color: '#52c41a', fontWeight: 500 }}>Assigned To</span>
-                      </div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#000' }}>
-                        {customer.assigned_to_name || 'Unassigned'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '12px',
-                    color: '#999',
-                    paddingTop: '12px',
-                    borderTop: '1px solid #f0f0f0'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <UserOutlined style={{ fontSize: '10px' }} />
-                      <span>{customer.created_by_name || 'System'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {customer.notes && (
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<FileTextOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setNotesCustomer(customer);
-                            setIsNotesModalVisible(true);
-                          }}
-                          style={{
-                            padding: '0 4px',
-                            height: '20px',
-                            fontSize: '12px',
-                            color: '#1890ff'
-                          }}
-                          title="View Notes"
-                        />
-                      )}
-                      <div>
-                        {new Date(customer.created_at!).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons Overlay */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '12px',
-                    right: '12px',
-                    display: 'flex',
-                    gap: '4px'
-                  }}>
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<ClockCircleOutlined />}
-                      onClick={() => navigate(`/customer-timeline/${customer.id}`)}
-                      style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        color: '#722ed1'
-                      }}
-                      title="Activity Timeline"
-                    />
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<CalculatorOutlined />}
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setIsCreateEstimateVisible(true);
-                      }}
-                      style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        color: '#52c41a'
-                      }}
-                      title="Create Estimate"
-                    />
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<FileTextOutlined />}
-                      onClick={() => navigate(`/estimates?customer=${customer.id}`)}
-                      style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        color: '#1890ff'
-                      }}
-                      title="View Estimates"
-                    />
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<EditOutlined />}
-                      onClick={() => {
-                        setEditingCustomer(customer);
-                        setIsAddFormVisible(true);
-                      }}
-                      style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-                        color: '#faad14'
-                      }}
-                      title="Edit Customer"
-                    />
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<DeleteOutlined />}
-                      onClick={() => customer.id && handleDeleteCustomer(customer.id)}
-                      danger
-                      style={{ 
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-                      }}
-                      title="Delete Customer"
-                    />
-                  </div>
-                </Card>
-              );
-            })}
+            <div style={{
+              padding: '16px',
+              backgroundColor: '#fafafa',
+              borderRadius: '8px',
+              border: '1px solid #e0e0e0',
+              whiteSpace: 'pre-wrap',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              minHeight: '100px'
+            }}>
+              {notesCustomer.notes || 'No notes available'}
+            </div>
           </div>
         )}
-
-        {/* Add/Edit Customer Form */}
-        <AddCustomerForm
-          isVisible={isAddFormVisible}
-          onClose={() => {
-            setIsAddFormVisible(false);
-            setEditingCustomer(null);
-          }}
-          onSuccessCallBack={() => {
-            setIsAddFormVisible(false);
-            setEditingCustomer(null);
-            fetchCustomers();
-          }}
-          editingCustomer={editingCustomer}
-        />
-
-        {/* Create Estimate Form */}
-        <CreateEstimateForm
-          isVisible={isCreateEstimateVisible}
-          customer={selectedCustomer}
-          onClose={() => {
-            setIsCreateEstimateVisible(false);
-            setSelectedCustomer(null);
-          }}
-          onSuccessCallBack={handleEstimateCreated}
-        />
-
-        {/* Notes Modal */}
-        <Modal
-          title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileTextOutlined />
-              <span>Customer Notes</span>
-            </div>
-          }
-          open={isNotesModalVisible}
-          onCancel={() => {
-            setIsNotesModalVisible(false);
-            setNotesCustomer(null);
-          }}
-          footer={[
-            <Button
-              key="close"
-              onClick={() => {
-                setIsNotesModalVisible(false);
-                setNotesCustomer(null);
-              }}
-            >
-              Close
-            </Button>
-          ]}
-          width={600}
-        >
-          {notesCustomer && (
-            <div>
-              <div style={{
-                marginBottom: '12px',
-                padding: '12px',
-                backgroundColor: '#f0f9ff',
-                borderRadius: '8px',
-                border: '1px solid #bae6fd'
-              }}>
-                <div style={{ fontWeight: 600, marginBottom: '4px', color: '#0284c7' }}>
-                  {notesCustomer.full_name}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>
-                  Job #{notesCustomer.job_number}
-                </div>
-              </div>
-              <div style={{
-                padding: '16px',
-                backgroundColor: '#fafafa',
-                borderRadius: '8px',
-                border: '1px solid #e0e0e0',
-                whiteSpace: 'pre-wrap',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                minHeight: '100px'
-              }}>
-                {notesCustomer.notes || 'No notes available'}
-              </div>
-            </div>
-          )}
-        </Modal>
-      </div>
+      </Modal>
     </div>
   );
 };
-
 export default Customers;
-

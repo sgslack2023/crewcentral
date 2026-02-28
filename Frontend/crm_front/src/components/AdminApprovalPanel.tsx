@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Button, 
-  Modal, 
-  notification, 
-  Tag, 
-  Card, 
+import {
+  Button,
+  Modal,
+  notification,
+  Tag,
+  Card,
   Alert,
   Select,
   Input,
   Space,
   Typography
 } from 'antd';
-import { 
-  CheckCircleOutlined, 
+import { BlackButton, WhiteButton } from './';
+import {
+  CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
@@ -50,9 +51,9 @@ const ROLE_CONFIG = {
   }
 };
 
-const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({ 
-  pendingUsers, 
-  onRefreshUsers, 
+const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
+  pendingUsers,
+  onRefreshUsers,
   loading,
   searchTerm = '',
   selectedRole = 'all'
@@ -170,12 +171,12 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
 
   // Filter pending users based on search and role
   const filteredPendingUsers = pendingUsers.filter(user => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       user.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesRole = selectedRole === "all" || user.role === selectedRole;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -196,15 +197,15 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
           </div>
         </Card>
       ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-          gap: '24px' 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+          gap: '24px'
         }}>
           {filteredPendingUsers.map((user) => (
             <Card
               key={user.id}
-              style={{ 
+              style={{
                 borderRadius: '12px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                 transition: 'all 0.3s ease',
@@ -212,9 +213,8 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
               }}
               hoverable
               actions={[
-                <Button
+                <BlackButton
                   key="approve"
-                  type="primary"
                   size="small"
                   icon={<CheckCircleOutlined />}
                   onClick={() => handleApprove(user)}
@@ -222,8 +222,8 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
                   style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
                 >
                   Approve
-                </Button>,
-                <Button
+                </BlackButton>,
+                <WhiteButton
                   key="deny"
                   size="small"
                   icon={<CloseCircleOutlined />}
@@ -232,7 +232,7 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
                   danger
                 >
                   Deny
-                </Button>
+                </WhiteButton>
               ]}
             >
               <div style={{ marginBottom: '16px' }}>
@@ -257,7 +257,7 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
                   <MailOutlined style={{ color: '#666' }} />
                   <span style={{ fontSize: '14px', color: '#333' }}>{user.email}</span>
                 </div>
-                
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <ClockCircleOutlined style={{ color: '#666' }} />
                   <span style={{ fontSize: '14px', color: '#333' }}>
@@ -276,28 +276,27 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
         open={approvalModal.visible}
         onCancel={() => setApprovalModal({ visible: false, user: null, assignedRole: '', notes: '' })}
         footer={[
-          <Button key="cancel" onClick={() => setApprovalModal({ visible: false, user: null, assignedRole: '', notes: '' })}>
+          <WhiteButton key="cancel" onClick={() => setApprovalModal({ visible: false, user: null, assignedRole: '', notes: '' })}>
             Cancel
-          </Button>,
-          <Button 
-            key="approve" 
-            type="primary" 
+          </WhiteButton>,
+          <BlackButton
+            key="approve"
             icon={<CheckCircleOutlined />}
             loading={processing}
             onClick={submitApproval}
             style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
           >
             Approve User
-          </Button>
+          </BlackButton>
         ]}
       >
         {approvalModal.user && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 16 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              marginBottom: 16
             }}>
               <div style={{ fontWeight: 500, marginBottom: 4 }}>
                 {approvalModal.user.fullname}
@@ -333,7 +332,7 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
                   </Select.Option>
                 ))}
               </Select>
-              
+
               {approvalModal.assignedRole !== approvalModal.user.role && (
                 <Alert
                   message="You are assigning a different role than requested. The user will be notified."
@@ -365,28 +364,28 @@ const AdminApprovalPanel: React.FC<AdminApprovalPanelProps> = ({
         open={denyModal.visible}
         onCancel={() => setDenyModal({ visible: false, user: null, reason: '' })}
         footer={[
-          <Button key="cancel" onClick={() => setDenyModal({ visible: false, user: null, reason: '' })}>
+          <WhiteButton key="cancel" onClick={() => setDenyModal({ visible: false, user: null, reason: '' })}>
             Cancel
-          </Button>,
-          <Button 
-            key="deny" 
-            danger 
+          </WhiteButton>,
+          <BlackButton
+            key="deny"
             icon={<CloseCircleOutlined />}
             loading={processing}
             onClick={submitDeny}
             disabled={!denyModal.reason.trim()}
+            style={{ backgroundColor: '#ff4d4f', borderColor: '#ff4d4f' }}
           >
             Deny Request
-          </Button>
+          </BlackButton>
         ]}
       >
         {denyModal.user && (
           <div>
-            <div style={{ 
-              padding: 16, 
-              backgroundColor: '#f5f5f5', 
-              borderRadius: 6, 
-              marginBottom: 16 
+            <div style={{
+              padding: 16,
+              backgroundColor: '#f5f5f5',
+              borderRadius: 6,
+              marginBottom: 16
             }}>
               <div style={{ fontWeight: 500, marginBottom: 4 }}>
                 {denyModal.user.fullname}

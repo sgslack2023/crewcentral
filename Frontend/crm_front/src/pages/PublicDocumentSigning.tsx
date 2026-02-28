@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Tag, notification, Modal, Result, Progress, Input } from 'antd';
-import { 
+import {
   FileTextOutlined,
   CheckCircleOutlined,
   EyeOutlined,
@@ -9,6 +9,7 @@ import {
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { EstimateDocumentsUrl, EstimatesUrl } from '../utils/network';
+import { PageLoader } from '../components';
 import { EstimateDocumentProps, EstimateProps } from '../utils/types';
 import SignaturePad from '../components/SignaturePad';
 
@@ -85,31 +86,31 @@ const PublicDocumentSigning: React.FC = () => {
 
   const handleSaveTextbox = async () => {
     if (!fillingTextboxDocId) return;
-    
+
     const wasViewingDoc = viewingDoc?.id === fillingTextboxDocId;
-    
+
     try {
       await axios.post(`${EstimateDocumentsUrl}/${fillingTextboxDocId}/fill_textbox`, {
         text: textboxValue,
         textbox_index: textboxIndex,
         token
       });
-      
+
       notification.success({
         message: 'Text Saved',
         description: 'Your text has been saved.',
         duration: 2,
         title: 'Success'
       });
-      
+
       setFillingTextboxDocId(null);
       setTextboxValue('');
-      
+
       // Refresh documents to get updated text data
       const response = await axios.get(`${EstimateDocumentsUrl}/by_token?token=${token}`);
       const updatedDocs = response.data;
       setDocuments(updatedDocs);
-      
+
       // If we were viewing this document, update the view in place without closing
       if (wasViewingDoc) {
         const updatedDoc = updatedDocs.find((d: EstimateDocumentProps) => d.id === fillingTextboxDocId);
@@ -118,9 +119,9 @@ const PublicDocumentSigning: React.FC = () => {
           if (viewingBlobUrl) {
             URL.revokeObjectURL(viewingBlobUrl);
           }
-          
+
           const fullHtml = generateDocumentHtml(updatedDoc);
-          
+
           const blob = new Blob([fullHtml], { type: 'text/html' });
           const newBlobUrl = URL.createObjectURL(blob);
           setViewingBlobUrl(newBlobUrl);
@@ -138,30 +139,30 @@ const PublicDocumentSigning: React.FC = () => {
 
   const handleSaveSignature = async (signature: string) => {
     if (!signingDocId) return;
-    
+
     const wasViewingDoc = viewingDoc?.id === signingDocId;
-    
+
     try {
       await axios.post(`${EstimateDocumentsUrl}/${signingDocId}/sign_document`, {
         signature,
         signature_index: signatureIndex,
         token
       });
-      
+
       notification.success({
         message: 'Signature Saved',
         description: 'Your signature has been saved. Continue signing remaining fields.',
         duration: 2,
         title: 'Success'
       });
-      
+
       setSigningDocId(null);
-      
+
       // Refresh documents to get updated signature data
       const response = await axios.get(`${EstimateDocumentsUrl}/by_token?token=${token}`);
       const updatedDocs = response.data;
       setDocuments(updatedDocs);
-      
+
       // If we were viewing this document, update the view in place without closing
       if (wasViewingDoc) {
         const updatedDoc = updatedDocs.find((d: EstimateDocumentProps) => d.id === signingDocId);
@@ -170,9 +171,9 @@ const PublicDocumentSigning: React.FC = () => {
           if (viewingBlobUrl) {
             URL.revokeObjectURL(viewingBlobUrl);
           }
-          
+
           const fullHtml = generateDocumentHtml(updatedDoc);
-          
+
           const blob = new Blob([fullHtml], { type: 'text/html' });
           const newBlobUrl = URL.createObjectURL(blob);
           setViewingBlobUrl(newBlobUrl);
@@ -297,13 +298,13 @@ const PublicDocumentSigning: React.FC = () => {
       await axios.post(`${EstimateDocumentsUrl}/${docId}/submit_document`, {
         token
       });
-      
+
       notification.success({
         message: 'Document Submitted',
         description: 'All signatures completed and document submitted successfully!',
         title: 'Success'
       });
-      
+
       fetchDocuments(); // Refresh to show updated status
     } catch (error: any) {
       notification.error({
@@ -319,10 +320,10 @@ const PublicDocumentSigning: React.FC = () => {
   const fetchPdfBlob = async (url: string) => {
     setPdfLoading(true);
     try {
-      const response = await axios.get(url, { 
-        responseType: 'blob' 
+      const response = await axios.get(url, {
+        responseType: 'blob'
       });
-      
+
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
       return blobUrl;
@@ -342,7 +343,7 @@ const PublicDocumentSigning: React.FC = () => {
   const handleViewDocument = async (docUrl: string, processedContent?: string, docId?: number, doc?: EstimateDocumentProps) => {
     setViewingDocUrl(docUrl);
     setViewingDoc(doc || null);
-    
+
     // If we have processed content (HTML with tags replaced), use it
     if (processedContent && doc) {
       // Wrap processed content in complete HTML document with click handler script
@@ -414,7 +415,7 @@ const PublicDocumentSigning: React.FC = () => {
               {estimate?.customer_name} - Estimate #{estimate?.id}
             </p>
             <div style={{ marginTop: '16px' }}>
-              <Progress 
+              <Progress
                 percent={totalCount > 0 ? Math.round((signedCount / totalCount) * 100) : 0}
                 status={allSigned ? 'success' : 'active'}
                 strokeColor="#fff"
@@ -437,9 +438,9 @@ const PublicDocumentSigning: React.FC = () => {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {documents.map((doc) => (
-              <Card 
+              <Card
                 key={doc.id}
-                style={{ 
+                style={{
                   borderRadius: '12px',
                   border: doc.customer_signed ? '2px solid #52c41a' : '1px solid #d9d9d9'
                 }}
@@ -457,9 +458,9 @@ const PublicDocumentSigning: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    
+
                     {!doc.customer_signed && doc.signatures_required && doc.signatures_required > 0 && (
-                      <div style={{ 
+                      <div style={{
                         marginTop: '12px',
                         padding: '12px',
                         backgroundColor: '#e6f7ff',
@@ -471,8 +472,8 @@ const PublicDocumentSigning: React.FC = () => {
                         </div>
                         {doc.signature_count === doc.signatures_required && (
                           <div style={{ marginTop: '8px' }}>
-                            <Button 
-                              type="primary" 
+                            <Button
+                              type="primary"
                               size="small"
                               loading={submitting}
                               onClick={() => handleSubmitDocument(doc.id!)}
@@ -484,9 +485,9 @@ const PublicDocumentSigning: React.FC = () => {
                         )}
                       </div>
                     )}
-                    
+
                     {doc.customer_signed && (
-                      <div style={{ 
+                      <div style={{
                         marginTop: '12px',
                         padding: '12px',
                         backgroundColor: '#f6ffed',
@@ -533,13 +534,13 @@ const PublicDocumentSigning: React.FC = () => {
           style={{ top: 20 }}
         >
           {pdfLoading ? (
-            <div style={{ padding: '48px', textAlign: 'center' }}>Loading document preview...</div>
+            <PageLoader text="Loading document preview..." />
           ) : (
             <>
               {viewingBlobUrl ? (
                 <div>
-                  <div style={{ 
-                    border: '1px solid #f0f0f0', 
+                  <div style={{
+                    border: '1px solid #f0f0f0',
                     borderRadius: '8px',
                     overflow: 'hidden',
                     backgroundColor: '#fafafa'
@@ -554,7 +555,7 @@ const PublicDocumentSigning: React.FC = () => {
                       title="Document Viewer"
                     />
                   </div>
-                  
+
                   {/* Sign Button - Appears if document has signature field and not yet signed */}
                   {/* Removed bottom sign button (signing is done by clicking the in-document signature field). */}
                 </div>
@@ -590,7 +591,7 @@ const PublicDocumentSigning: React.FC = () => {
                   Please sign below to acknowledge that you have reviewed and agree to this document.
                 </p>
               </div>
-              
+
               <SignaturePad
                 key={`signature-${signingDocId}-${signatureIndex}`}
                 onSave={handleSaveSignature}
@@ -645,7 +646,7 @@ const PublicDocumentSigning: React.FC = () => {
                   Please enter your text below.
                 </p>
               </div>
-              
+
               <Input.TextArea
                 value={textboxValue}
                 onChange={(e) => setTextboxValue(e.target.value)}

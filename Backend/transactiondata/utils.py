@@ -1,7 +1,11 @@
 from decimal import Decimal
 import logging
-from .models import Estimate, EstimateLineItem, ChargeType
+from .models import Estimate, EstimateLineItem, ChargeType, Invoice, PaymentReceipt, WorkOrder
 from datetime import datetime
+from io import BytesIO
+from django.core.files.base import ContentFile
+from xhtml2pdf import pisa
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +13,7 @@ logger = logging.getLogger(__name__)
 def create_estimate_from_template(template, customer, weight=None, labour_hours=None, 
                                   pickup_date_from=None, pickup_date_to=None, pickup_time_window_id=None,
                                   delivery_date_from=None, delivery_date_to=None, delivery_time_window_id=None,
-                                  created_by=None):
+                                  created_by=None, organization=None):
     """
     Create a new estimate from a template
     """
@@ -32,6 +36,7 @@ def create_estimate_from_template(template, customer, weight=None, labour_hours=
     
     estimate = Estimate.objects.create(
         customer=customer,
+        organization=organization,
         template_used=template,
         service_type=template.service_type,
         weight_lbs=weight,
@@ -386,3 +391,192 @@ def generate_line_items_table(estimate):
     '''
     
     return table_html
+
+
+def generate_pdf_from_html(html_content):
+    """
+    Generate a PDF from HTML content using xhtml2pdf
+    """
+    result = BytesIO()
+    pisa_status = pisa.CreatePDF(html_content, dest=result)
+    if pisa_status.err:
+        logger.error(f"Error generating PDF: {pisa_status.err}")
+        return None
+    return result.getvalue()
+
+
+def generate_invoice_pdf(invoice):
+    """
+    Generate PDF for an invoice based on Document Library mapping
+    """
+    estimate = invoice.estimate
+    from masterdata.models import DocumentLibrary
+    
+    # 1. Try to find by purpose (preferred)
+    template = DocumentLibrary.objects.filter(
+        organization=invoice.organization,
+        document_purpose='invoice_pdf',
+        is_active=True
+    ).first()
+
+    if not template:
+        logger.warning(f"No invoice template found for Invoice {invoice.id}")
+        return False
+    
+    html_content = ""
+    
+    if template.file and (template.document_type == 'HTML Document' or str(template.file).endswith('.html')):
+        try:
+            with template.file.open('rb') as f:
+                html_content = f.read().decode('utf-8')
+        except Exception as e:
+            logger.error(f"Error reading invoice template file: {e}")
+            return False
+    else:
+        html_content = template.description if template.description else template.subject
+    
+    if not html_content:
+        logger.warning(f"No content found for invoice template {template.id}")
+        return False
+
+    processed_html = process_document_template(
+        html_content, 
+        customer=invoice.customer, 
+        estimate=estimate
+    )
+    
+    pdf_content = generate_pdf_from_html(processed_html)
+    if pdf_content:
+        filename = f"Invoice_{invoice.invoice_number}.pdf"
+        invoice.pdf_file.save(filename, ContentFile(pdf_content))
+        return True
+    return False
+
+
+def generate_payment_receipt_pdf(payment):
+    """
+    Generate PDF for a payment receipt based on Document Library mapping
+    """
+    invoice = payment.invoice
+    estimate = invoice.estimate
+    from masterdata.models import DocumentLibrary
+    
+    # 1. Try to find by purpose (preferred)
+    template = DocumentLibrary.objects.filter(
+        organization=payment.organization,
+        document_purpose='receipt_pdf',
+        is_active=True
+    ).first()
+
+    if not template:
+        logger.warning(f"No payment receipt template found for Payment {payment.id}")
+        return False
+    
+    template = template # for clarity
+    html_content = ""
+    
+    if template.file and (template.document_type == 'HTML Document' or str(template.file).endswith('.html')):
+        try:
+            with template.file.open('rb') as f:
+                html_content = f.read().decode('utf-8')
+        except Exception as e:
+            logger.error(f"Error reading receipt template file: {e}")
+            return False
+    else:
+        html_content = template.description if template.description else template.subject
+    
+    if not html_content:
+        logger.warning(f"No content found for receipt template {template.id}")
+        return False
+
+    processed_html = process_document_template(
+        html_content, 
+        customer=invoice.customer, 
+        estimate=estimate
+    )
+    
+    # Add payment specific info
+    processed_html = processed_html.replace('{{payment_amount}}', f'${payment.amount:,.2f}')
+    processed_html = processed_html.replace('{{payment_date}}', payment.payment_date.strftime('%B %d, %Y'))
+    processed_html = processed_html.replace('{{payment_method}}', payment.get_payment_method_display())
+    
+    pdf_content = generate_pdf_from_html(processed_html)
+    if pdf_content:
+        filename = f"Receipt_{payment.id}.pdf"
+        payment.pdf_file.save(filename, ContentFile(pdf_content))
+        return True
+    return False
+
+
+def generate_work_order_pdf(work_order):
+    """
+    Generate PDF for a work order based on Document Library mapping
+    """
+    estimate = work_order.estimate
+    from masterdata.models import DocumentLibrary
+    
+    template = DocumentLibrary.objects.filter(
+        organization=work_order.organization,
+        document_purpose='work_order_pdf',
+        is_active=True
+    ).first()
+
+    if not template:
+        logger.warning(f"No work order template found for WorkOrder {work_order.id}")
+        return False
+    
+    template_content = template.subject # Default to subject if no file
+    
+    html_content = process_document_template(
+        template_content, 
+        customer=estimate.customer, 
+        estimate=estimate
+    )
+    
+    # Add work order specific info
+    html_content = html_content.replace('{{work_order_id}}', str(work_order.id))
+    html_content = html_content.replace('{{contractor_name}}', work_order.contractor.name)
+    html_content = html_content.replace('{{contractor_amount}}', f'${work_order.total_contractor_amount:,.2f}')
+    
+    # Generate contractor line items table
+    rows_html = ''
+    for item in work_order.items.all():
+        rows_html += f'''
+        <tr>
+            <td style="border: 1px solid #000; padding: 4px 6px;">{item.description}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">{item.quantity}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${item.contractor_rate:,.2f}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${item.total_amount:,.2f}</td>
+        </tr>
+        '''
+    
+    table_html = f'''
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left;">Description</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center;">Qty</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right;">Rate</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #e8e8e8;">
+                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right;"><strong>TOTAL:</strong></td>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right;"><strong>${work_order.total_contractor_amount:,.2f}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+    '''
+    
+    html_content = html_content.replace('{{contractor_line_items_table}}', table_html)
+    
+    pdf_content = generate_pdf_from_html(html_content)
+    if pdf_content:
+        filename = f"WorkOrder_{work_order.id}.pdf"
+        work_order.pdf_file.save(filename, ContentFile(pdf_content))
+        return True
+    return False

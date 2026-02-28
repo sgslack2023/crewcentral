@@ -11,19 +11,32 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import environ
+import os
+
+# Initialize environ
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False),
+    BACKEND_URL=(str, 'http://127.0.0.1:8000'),
+    FRONTEND_URL=(str, 'http://127.0.0.1:3000'),
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Take environment variables from .env file
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-an6!!cs###f)%)i851a+9t*xyxjj3(canyskz_)s7iowcw$i-c'
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = ['*','3.17.95.130']
 
@@ -41,8 +54,11 @@ INSTALLED_APPS = [
     'masterdata.apps.MasterdataConfig',#new
     'transactiondata.apps.TransactiondataConfig',#new
     'rest_framework',#new
-
+    'django_q', 
+    'dashboard', # new
+    'sitevisits.apps.SitevisitsConfig',
 ]
+
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -130,7 +146,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.CustomUser'#new
+from corsheaders.defaults import default_headers
+
 CORS_ORIGIN_ALLOW_ALL=True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-organization-id',
+]
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
 
 # REST Framework Configuration
@@ -142,8 +163,28 @@ REST_FRAMEWORK = {
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_HOST_USER = 'info@balticvanlines.ca'
-EMAIL_HOST_PASSWORD = 'xevw jksh ydos qhnw'
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
+
+# Django Q2 Configuration
+Q_CLUSTER = {
+    'name': 'DjangORM',
+    'workers': 4,
+    'recycle': 500,
+    'timeout': 60,
+    'compress': True,
+    'save_limit': 250,
+    'queue_limit': 500,
+    'cpu_affinity': 1,
+    'label': 'Django Q',
+    'orm': 'default',  # Use Django ORM backend
+}
+
+# Frontend URL - change this when deploying to production
+FRONTEND_URL = env('FRONTEND_URL')
+
+# Backend URL for tracking pixel
+BACKEND_URL = env('BACKEND_URL')

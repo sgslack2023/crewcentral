@@ -1,28 +1,39 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponse, FileResponse
 from io import BytesIO
 from crm_back.custom_methods import isAuthenticatedCustom
+from crm_back.mixins import OrganizationContextMixin
 from .models import (
     ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem,
-    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow
+    Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow,
+    Invoice, PaymentReceipt, Feedback, WorkOrder, ContractorEstimateLineItem,
+    TransactionCategory, Expense, Purchase, EmailLog
 )
 from .serializers import (
     ChargeCategorySerializer, ChargeDefinitionSerializer, EstimateTemplateSerializer,
     TemplateLineItemSerializer, EstimateSerializer, EstimateLineItemSerializer,
     ChargeCategorySimpleSerializer, ChargeDefinitionSimpleSerializer, EstimateTemplateSimpleSerializer,
-    CustomerActivitySerializer, EstimateDocumentSerializer, TimeWindowSerializer, TimeWindowSimpleSerializer
+    ChargeCategorySimpleSerializer, ChargeDefinitionSimpleSerializer, EstimateTemplateSimpleSerializer,
+    CustomerActivitySerializer, EstimateDocumentSerializer, TimeWindowSerializer, TimeWindowSimpleSerializer,
+    InvoiceSerializer, PaymentReceiptSerializer, FeedbackSerializer,
+    WorkOrderSerializer, ContractorEstimateLineItemSerializer,
+    TransactionCategorySerializer, ExpenseSerializer, PurchaseSerializer
 )
-from .utils import create_estimate_from_template, calculate_estimate, process_document_template
-from .email_utils import send_estimate_email, send_document_signature_email
+from .utils import create_estimate_from_template, calculate_estimate, process_document_template, generate_invoice_pdf
+from .email_utils import send_estimate_email, send_document_signature_email, send_invoice_pdf_email, send_receipt_pdf_email
 from masterdata.models import Customer
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
+import random
+import string
+from datetime import date
 
 
-class TimeWindowViewSet(viewsets.ModelViewSet):
+class TimeWindowViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing time windows
     """
@@ -31,7 +42,7 @@ class TimeWindowViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = TimeWindow.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -41,7 +52,10 @@ class TimeWindowViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
     
     @action(detail=False, methods=['get'])
     def simple(self, request):
@@ -53,7 +67,7 @@ class TimeWindowViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class ChargeCategoryViewSet(viewsets.ModelViewSet):
+class ChargeCategoryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing charge categories
     """
@@ -62,7 +76,7 @@ class ChargeCategoryViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = ChargeCategory.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -80,7 +94,10 @@ class ChargeCategoryViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
     
     @action(detail=False, methods=['get'])
     def simple(self, request):
@@ -92,7 +109,7 @@ class ChargeCategoryViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class ChargeDefinitionViewSet(viewsets.ModelViewSet):
+class ChargeDefinitionViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing charge definitions
     """
@@ -101,7 +118,7 @@ class ChargeDefinitionViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = ChargeDefinition.objects.all()
+        queryset = super().get_queryset()
         
         # By default, exclude estimate-only charges from configure views
         # unless explicitly requested with include_estimate_only=true
@@ -141,7 +158,10 @@ class ChargeDefinitionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
     
     @action(detail=False, methods=['get'])
     def simple(self, request):
@@ -164,7 +184,7 @@ class ChargeDefinitionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class EstimateTemplateViewSet(viewsets.ModelViewSet):
+class EstimateTemplateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing estimate templates
     """
@@ -173,7 +193,7 @@ class EstimateTemplateViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = EstimateTemplate.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by active status
         is_active = self.request.query_params.get('is_active', None)
@@ -196,7 +216,10 @@ class EstimateTemplateViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
     
     @action(detail=False, methods=['get'])
     def simple(self, request):
@@ -263,7 +286,7 @@ class TemplateLineItemViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-class EstimateViewSet(viewsets.ModelViewSet):
+class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing estimates
     """
@@ -272,7 +295,7 @@ class EstimateViewSet(viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = Estimate.objects.all()
+        queryset = super().get_queryset()
         
         # Filter by customer
         customer_id = self.request.query_params.get('customer', None)
@@ -301,7 +324,10 @@ class EstimateViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
     
     @action(detail=False, methods=['post'])
     def create_from_template(self, request):
@@ -342,7 +368,8 @@ class EstimateViewSet(viewsets.ModelViewSet):
             template, customer, weight, hours,
             pickup_date_from, pickup_date_to, pickup_time_window_id,
             delivery_date_from, delivery_date_to, delivery_time_window_id,
-            request.user
+            request.user, 
+            organization=getattr(request, 'organization', None)
         )
         
         # Create activity record
@@ -417,6 +444,66 @@ class EstimateViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
+    def convert_to_work_order(self, request, pk=None):
+        """
+        Convert approved estimate to an internal work order
+        """
+        estimate = self.get_object()
+        
+        # Check if internal work order already exists
+        if WorkOrder.objects.filter(estimate=estimate, work_order_type='internal').exists():
+            return Response({'error': 'Internal work order already exists for this estimate'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Create Main WorkOrder Entry (Snapshotting all fields)
+        work_order = WorkOrder.objects.create(
+            organization=estimate.organization,
+            estimate=estimate,
+            work_order_type='internal',
+            status='pending',
+            
+            # Snapshots
+            service_type=estimate.service_type,
+            weight_lbs=estimate.weight_lbs,
+            labour_hours=estimate.labour_hours,
+            pickup_date_from=estimate.pickup_date_from,
+            pickup_date_to=estimate.pickup_date_to,
+            pickup_time_window=estimate.pickup_time_window,
+            delivery_date_from=estimate.delivery_date_from,
+            delivery_date_to=estimate.delivery_date_to,
+            delivery_time_window=estimate.delivery_time_window,
+            notes=estimate.notes,
+            
+            created_by=request.user
+        )
+        
+        # Copy Line Items
+        for item in estimate.items.all():
+            ContractorEstimateLineItem.objects.create(
+                work_order=work_order,
+                estimate_item=item,
+                description=item.charge_name or (item.charge.name if item.charge else "Unknown Charge"),
+                quantity=item.quantity,
+                contractor_rate=0,
+                is_active=True
+            )
+            
+        # Update Estimate Status
+        estimate.status = 'work_order'
+        estimate.save(update_fields=['status', 'updated_at'])
+        
+        # Create activity record
+        CustomerActivity.objects.create(
+            customer=estimate.customer,
+            estimate=estimate,
+            activity_type='other',
+            title='Estimate Converted to Work Order',
+            description=f'Estimate #{estimate.id} status changed to work_order and internal work order created.',
+            created_by=request.user
+        )
+        
+        return Response(WorkOrderSerializer(work_order).data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'])
     def duplicate(self, request, pk=None):
         """
         Duplicate an estimate
@@ -426,6 +513,7 @@ class EstimateViewSet(viewsets.ModelViewSet):
         # Create new estimate
         new_estimate = Estimate.objects.create(
             customer=estimate.customer,
+            organization=estimate.organization,
             template_used=estimate.template_used,
             service_type=estimate.service_type,
             weight_lbs=estimate.weight_lbs,
@@ -920,6 +1008,49 @@ class EstimateViewSet(viewsets.ModelViewSet):
                 'message': message
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=['post'])
+    def generate_work_order(self, request, pk=None):
+        """
+        Generate a work order for the assigned contractor
+        POST /estimates/5/generate_work_order/
+        """
+        estimate = self.get_object()
+        if not estimate.assigned_contractor:
+            return Response({
+                'success': False,
+                'message': 'No contractor assigned to this estimate.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create WorkOrder
+        work_order, created = WorkOrder.objects.get_or_create(
+            estimate=estimate,
+            contractor=estimate.assigned_contractor,
+            defaults={
+                'organization': estimate.organization,
+                'created_by': request.user,
+                'status': 'pending',
+                'work_order_template': estimate.work_order_template
+            }
+        )
+        
+        if created:
+            # Copy line items
+            for item in estimate.items.all():
+                ContractorEstimateLineItem.objects.create(
+                    work_order=work_order,
+                    estimate_item=item,
+                    description=item.charge_name,
+                    quantity=item.quantity,
+                    contractor_rate=0 # Default to 0, user can edit
+                )
+        
+        serializer = WorkOrderSerializer(work_order, context={'request': request})
+        return Response({
+            'success': True,
+            'message': 'Work order generated successfully' if created else 'Work order already exists',
+            'data': serializer.data
+        })
+
 
 class EstimateLineItemViewSet(viewsets.ModelViewSet):
     """
@@ -994,7 +1125,10 @@ class CustomerActivityViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
 
 
 class EstimateDocumentViewSet(viewsets.ModelViewSet):
@@ -1248,6 +1382,28 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': f'PDF generation error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=['post'])
+    def send_request(self, request, pk=None):
+        """
+        Send document signature request email
+        POST /estimate-documents/5/send_request/
+        """
+        doc = self.get_object()
+        base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
+        
+        # Create a batch if not exists
+        batch, created = DocumentSigningBatch.objects.get_or_create(
+            estimate=doc.estimate,
+            link_active=True,
+            defaults={'created_by': request.user}
+        )
+        
+        # Async task
+        from django_q.tasks import async_task
+        async_task('transactiondata.tasks.process_document_signing', doc.estimate.id, base_url)
+        
+        return Response({'message': 'Signature request email queued'})
+
     @action(detail=True, methods=['post'], permission_classes=[AllowAny])
     def submit_document(self, request, pk=None):
         """
@@ -1281,3 +1437,632 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(estimate_document)
         return Response(serializer.data)
+
+
+class InvoiceViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing invoices
+    """
+    queryset = Invoice.objects.all()
+    serializer_class = InvoiceSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by customer
+        customer_id = self.request.query_params.get('customer', None)
+        if customer_id:
+            queryset = queryset.filter(customer__id=customer_id)
+            
+        # Filter by estimate
+        estimate_id = self.request.query_params.get('estimate', None)
+        if estimate_id:
+            queryset = queryset.filter(estimate__id=estimate_id)
+            
+        return queryset
+        
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def download_pdf(self, request, pk=None):
+        """
+        Download invoice as PDF. Supports token-based access for easy viewing.
+        """
+        from django.http import FileResponse
+        # Get invoice regardless of org for public link if token is valid
+        try:
+            invoice = Invoice.objects.get(pk=pk)
+        except Invoice.DoesNotExist:
+            return Response({'error': 'Invoice not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        token = request.query_params.get('token')
+        # Allow access if authenticated OR if correct estimate token is provided
+        is_authenticated = request.user and request.user.is_authenticated
+        is_token_valid = token and invoice.estimate and invoice.estimate.public_token == token
+        
+        if not (is_authenticated or is_token_valid):
+            return Response({'error': 'Authentication required or invalid token'}, status=status.HTTP_403_FORBIDDEN)
+            
+        if not invoice.pdf_file:
+            from .utils import generate_invoice_pdf
+            success = generate_invoice_pdf(invoice)
+            if not success:
+                return Response({'error': 'PDF not generated'}, status=status.HTTP_404_NOT_FOUND)
+        
+        return FileResponse(invoice.pdf_file.open('rb'), content_type='application/pdf')
+
+    @action(detail=True, methods=['post'])
+    def send_to_customer(self, request, pk=None):
+        """
+        Send invoice to customer via email
+        """
+        invoice = self.get_object()
+        success, message = send_invoice_pdf_email(invoice)
+        if success:
+            return Response({'message': message})
+        return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing payments
+    """
+    queryset = PaymentReceipt.objects.all()
+    serializer_class = PaymentReceiptSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by invoice
+        invoice_id = self.request.query_params.get('invoice', None)
+        if invoice_id:
+            queryset = queryset.filter(invoice__id=invoice_id)
+            
+        return queryset
+    
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    def download_pdf(self, request, pk=None):
+        """
+        Download payment receipt as PDF. Supports token-based access for easy viewing.
+        """
+        from django.http import FileResponse
+        try:
+            receipt = PaymentReceipt.objects.get(pk=pk)
+        except PaymentReceipt.DoesNotExist:
+            return Response({'error': 'Receipt not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        token = request.query_params.get('token')
+        # Allow access if authenticated OR if correct estimate token is provided via its invoice
+        is_authenticated = request.user and request.user.is_authenticated
+        is_token_valid = token and receipt.invoice and receipt.invoice.estimate and receipt.invoice.estimate.public_token == token
+        
+        if not (is_authenticated or is_token_valid):
+            return Response({'error': 'Authentication required or invalid token'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not receipt.pdf_file:
+            from .utils import generate_payment_receipt_pdf
+            success = generate_payment_receipt_pdf(receipt)
+            if not success:
+                return Response({'error': 'PDF not generated'}, status=status.HTTP_404_NOT_FOUND)
+        
+        return FileResponse(receipt.pdf_file.open('rb'), content_type='application/pdf')
+
+    @action(detail=True, methods=['post'])
+    def send_to_customer(self, request, pk=None):
+        """
+        Send payment receipt to customer via email
+        """
+        receipt = self.get_object()
+        success, message = send_receipt_pdf_email(receipt)
+        if success:
+            return Response({'message': message})
+        return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AccountingViewSet(viewsets.ViewSet):
+    """
+    ViewSet for accounting statistics and aggregations
+    """
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def list(self, request):
+        """
+        Get overall accounting dashboard stats
+        """
+        # Filter by org
+        invoices = Invoice.objects.all()
+        if hasattr(request, 'organization') and request.organization:
+            invoices = invoices.filter(organization=request.organization)
+            
+        valid_invoices = invoices.exclude(status__in=['draft', 'void'])
+        overall_balance = valid_invoices.aggregate(sum=Sum('balance_due'))['sum'] or 0
+        
+        # Monthly Stats (for current month)
+        now = timezone.now()
+        current_month_invoices = valid_invoices.filter(issue_date__month=now.month, issue_date__year=now.year)
+        monthly_billed = current_month_invoices.aggregate(sum=Sum('total_amount'))['sum'] or 0
+        
+        # Payments for current month
+        payments = PaymentReceipt.objects.all()
+        if hasattr(request, 'organization') and request.organization:
+            payments = payments.filter(organization=request.organization)
+            
+        monthly_collected = payments.filter(payment_date__month=now.month, payment_date__year=now.year).aggregate(sum=Sum('amount'))['sum'] or 0
+        
+        return Response({
+            "overall_balance": overall_balance,
+            "current_month": {
+                "billed": monthly_billed,
+                "collected": monthly_collected,
+                "month": now.month,
+                "year": now.year
+            }
+        })
+
+    @action(detail=False, methods=['get'])
+    def by_customer(self, request):
+        """
+        Get balances grouped by customer
+        """
+        invoices = Invoice.objects.all()
+        if hasattr(request, 'organization') and request.organization:
+            invoices = invoices.filter(organization=request.organization)
+            
+        # Group by customer and sum balance_due
+        # We also need customer name
+        balances = invoices.exclude(status__in=['draft', 'void']).values('customer__id', 'customer__full_name').annotate(
+            total_balance=Sum('balance_due'),
+            invoice_count=Count('id')
+        ).filter(total_balance__gt=0).order_by('-total_balance')
+        
+        return Response(balances)
+
+
+class FeedbackViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing customer feedback/reviews
+    """
+    queryset = Feedback.objects.all()
+    serializer_class = FeedbackSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by customer
+        customer_id = self.request.query_params.get('customer', None)
+        if customer_id:
+            queryset = queryset.filter(customer__id=customer_id)
+            
+        return queryset
+        
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+    @action(detail=True, methods=['post'])
+    def send_request(self, request, pk=None):
+        """
+        Send feedback request email to customer
+        POST /feedback/5/send_request/
+        """
+        feedback = self.get_object()
+        
+        base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
+        from .email_utils import send_feedback_email
+        
+        success, message = send_feedback_email(feedback, base_url)
+        
+        if success:
+            feedback.status = 'requested'
+            feedback.request_sent_at = timezone.now()
+            feedback.save()
+            return Response({'message': message})
+        else:
+            return Response({'error': message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def submit_public(self, request):
+        """
+        Public endpoint to submit feedback
+        POST /feedback/submit_public/
+        {
+            "token": "xxx",
+            "rating": 5,
+            "comment": "Great!",
+            "source": "Web"
+        }
+        """
+        token = request.data.get('token')
+        rating = request.data.get('rating')
+        comment = request.data.get('comment', '')
+        
+        if not token:
+            return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            feedback = Feedback.objects.get(public_token=token)
+            
+            # Update feedback
+            feedback.rating = rating
+            feedback.comment = comment
+            feedback.source = request.data.get('source', 'Web')
+            feedback.status = 'received'
+            feedback.save()
+            
+            # Log activity if customer exists
+            if feedback.customer:
+                CustomerActivity.objects.create(
+                    customer=feedback.customer,
+                    activity_type='feedback_received',
+                    title='Customer Feedback Received',
+                    description=f'Customer rated {rating}/5 stars. Comment: {comment}',
+                    # No user for public feedback
+                )
+                
+            # Include Google Business link in response for redirection logic
+            google_link = feedback.organization.google_business_link if feedback.organization else None
+                
+            return Response({
+                'message': 'Feedback received successfully',
+                'google_business_link': google_link
+            })
+            
+        except Feedback.DoesNotExist:
+            return Response({'error': 'Invalid token'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing contractor work orders
+    """
+    queryset = WorkOrder.objects.all()
+    serializer_class = WorkOrderSerializer
+    permission_classes = (isAuthenticatedCustom,)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        estimate_id = self.request.query_params.get('estimate_id', None)
+        if estimate_id:
+            queryset = queryset.filter(estimate_id=estimate_id)
+            
+        contractor_id = self.request.query_params.get('contractor_id', None)
+        if contractor_id:
+            queryset = queryset.filter(contractor_id=contractor_id)
+            
+        return queryset
+
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+    @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
+    def share(self, request, pk=None):
+        """Generate a public token for contractor sharing"""
+        work_order = self.get_object()
+        if not work_order.public_token:
+            import uuid
+            work_order.public_token = str(uuid.uuid4())
+            work_order.save(update_fields=['public_token'])
+        
+        return Response({
+            'message': 'Work order sharing link generated',
+            'public_token': work_order.public_token
+        })
+
+    @action(detail=True, methods=['patch'], permission_classes=[isAuthenticatedCustom])
+    def update_status(self, request, pk=None):
+        """Specifically update work order status and log activity"""
+        work_order = self.get_object()
+        new_status = request.data.get('status')
+        
+        if new_status not in dict(WorkOrder.STATUS_CHOICES):
+            return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        work_order.status = new_status
+        work_order.save(update_fields=['status', 'updated_at'])
+        
+        # Handle both internal and external work orders
+        contractor_name = work_order.contractor.name if work_order.contractor else 'Internal Team'
+        
+        CustomerActivity.objects.create(
+            customer=work_order.estimate.customer,
+            estimate=work_order.estimate,
+            activity_type='status_changed',
+            title=f'Work Order Status Updated: {new_status}',
+            description=f'Work Order #{work_order.id} for {contractor_name} changed to {new_status}',
+            created_by=request.user,
+            organization=request.organization if hasattr(request, 'organization') else None
+        )
+        
+        return Response({'message': f'Status updated to {new_status}'})
+    
+    @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
+    def generate_invoice(self, request, pk=None):
+        """
+        Generate an invoice from a work order
+        """
+        work_order = self.get_object()
+        estimate = work_order.estimate
+        
+        # Check if invoice already exists for this work order
+        if Invoice.objects.filter(work_order=work_order).exists():
+             return Response({'error': 'Invoice already exists for this work order'}, status=status.HTTP_400_BAD_REQUEST)
+             
+        # Create invoice
+        invoice_number = f"INV-{''.join(random.choices(string.digits, k=6))}"
+        invoice = Invoice.objects.create(
+            organization=work_order.organization,
+            estimate=estimate,
+            work_order=work_order,
+            customer=estimate.customer,
+            invoice_number=invoice_number,
+            issue_date=date.today(),
+            due_date=date.today(),
+            subtotal=estimate.subtotal,
+            tax_amount=estimate.tax_amount,
+            total_amount=estimate.total_amount,
+            balance_due=estimate.total_amount,
+            status='draft',
+            created_by=request.user
+        )
+        
+        # Generate PDF
+        generate_invoice_pdf(invoice)
+        
+        # Update estimate status to invoiced
+        estimate.status = 'invoiced'
+        estimate.save(update_fields=['status', 'updated_at'])
+        
+        # Create activity
+        CustomerActivity.objects.create(
+            customer=estimate.customer,
+            estimate=estimate,
+            activity_type='estimate_invoiced',
+            title='Invoice Generated',
+            description=f'Invoice #{invoice.invoice_number} generated from Work Order #{work_order.id}',
+            created_by=request.user
+        )
+        
+        return Response(InvoiceSerializer(invoice).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='public/(?P<token>[^/.]+)')
+    def public_access(self, request, token=None):
+        """Public access to a work order via token"""
+        try:
+            work_order = WorkOrder.objects.get(public_token=token)
+            serializer = self.get_serializer(work_order)
+            
+            # Additional context for public view
+            data = serializer.data
+            data['estimate_details'] = {
+                'pickup_date': work_order.estimate.pickup_date_from,
+                'delivery_date': work_order.estimate.delivery_date_from,
+                'origin_address': work_order.estimate.customer.origin_address,
+                'destination_address': work_order.estimate.customer.destination_address,
+                'customer_name': work_order.estimate.customer.full_name,
+                'weight_lbs': work_order.estimate.weight_lbs,
+                'labour_hours': work_order.estimate.labour_hours
+            }
+            
+            return Response(data)
+        except WorkOrder.DoesNotExist:
+            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='public/(?P<token>[^/.]+)/respond')
+    def public_respond(self, request, token=None):
+        """Public response (accept/reject) to a work order"""
+        try:
+            work_order = WorkOrder.objects.get(public_token=token)
+            response_type = request.data.get('response') # 'accepted' or 'cancelled' (rejected)
+            
+            if response_type not in ['accepted', 'cancelled']:
+                 return Response({'error': 'Invalid response'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            work_order.status = response_type
+            work_order.save(update_fields=['status', 'updated_at'])
+            
+            # Log activity
+            CustomerActivity.objects.create(
+                customer=work_order.estimate.customer,
+                estimate=work_order.estimate,
+                activity_type='status_changed',
+                title=f'Contractor {response_type.capitalize()} Work Order',
+                description=f'Contractor {work_order.contractor.name} has {response_type} Work Order #{work_order.id} via public portal.',
+            )
+            
+            return Response({'message': f'Work order {response_type}'})
+        except WorkOrder.DoesNotExist:
+            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ContractorEstimateLineItemViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing individual items on a contractor work order
+    """
+    queryset = ContractorEstimateLineItem.objects.all()
+    serializer_class = ContractorEstimateLineItemSerializer
+    permission_classes = (isAuthenticatedCustom,)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        work_order_id = self.request.query_params.get('work_order_id') or self.request.query_params.get('work_order')
+        if work_order_id:
+            queryset = queryset.filter(work_order_id=work_order_id)
+            
+        return queryset
+
+
+class TransactionCategoryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing transaction categories
+    """
+    queryset = TransactionCategory.objects.all()
+    serializer_class = TransactionCategorySerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        # Filter by type (expense, purchase, both)
+        category_type = self.request.query_params.get('type', None)
+        if category_type:
+            queryset = queryset.filter(Q(category_type=category_type) | Q(category_type='both'))
+            
+        # Search functionality
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search)
+            )
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+
+class ExpenseViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing expenses
+    """
+    queryset = Expense.objects.all()
+    serializer_class = ExpenseSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from', None)
+        date_to = self.request.query_params.get('date_to', None)
+        if date_from:
+            queryset = queryset.filter(expense_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(expense_date__lte=date_to)
+            
+        # Filter by category
+        category_id = self.request.query_params.get('category', None)
+        if category_id:
+            queryset = queryset.filter(category__id=category_id)
+            
+        # Search functionality
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(description__icontains=search) |
+                Q(amount__icontains=search)
+            )
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+
+
+class PurchaseViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for managing purchases
+    """
+    queryset = Purchase.objects.all()
+    serializer_class = PurchaseSerializer
+    permission_classes = (isAuthenticatedCustom,)
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from', None)
+        date_to = self.request.query_params.get('date_to', None)
+        if date_from:
+            queryset = queryset.filter(purchase_date__gte=date_from)
+        if date_to:
+            queryset = queryset.filter(purchase_date__lte=date_to)
+            
+        # Filter by category
+        category_id = self.request.query_params.get('category', None)
+        if category_id:
+            queryset = queryset.filter(category__id=category_id)
+            
+        # Search functionality
+        search = self.request.query_params.get('search', None)
+        if search:
+            queryset = queryset.filter(
+                Q(item_name__icontains=search) |
+                Q(vendor__icontains=search) |
+                Q(description__icontains=search)
+            )
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        kwargs = {'created_by': self.request.user}
+        if hasattr(self.request, 'organization') and self.request.organization:
+            kwargs['organization'] = self.request.organization
+        serializer.save(**kwargs)
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def track_email_open(request, token):
+    """
+    Tracking pixel endpoint: serves a 1x1 transparent GIF and records an 'open' event.
+    """
+    try:
+        from .models import EmailLog, CustomerActivity
+        from django.utils import timezone
+        log = EmailLog.objects.get(tracking_token=token)
+        if not log.is_opened:
+            log.is_opened = True
+            log.opened_at = timezone.now()
+            log.save()
+            
+            # Create activity record
+            CustomerActivity.objects.create(
+                customer=log.customer,
+                organization=log.organization,
+                activity_type='email_opened',
+                title=f"Email Opened: {log.subject}",
+                description=f"Automated tracking: Email with subject '{log.subject}' was opened.",
+                created_by=None
+            )
+    except Exception:
+        pass
+
+    # Return 1x1 transparent GIF
+    pixel_data = b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b'
+    response = HttpResponse(pixel_data, content_type="image/gif")
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response

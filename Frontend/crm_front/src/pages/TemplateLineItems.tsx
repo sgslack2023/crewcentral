@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Modal, Table, Space } from 'antd';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
+import { Card, Button, Tag, notification, Modal, Space } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
   ArrowLeftOutlined,
   DollarOutlined,
@@ -11,12 +11,14 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken } from '../utils/functions';
+import { getAuthToken, getCurrentUser } from '../utils/functions';
 import { TemplateLineItemsUrl, EstimateTemplatesUrl } from '../utils/network';
 import { TemplateLineItemProps, EstimateTemplateProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddTemplateLineItemForm from '../components/AddTemplateLineItemForm';
+import { WhiteButton, BlackButton } from '../components';
+import FixedTable from '../components/FixedTable';
 
 const TemplateLineItems: React.FC = () => {
   const navigate = useNavigate();
@@ -27,11 +29,7 @@ const TemplateLineItems: React.FC = () => {
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingLineItem, setEditingLineItem] = useState<TemplateLineItemProps | null>(null);
 
-  const currentUser = {
-    role: localStorage.getItem(role) || 'user',
-    fullname: localStorage.getItem(fullname) || 'User',
-    email: localStorage.getItem(email) || ''
-  };
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     if (templateId) {
@@ -100,21 +98,21 @@ const TemplateLineItems: React.FC = () => {
 
   const columns = [
     {
-      title: 'Order',
-      dataIndex: 'display_order',
-      key: 'display_order',
+      id: 'display_order',
+      label: 'Order',
       width: 80,
-      render: (order: number) => (
-        <Tag color="blue">{order}</Tag>
+      fixed: true,
+      render: (value: any, record: TemplateLineItemProps) => (
+        <Tag color="blue">{record.display_order}</Tag>
       )
     },
     {
-      title: 'Charge Name',
-      dataIndex: 'charge_name',
-      key: 'charge_name',
-      render: (name: string, record: TemplateLineItemProps) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{name}</div>
+      id: 'charge_name',
+      label: 'Charge Name',
+      width: 250,
+      render: (value: any, record: TemplateLineItemProps) => (
+        <div style={{ textAlign: 'left', padding: '4px 8px' }}>
+          <div style={{ fontWeight: 600 }}>{record.charge_name}</div>
           <div style={{ fontSize: '12px', color: '#666' }}>
             {record.category_name}
           </div>
@@ -122,28 +120,28 @@ const TemplateLineItems: React.FC = () => {
       )
     },
     {
-      title: 'Type',
-      dataIndex: 'charge_type',
-      key: 'charge_type',
+      id: 'charge_type',
+      label: 'Type',
       width: 120,
-      render: (type: string) => {
+      render: (value: any, record: any) => {
+        const chargeType = record.charge_type || 'flat';
         const typeColors: Record<string, string> = {
           'per_lb': 'orange',
-          'percent': 'purple',
+          'percent': 'blue',
           'flat': 'green',
           'hourly': 'blue'
         };
-        return <Tag color={typeColors[type] || 'default'}>{type.replace('_', ' ').toUpperCase()}</Tag>;
+        return <Tag color={typeColors[chargeType] || 'default'}>{chargeType.replace('_', ' ').toUpperCase()}</Tag>;
       }
     },
     {
-      title: 'Rate/Percentage',
-      key: 'pricing',
+      id: 'pricing',
+      label: 'Rate/Percentage',
       width: 150,
-      render: (record: TemplateLineItemProps) => (
+      render: (value: any, record: TemplateLineItemProps) => (
         <div>
           {record.charge_type === 'percent' ? (
-            <span style={{ color: '#722ed1' }}>
+            <span style={{ color: '#5b6cf9' }}>
               <PercentageOutlined /> {record.percentage || 0}%
             </span>
           ) : (
@@ -155,21 +153,20 @@ const TemplateLineItems: React.FC = () => {
       )
     },
     {
-      title: 'Editable',
-      dataIndex: 'is_editable',
-      key: 'is_editable',
+      id: 'is_editable',
+      label: 'Editable',
       width: 100,
-      render: (editable: boolean) => (
-        <Tag color={editable ? 'green' : 'red'}>
-          {editable ? 'YES' : 'NO'}
+      render: (value: any, record: TemplateLineItemProps) => (
+        <Tag color={record.is_editable ? 'green' : 'red'}>
+          {record.is_editable ? 'YES' : 'NO'}
         </Tag>
       )
     },
     {
-      title: 'Actions',
-      key: 'actions',
+      id: 'actions',
+      label: 'Actions',
       width: 120,
-      render: (record: TemplateLineItemProps) => (
+      render: (value: any, record: TemplateLineItemProps) => (
         <Space>
           <Button
             size="small"
@@ -191,95 +188,102 @@ const TemplateLineItems: React.FC = () => {
   ];
 
   return (
-    <div>
-      <Header currentUser={currentUser} />
-      
-      <div style={{ padding: '24px' }}>
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h1 style={{ fontSize: '28px', fontWeight: 500, margin: 0, marginBottom: '8px' }}>
-                Template Line Items
-              </h1>
-              <p style={{ color: '#666', margin: 0, marginBottom: '8px' }}>
-                Manage line items for: <strong>{template?.name}</strong>
-              </p>
-              {template && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <Tag color="blue">{template.service_type_name}</Tag>
-                  <Tag color={template.is_active ? 'green' : 'red'}>
-                    {template.is_active ? 'ACTIVE' : 'INACTIVE'}
-                  </Tag>
-                </div>
-              )}
-            </div>
-            <Button 
-              icon={<ArrowLeftOutlined />}
-              onClick={() => navigate('/estimate-templates')}
+    <div style={{ padding: '8px 16px 24px 16px' }}>
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>
+              Template Line Items
+            </h1>
+            <p style={{ color: '#8e8ea8', margin: '4px 0 0 0', fontSize: '13px' }}>
+              Manage line items for: <strong>{template?.name}</strong>
+            </p>
+            {template && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <Tag color="blue">{template.service_type_name}</Tag>
+                <Tag color={template.is_active ? 'green' : 'red'}>
+                  {template.is_active ? 'ACTIVE' : 'INACTIVE'}
+                </Tag>
+              </div>
+            )}
+          </div>
+          <WhiteButton
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate('/estimate-templates')}
+          >
+            Back to Templates
+          </WhiteButton>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '16px' }}>
+        <BlackButton
+          icon={<PlusOutlined />}
+          onClick={() => {
+            setEditingLineItem(null);
+            setIsAddFormVisible(true);
+          }}
+        >
+          New Line Item
+        </BlackButton>
+      </div>
+
+      <Card
+        style={{
+          borderRadius: '12px',
+          overflow: 'hidden',
+          height: 'calc(100vh - 260px)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        bodyStyle={{
+          padding: 0,
+          height: '100%',
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        {lineItems.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <OrderedListOutlined style={{ fontSize: '48px', color: '#a5affd', marginBottom: '16px' }} />
+            <p style={{ color: '#999', marginBottom: '16px' }}>No line items configured</p>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingLineItem(null);
+                setIsAddFormVisible(true);
+              }}
             >
-              Back to Templates
+              Add First Line Item
             </Button>
           </div>
-        </div>
-
-        <div style={{ marginBottom: '24px' }}>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingLineItem(null);
-              setIsAddFormVisible(true);
-            }}
-          >
-            Add Line Item
-          </Button>
-        </div>
-
-        <Card bodyStyle={{ padding: 0 }}>
-          <Table
+        ) : (
+          <FixedTable
             columns={columns}
-            dataSource={lineItems}
-            loading={loading}
-            rowKey="id"
-            size="small"
-            pagination={false}
-            locale={{
-              emptyText: (
-                <div style={{ padding: '40px', textAlign: 'center' }}>
-                  <OrderedListOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
-                  <p style={{ color: '#999', marginBottom: '16px' }}>No line items configured</p>
-                  <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                      setEditingLineItem(null);
-                      setIsAddFormVisible(true);
-                    }}
-                  >
-                    Add First Line Item
-                  </Button>
-                </div>
-              )
-            }}
+            data={lineItems}
+            tableName="template_line_items_table"
           />
-        </Card>
+        )}
+      </Card>
 
-        {/* Add/Edit Line Item Form */}
-        <AddTemplateLineItemForm
-          isVisible={isAddFormVisible}
-          templateId={templateId ? parseInt(templateId) : null}
-          onClose={() => {
-            setIsAddFormVisible(false);
-            setEditingLineItem(null);
-          }}
-          onSuccessCallBack={() => {
-            setIsAddFormVisible(false);
-            setEditingLineItem(null);
-            fetchLineItems();
-          }}
-          editingLineItem={editingLineItem}
-        />
-      </div>
+      {/* Add/Edit Line Item Form */}
+      <AddTemplateLineItemForm
+        isVisible={isAddFormVisible}
+        templateId={templateId ? parseInt(templateId) : null}
+        onClose={() => {
+          setIsAddFormVisible(false);
+          setEditingLineItem(null);
+        }}
+        onSuccessCallBack={() => {
+          setIsAddFormVisible(false);
+          setEditingLineItem(null);
+          fetchLineItems();
+        }}
+        editingLineItem={editingLineItem}
+      />
     </div>
   );
 };

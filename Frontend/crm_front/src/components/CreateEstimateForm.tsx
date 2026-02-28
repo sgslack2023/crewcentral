@@ -1,7 +1,8 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, InputNumber, Button, Card, Select, Divider, DatePicker } from "antd";
-import { 
-  CalculatorOutlined, 
+import BlackButton from './BlackButton';
+import {
+  CalculatorOutlined,
   CarOutlined,
   FileTextOutlined,
   UserOutlined,
@@ -41,7 +42,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
     if (isVisible) {
       fetchServiceTypes();
       fetchTimeWindows();
-      
+
       // Pre-fill customer service type if available
       if (customer?.service_type) {
         setSelectedServiceType(customer.service_type);
@@ -63,7 +64,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
   const fetchServiceTypes = async () => {
     getServiceTypes((data) => {
       setServiceTypes(data.filter((st: ServiceTypeProps) => st.enabled));
-    }, () => {});
+    }, () => { });
   };
 
   const fetchTemplates = async (serviceTypeId?: number) => {
@@ -107,7 +108,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
 
   const onSubmit = async (values: any) => {
     if (!customer?.id) return;
-    
+
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
 
@@ -126,11 +127,11 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
 
     try {
       const response: AxiosResponse = await axios.post(
-        `${EstimatesUrl}/create_from_template`, 
-        submitData, 
+        `${EstimatesUrl}/create_from_template`,
+        submitData,
         headers
       );
-      
+
       notification.success({
         message: "Estimate Created",
         description: "New estimate has been created successfully.",
@@ -157,19 +158,25 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
 
   return (
     <Drawer
-      title="Create Estimate"
+      title={
+        <span style={{ color: '#5b6cf9' }}>
+          <CalculatorOutlined style={{ marginRight: '8px' }} />
+          Create Estimate
+        </span>
+      }
       open={isVisible}
       onClose={handleFormClose}
       destroyOnClose
       width={500}
+      headerStyle={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px' }}
     >
       <Form layout="vertical" onFinish={onSubmit} form={form}>
         {/* Customer Information Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <UserOutlined />
               Customer Information
             </span>
@@ -191,11 +198,11 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
         </Card>
 
         {/* Move Details Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <CarOutlined />
               Move Details
             </span>
@@ -222,8 +229,8 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
             rules={[{ required: true, message: 'Please select a template!' }]}
             style={{ marginBottom: '12px' }}
           >
-            <Select 
-              placeholder="Select Template" 
+            <Select
+              placeholder="Select Template"
               disabled={!selectedServiceType}
               notFoundContent={selectedServiceType ? "No templates available for this service type" : "Please select a service type first"}
             >
@@ -237,7 +244,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
                       </div>
                     )}
                     {template.service_type_name && (
-                      <div style={{ fontSize: '11px', color: '#1890ff' }}>
+                      <div style={{ fontSize: '11px', color: '#5b6cf9' }}>
                         Service: {template.service_type_name}
                       </div>
                     )}
@@ -255,8 +262,8 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
               name="weight_lbs"
               style={{ marginBottom: '0' }}
             >
-              <InputNumber 
-                placeholder="5000" 
+              <InputNumber
+                placeholder="5000"
                 style={{ width: '100%' }}
                 min={0}
               />
@@ -267,8 +274,8 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
               name="labour_hours"
               style={{ marginBottom: '0' }}
             >
-              <InputNumber 
-                placeholder="8.0" 
+              <InputNumber
+                placeholder="8.0"
                 style={{ width: '100%' }}
                 min={0}
                 step={0.5}
@@ -278,11 +285,11 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
         </Card>
 
         {/* Date Ranges Card */}
-        <Card 
+        <Card
           size="small"
           style={{ marginBottom: '16px' }}
           title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1890ff' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
               <CalendarOutlined />
               Schedule
             </span>
@@ -297,7 +304,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
                 name="pickup_date_from"
                 style={{ marginBottom: '0' }}
               >
-                <DatePicker 
+                <DatePicker
                   placeholder="From"
                   style={{ width: '100%' }}
                 />
@@ -307,7 +314,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
                 name="pickup_date_to"
                 style={{ marginBottom: '0' }}
               >
-                <DatePicker 
+                <DatePicker
                   placeholder="To"
                   style={{ width: '100%' }}
                 />
@@ -338,7 +345,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
                 name="delivery_date_from"
                 style={{ marginBottom: '0' }}
               >
-                <DatePicker 
+                <DatePicker
                   placeholder="From"
                   style={{ width: '100%' }}
                 />
@@ -348,7 +355,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
                 name="delivery_date_to"
                 style={{ marginBottom: '0' }}
               >
-                <DatePicker 
+                <DatePicker
                   placeholder="To"
                   style={{ width: '100%' }}
                 />
@@ -372,9 +379,9 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
         </Card>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
-          <Button htmlType="submit" type="primary" block loading={loading} size="large">
+          <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>
             Create & Review Estimate
-          </Button>
+          </BlackButton>
         </Form.Item>
       </Form>
     </Drawer>
