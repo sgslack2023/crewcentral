@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from "axios"
-import { tokenName, id, role, fullname, email } from "./data"
+import { tokenName, id, role, fullname, email, is_superuser } from "./data"
 import {
   MeUrl, UsersUrl, CustomersUrl, CustomerStatisticsUrl, BranchesUrl, ServiceTypesUrl, DocumentsUrl, DocumentMappingsUrl,
   MoveTypesUrl, RoomSizesUrl,
@@ -62,6 +62,7 @@ export const getCurrentUser = () => {
     role: localStorage.getItem(role) || 'user',
     fullname: localStorage.getItem(fullname) || 'User',
     email: localStorage.getItem(email) || '',
+    is_superuser: localStorage.getItem(is_superuser) === 'true',
     organizations: organizations
   };
 }
@@ -81,6 +82,7 @@ export const authHandler = async (): Promise<UserType | null> => {
         // Refresh organizations in localStorage
         if (user.organizations) {
           localStorage.setItem('user_organizations', JSON.stringify(user.organizations));
+          localStorage.setItem(is_superuser, user.is_superuser ? 'true' : 'false');
 
           // If current_org_id is missing or not in the list, set default
           const storedOrgId = localStorage.getItem('current_org_id');

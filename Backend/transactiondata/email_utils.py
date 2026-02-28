@@ -83,7 +83,10 @@ def process_and_attach_documents(email, attachments, customer=None, estimate=Non
             logger.error(f"Failed to attach document {doc.title}: {e}")
 
 
-def send_feedback_email(customer, organization, base_url="http://127.0.0.1:3000"):
+def send_feedback_email(customer, organization, base_url=None):
+    if base_url is None:
+        base_url = settings.FRONTEND_URL.rstrip('/')
+
     """
     Send a feedback request email to a customer.
     """
@@ -283,7 +286,10 @@ def render_email_template(template_name, context, default_subject, default_body,
     return subject, html_body, text_body, attachments
 
 
-def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base_url=None):
+def send_estimate_email(estimate, base_url=None, backend_base_url=None):
+    if base_url is None:
+        base_url = settings.FRONTEND_URL.rstrip('/')
+        
     """
     Send estimate to customer via email
     base_url: Frontend URL for public estimate view
@@ -302,7 +308,7 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base
         if ':3000' in base_url:
             backend_base_url = base_url.replace(':3000', ':8000')
         else:
-            backend_base_url = 'http://127.0.0.1:8000'
+            backend_base_url = settings.BACKEND_URL
     
     # Remove trailing slash from backend_base_url to avoid double slash
     backend_base_url = backend_base_url.rstrip('/')
@@ -462,7 +468,9 @@ def send_estimate_email(estimate, base_url="http://127.0.0.1:3000", backend_base
         return False, str(e)
 
 
-def send_document_signature_email(estimate, base_url="http://127.0.0.1:3000", tracking_token=None):
+def send_document_signature_email(estimate, base_url=None, tracking_token=None):
+    if base_url is None:
+        base_url = settings.FRONTEND_URL.rstrip('/')
     """
     Send document signature request to customer (with separate token from estimate)
     """
@@ -593,7 +601,9 @@ def send_document_signature_email(estimate, base_url="http://127.0.0.1:3000", tr
 
 
 
-def send_feedback_email(feedback, base_url="http://127.0.0.1:3000", tracking_token=None):
+def send_feedback_email(feedback, base_url=None, tracking_token=None):
+    if base_url is None:
+        base_url = settings.FRONTEND_URL.rstrip('/')
     """
     Send feedback request to customer
     """

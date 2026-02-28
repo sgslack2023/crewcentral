@@ -280,6 +280,7 @@ class LoginView(ModelViewSet):
             "id":user.id,
             "fullname":user.fullname,
             "email":user.email,
+            "is_superuser": user.is_superuser,
             "organizations": organizations
         })
 

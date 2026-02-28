@@ -46,11 +46,8 @@ const Organizations: React.FC<OrganizationsProps> = ({ hideHeader = false }) => 
     const { state, dispatch } = useContext(store);
 
     const currentUser = state.user || getCurrentUser();
-    const isSuperuser = currentUser?.role?.toLowerCase() === 'admin' && !localStorage.getItem('current_org_id');
-    // Note: currentUser.role might be 'admin' for org admins too, so we check if they are in global context
-    // Better yet, our backend get_organizations sets "role": "Superuser" for superusers.
-
-    const isActuallySuperuser = currentUser?.organizations?.some((o: OrganizationProps) => o.role === 'Superuser');
+    const isActuallySuperuser = currentUser?.is_superuser;
+    const isSuperuser = isActuallySuperuser;
 
     useEffect(() => {
         fetchOrganizations();

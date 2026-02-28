@@ -31,8 +31,8 @@ const Membership: React.FC = () => {
     const { state } = useContext(store);
     const currentUser = state.user || getCurrentUser();
 
-    // Superuser check consistent with Organizations.tsx
-    const isActuallySuperuser = currentUser?.organizations?.some((o: OrganizationProps) => o.role === 'Superuser');
+    // Superuser check consistent with Sidebar.tsx
+    const isActuallySuperuser = currentUser?.is_superuser;
 
     const approvedUsers = users.filter((u: UserProps) => u.approved !== false);
     const pendingUsers = users.filter((u: UserProps) => u.approved === false);

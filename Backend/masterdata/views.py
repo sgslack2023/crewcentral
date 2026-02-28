@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from django.conf import settings
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
@@ -391,7 +392,7 @@ class CustomerViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             
         # Trigger automations for stage change
         if old_stage != new_stage:
-            frontend_url = request.data.get('frontend_url', 'http://127.0.0.1:3000')
+            frontend_url = request.data.get('frontend_url', settings.FRONTEND_URL)
             self._trigger_stage_automations(customer, frontend_url)
             
         serializer = self.get_serializer(customer)

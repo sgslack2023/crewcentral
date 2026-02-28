@@ -17,7 +17,7 @@ import {
 } from '@ant-design/icons';
 import { Tooltip, Modal, List, Typography, Badge } from 'antd';
 import { ShopOutlined, CheckCircleFilled } from '@ant-design/icons';
-import { setOrganizationContext } from '../utils/functions';
+import { setOrganizationContext, getCurrentUser } from '../utils/functions';
 import { OrganizationProps } from '../utils/types';
 
 const { Text } = Typography;
@@ -26,10 +26,13 @@ interface SidebarProps {
     currentUser?: any;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUser: propUser }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [isOrgModalVisible, setIsOrgModalVisible] = React.useState(false);
+
+    // Use prop if available, otherwise fallback to localStorage
+    const currentUser = propUser || getCurrentUser();
     const organizations: OrganizationProps[] = currentUser?.organizations || [];
     const currentOrgId = localStorage.getItem('current_org_id');
 
@@ -83,8 +86,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser }) => {
         window.location.href = '/login';
     };
 
+    const isSuperuser = currentUser.is_superuser;
+    const currentOrgRole = organizations.find(o => o.id.toString() === currentOrgId)?.role?.toLowerCase();
+
     const visibleMenuItems = menuItems.filter(item =>
-        !item.adminOnly || (currentUser?.role?.toLowerCase() === 'admin')
+        !item.adminOnly || isSuperuser || currentOrgRole === 'admin'
     );
 
     const currentOrgName = organizations.find(o => o.id.toString() === currentOrgId)?.name;

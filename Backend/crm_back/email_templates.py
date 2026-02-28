@@ -1,5 +1,8 @@
-# Email Templates for EmployPro
-# This file contains all email templates used throughout the application
+# Email Templates for Baltic Van Lines (BVL)
+from django.conf import settings
+
+# Construct base URL from settings
+FRONT_URL = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000').rstrip('/')
 
 EMAIL_TEMPLATES = {
     'WELCOME_ADMIN_CREATED': {
@@ -19,8 +22,8 @@ BVL Team'''
     'ACCOUNT_APPROVED': {
         'subject': 'Welcome to BVL - Account Approved',
         'body': '''Hello {fullname},
-
-Great news! Your account has been approved and you now have access to the EmployPro system.
+        
+Great news! Your account has been approved and you now have access to the BVL system.
 
 Please set up your password by visiting the following link:
 {setup_link}
@@ -84,20 +87,10 @@ BVL Team'''
     }
 }
 
-# Email Configuration URLs
-#EMAIL_URLS = {
-#    'SETUP_PASSWORD_URL': 'http://localhost:3000/check-user',
-#    'RESET_PASSWORD_URL': 'http://localhost:3000/resetpassword',
-#    'LOGIN_URL': 'http://localhost:3000/login',
-#    'SUPPORT_EMAIL': 'support@employeepro.com'
-#}
-
-
-
-# Email Configuration URLs
+# Email Configuration URLs derived from settings
 EMAIL_URLS = {
-    'SETUP_PASSWORD_URL': 'http://3.17.95.130/check-user',
-    'RESET_PASSWORD_URL': 'http://3.17.95.130/resetpassword',
-    'LOGIN_URL': 'http://3.17.95.130/login',
+    'SETUP_PASSWORD_URL': f'{FRONT_URL}/check-user',
+    'RESET_PASSWORD_URL': f'{FRONT_URL}/resetpassword',
+    'LOGIN_URL': f'{FRONT_URL}/login',
     'SUPPORT_EMAIL': 'info@balticvanlines.ca'
 }

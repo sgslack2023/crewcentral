@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -549,7 +550,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         """
         estimate = self.get_object()
         
-        base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
+        base_url = request.data.get('base_url', settings.FRONTEND_URL)
         backend_base_url = request.data.get('backend_base_url', None)
         # If not provided, try to get from request
         if backend_base_url is None and hasattr(request, 'build_absolute_uri'):
@@ -984,7 +985,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         """
         estimate = self.get_object()
         
-        base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
+        base_url = request.data.get('base_url', settings.FRONTEND_URL)
         success, message = send_document_signature_email(estimate, base_url)
         
         if success:
@@ -1389,7 +1390,7 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         POST /estimate-documents/5/send_request/
         """
         doc = self.get_object()
-        base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
+        base_url = request.data.get('base_url', settings.FRONTEND_URL)
         
         # Create a batch if not exists
         batch, created = DocumentSigningBatch.objects.get_or_create(
@@ -1662,7 +1663,7 @@ class FeedbackViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         """
         feedback = self.get_object()
         
-        base_url = request.data.get('base_url', 'http://127.0.0.1:3000')
+        base_url = request.data.get('base_url', settings.FRONTEND_URL)
         from .email_utils import send_feedback_email
         
         success, message = send_feedback_email(feedback, base_url)

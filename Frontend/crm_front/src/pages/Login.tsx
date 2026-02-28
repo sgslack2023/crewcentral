@@ -2,7 +2,7 @@ import { useState } from 'react'
 import AuthComponent from '../components/AuthComponent'
 import { CustomAxiosError, DataProps } from '../utils/types'
 import axios from 'axios'
-import { fullname, id, role, tokenName, email } from '../utils/data'
+import { fullname, id, role, tokenName, email, is_superuser } from '../utils/data'
 
 import { LoginUrl } from '../utils/network'
 import { Modal } from 'antd'
@@ -48,6 +48,7 @@ function Login() {
                 localStorage.setItem(role, response.data.role);
                 localStorage.setItem(fullname, response.data.fullname);
                 localStorage.setItem(email, response.data.email);
+                localStorage.setItem(is_superuser, response.data.is_superuser ? 'true' : 'false');
 
                 // Store organizations
                 localStorage.setItem('user_organizations', JSON.stringify(response.data.organizations || []));
