@@ -18,6 +18,7 @@ import axios from 'axios';
 import { getAuthToken, getCurrentUser } from '../utils/functions';
 import Header from '../components/Header';
 import { BlackButton, WhiteButton, SearchBar, SettingsCard, AddEndpointForm } from '../components';
+import { EndpointsUrl, RawEndpointLeadsUrl, LeadIngestionUrl } from '../utils/network';
 
 const { Text } = Typography;
 
@@ -41,12 +42,7 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
     const [mappingForm] = Form.useForm();
     const currentUser = getCurrentUser();
 
-    // API URL formatting (needs adjustment to your production/dev URL)
-    const backendUrl = window.location.origin.includes('localhost')
-        ? 'http://127.0.0.1:8000'
-        : window.location.origin.replace('3000', '8000'); // Simple heuristic
-
-    const ingestionUrl = `${backendUrl}/api/masterdata/lead-ingestion`;
+    const ingestionUrl = LeadIngestionUrl;
 
     useEffect(() => {
         fetchData();
@@ -56,8 +52,8 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
         setLoading(true);
         try {
             const headers = getAuthToken() as any;
-            const configsRes = await axios.get(`${backendUrl}/api/masterdata/endpoint-configs`, headers);
-            const leadsRes = await axios.get(`${backendUrl}/api/masterdata/raw-endpoint-leads`, headers);
+            const configsRes = await axios.get(EndpointsUrl, headers);
+            const leadsRes = await axios.get(RawEndpointLeadsUrl, headers);
             setEndpointConfigs(configsRes.data);
             setRawLeads(leadsRes.data);
         } catch (error) {
@@ -74,7 +70,7 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
             if (!values.secret_key) {
                 values.secret_key = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
             }
-            await axios.post(`${backendUrl}/api/masterdata/endpoint-configs`, values, headers);
+            await axios.post(EndpointsUrl, values, headers);
             notification.success({ message: 'Success', title: 'Endpoint configuration created' });
             setIsModalVisible(false);
             form.resetFields();
@@ -87,7 +83,7 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
     const handleUpdateMapping = async (values: any) => {
         try {
             const headers = getAuthToken() as any;
-            await axios.patch(`${backendUrl}/api/masterdata/endpoint-configs/${selectedConfig.id}/`, { mapping_config: values }, headers);
+            await axios.patch(`${EndpointsUrl}/${selectedConfig.id}/`, { mapping_config: values }, headers);
             notification.success({ message: 'Success', title: 'Mapping updated' });
             setIsMappingModalVisible(false);
             fetchData();
@@ -99,7 +95,7 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
     const deleteConfig = async (id: number) => {
         try {
             const headers = getAuthToken() as any;
-            await axios.delete(`${backendUrl}/api/masterdata/endpoint-configs/${id}`, headers);
+            await axios.delete(`${EndpointsUrl}/${id}`, headers);
             notification.success({ message: 'Success', title: 'Configuration deleted' });
             fetchData();
         } catch (error) {

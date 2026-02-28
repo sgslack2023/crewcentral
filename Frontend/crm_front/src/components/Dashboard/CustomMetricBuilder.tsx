@@ -3,6 +3,7 @@ import { Modal, Form, Input, Select, Button, Tag, Space, Typography, Card, Divid
 import { FunctionOutlined, PlusOutlined, CalculatorOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { getAuthToken } from '../../utils/functions';
+import { CustomMetricsUrl } from '../../utils/network';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -95,7 +96,7 @@ const CustomMetricBuilder: React.FC<CustomMetricBuilderProps> = ({ visible, onCl
                 variables: Array.from(new Set(variables))
             };
 
-            await axios.post('http://127.0.0.1:8000/api/dashboard/custom-metrics/', payload, headers);
+            await axios.post(CustomMetricsUrl, payload, headers);
             message.success('Custom metric created successfully!');
             onSaved();
             onClose();

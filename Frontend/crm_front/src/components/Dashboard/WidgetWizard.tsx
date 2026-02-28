@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import { getAuthToken } from '../../utils/functions';
 import CustomMetricBuilder from './CustomMetricBuilder';
+import { BaseUrl, CustomMetricsUrl } from '../../utils/network';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -113,11 +114,11 @@ const WidgetWizard: React.FC<WidgetWizardProps> = ({ visible, onClose, onAdd }) 
             const data_source = selectedMetric.key;
             if (data_source === 'rep_id') {
                 const orgId = localStorage.getItem('current_org_id');
-                url = `http://127.0.0.1:8000/api/user/organizations/${orgId}/members/`;
+                url = `${BaseUrl}user/organizations/${orgId}/members/`;
             } else if (data_source === 'branch_id') {
-                url = 'http://127.0.0.1:8000/api/masterdata/branches/';
+                url = `${BaseUrl}masterdata/branches/`;
             } else if (data_source === 'customer_id') {
-                url = 'http://127.0.0.1:8000/api/masterdata/customers/';
+                url = `${BaseUrl}masterdata/customers/`;
             } else if (data_source === 'source') {
                 setFilterOptions([
                     { value: 'moveit', label: 'Moveit' },
@@ -156,7 +157,7 @@ const WidgetWizard: React.FC<WidgetWizardProps> = ({ visible, onClose, onAdd }) 
         try {
             const headers = getAuthToken();
             if (!headers) return;
-            const response = await axios.get('http://127.0.0.1:8000/api/dashboard/custom-metrics/', headers);
+            const response = await axios.get(CustomMetricsUrl, headers);
             setCustomMetrics(response.data);
         } catch (err) {
             console.error('Failed to fetch custom metrics:', err);
@@ -168,7 +169,7 @@ const WidgetWizard: React.FC<WidgetWizardProps> = ({ visible, onClose, onAdd }) 
         try {
             const headers = getAuthToken();
             if (!headers) return;
-            await axios.delete(`http://127.0.0.1:8000/api/dashboard/custom-metrics/${id}/`, headers);
+            await axios.delete(`${CustomMetricsUrl}${id}/`, headers);
             message.success('Custom metric deleted');
             fetchCustomMetrics();
         } catch (error: any) {

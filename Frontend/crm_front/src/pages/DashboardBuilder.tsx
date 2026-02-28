@@ -13,7 +13,7 @@ import {
 } from '@ant-design/icons';
 import GridLayout from 'react-grid-layout';
 import axios from 'axios';
-import { DashboardsUrl, OrganizationsUrl } from '../utils/network';
+import { DashboardsUrl, OrganizationsUrl, BaseUrl } from '../utils/network';
 import { getAuthToken, getCurrentUser } from '../utils/functions';
 import DataFetchWrapper from '../components/Dashboard/DataFetchWrapper';
 import FilterWidget from '../components/Dashboard/FilterWidget';
@@ -149,7 +149,7 @@ const DashboardContent: React.FC<{ hideHeader?: boolean }> = ({ hideHeader }) =>
             if (!headers) return;
             const orgId = localStorage.getItem('current_org_id');
             if (!orgId) return;
-            const response = await axios.get(`http://127.0.0.1:8000/api/user/organizations/${orgId}/roles`, headers);
+            const response = await axios.get(`${BaseUrl}user/organizations/${orgId}/roles`, headers);
             setRoles(response.data);
         } catch (error) {
             console.error('Failed to fetch roles');
@@ -199,11 +199,11 @@ const DashboardContent: React.FC<{ hideHeader?: boolean }> = ({ hideHeader }) =>
             let url = '';
             if (dataSource === 'rep_id') {
                 const orgId = localStorage.getItem('current_org_id');
-                url = `http://127.0.0.1:8000/api/user/organizations/${orgId}/members/`;
+                url = `${BaseUrl}user/organizations/${orgId}/members/`;
             } else if (dataSource === 'branch_id') {
-                url = 'http://127.0.0.1:8000/api/masterdata/branches/';
+                url = `${BaseUrl}masterdata/branches/`;
             } else if (dataSource === 'customer_id') {
-                url = 'http://127.0.0.1:8000/api/masterdata/customers/';
+                url = `${BaseUrl}masterdata/customers/`;
             } else if (dataSource === 'source') {
                 setFilterOptions([
                     { value: 'moveit', label: 'Moveit' },

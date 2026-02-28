@@ -76,5 +76,6 @@ export const updateAllUsersTableDimensionsUrl = BaseUrl + "user/update-all-users
 // Dashboard & Analytics
 export const DashboardsUrl = BaseUrl + "dashboard/dashboards/"
 export const AnalyticsDataUrl = BaseUrl + "dashboard/analytics/data/"
+export const CustomMetricsUrl = BaseUrl + "dashboard/custom-metrics/"
 
 

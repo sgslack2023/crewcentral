@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import axios from 'axios';
 import { getAuthToken } from '../../utils/functions';
 import { useDashboard } from '../../contexts/DashboardContext';
+import { BaseUrl } from '../../utils/network';
 
 const SOURCE_OPTIONS = [
     { value: 'moveit', label: 'Moveit' },
@@ -45,11 +46,11 @@ const FilterWidget: React.FC<FilterWidgetProps> = ({ id, title, data_source, con
             let url = '';
             if (data_source === 'rep_id') {
                 const orgId = localStorage.getItem('current_org_id');
-                url = `http://127.0.0.1:8000/api/user/organizations/${orgId}/members/`;
+                url = `${BaseUrl}user/organizations/${orgId}/members/`;
             } else if (data_source === 'branch_id') {
-                url = 'http://127.0.0.1:8000/api/masterdata/branches/';
+                url = `${BaseUrl}masterdata/branches/`;
             } else if (data_source === 'customer_id') {
-                url = 'http://127.0.0.1:8000/api/masterdata/customers/';
+                url = `${BaseUrl}masterdata/customers/`;
             }
 
             if (url) {
