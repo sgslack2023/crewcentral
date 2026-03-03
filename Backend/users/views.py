@@ -265,10 +265,13 @@ class LoginView(ModelViewSet):
             for member in memberships:
                 perms = []
                 if member.role:
+                    print(f"DEBUG: Role={member.role.name}, is_default_admin={member.role.is_default_admin}")
                     if member.role.is_default_admin:
                         perms = list(SystemPermission.objects.values_list('codename', flat=True))
+                        print(f"DEBUG: Admin role, got {len(perms)} system permissions")
                     else:
                         perms = list(member.role.permissions.values_list('codename', flat=True))
+                        print(f"DEBUG: Regular role, got {len(perms)} assigned permissions")
                 
                 org_data = {
                     "id": member.organization.id,
@@ -340,10 +343,28 @@ class UsersView(ModelViewSet):
     permission_classes=(isAdminUser,)
 
     def list(self,request):
-        # By default, exclude superusers from the standard users list
-        users=self.queryset.filter(is_superuser=False)
-        data=self.serializer_class(users,many=True).data
-        return  Response(data)
+        # Superusers see all non-superuser users
+        if request.user.is_superuser:
+            users = self.queryset.filter(is_superuser=False)
+        else:
+            # Organization admins only see users in their organization
+            if hasattr(request, 'organization') and request.organization:
+                # Get user IDs that are members of this organization
+                from users.models import OrganizationMember
+                member_user_ids = OrganizationMember.objects.filter(
+                    organization=request.organization
+                ).values_list('user_id', flat=True)
+                
+                users = self.queryset.filter(
+                    id__in=member_user_ids,
+                    is_superuser=False
+                )
+            else:
+                # No organization context, return empty
+                users = self.queryset.none()
+        
+        data = self.serializer_class(users, many=True).data
+        return Response(data)
 
     @action(detail=False, methods=['get'])
     def global_users(self, request):
