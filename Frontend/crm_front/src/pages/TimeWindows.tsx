@@ -130,13 +130,14 @@ const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
 
   return (
     <div style={{
-      padding: hideHeader ? '0' : '8px 16px 24px 16px',
+      padding: hideHeader ? '0' : '24px 32px',
       height: '100%',
       flex: 1,
       minHeight: 0,
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundColor: '#f8f9fa'
     }}>
       {!hideHeader && (
         <div style={{ marginBottom: '16px', flexShrink: 0 }}>
@@ -198,8 +199,9 @@ const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
           flex: 1,
           overflow: 'auto',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: '12px',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: '24px',
+          padding: '8px 4px 24px 4px',
           alignContent: 'flex-start'
         }}>
           {filteredTimeWindows.map((window) => (

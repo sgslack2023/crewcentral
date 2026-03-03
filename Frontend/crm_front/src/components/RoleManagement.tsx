@@ -1,5 +1,5 @@
 import React, { FC, useState, useEffect } from 'react';
-import { Button, Modal, Form, Input, Checkbox, Space, Tag, Typography, notification, Drawer, Card } from 'antd';
+import { Button, Modal, Form, Input, Checkbox, Space, Tag, Typography, notification, Drawer, Card, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { RoleProps, PermissionProps } from '../utils/types';
 import { getRoles, getPermissions, saveRole, deleteRole } from '../utils/functions';
@@ -127,24 +127,61 @@ const RoleManagement: FC<RoleManagementProps> = ({ hideHeader = false }) => {
             label: 'Actions',
             width: 100,
             render: (value: any, record: RoleProps) => (
-                <Space style={{ padding: '12px 16px' }}>
-                    {!record.is_default_admin && (
+                <Space style={{ padding: '8px 16px', display: 'flex', justifyContent: 'center', width: '100%' }}>
+                    {!record.is_default_admin ? (
                         <>
-                            <Button
-                                icon={<EditOutlined />}
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
-                                type="text"
-                                style={{ color: '#5b6cf9' }}
-                            />
-                            <Button
-                                danger
-                                icon={<DeleteOutlined />}
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); record.id && handleDelete(record.id); }}
-                                type="text"
-                            />
+                            <Tooltip title="Edit Role">
+                                <Button
+                                    icon={<EditOutlined />}
+                                    size="small"
+                                    onClick={(e) => { e.stopPropagation(); handleEdit(record); }}
+                                    type="text"
+                                    style={{
+                                        color: '#6366f1',
+                                        backgroundColor: '#f5f5ff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px'
+                                    }}
+                                />
+                            </Tooltip>
+                            <Tooltip title="Delete Role">
+                                <Button
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    size="small"
+                                    onClick={(e) => { e.stopPropagation(); record.id && handleDelete(record.id); }}
+                                    type="text"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        backgroundColor: '#fff1f0'
+                                    }}
+                                />
+                            </Tooltip>
                         </>
+                    ) : (
+                        <Tag
+                            icon={<SafetyCertificateOutlined />}
+                            color="default"
+                            style={{
+                                margin: 0,
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                padding: '2px 8px',
+                                backgroundColor: '#f9fafb',
+                                border: '1px solid #e5e7eb',
+                                color: '#9ca3af',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            LOCKED
+                        </Tag>
                     )}
                 </Space>
             )
@@ -182,13 +219,13 @@ const RoleManagement: FC<RoleManagementProps> = ({ hideHeader = false }) => {
                         columns={columns}
                         data={roles}
                         tableName="role_management_table"
-                        onRowClick={(record) => !record.is_default_admin && handleEdit(record)}
+                        onRowClick={(record) => handleEdit(record)}
                     />
                 </Card>
             </div>
 
             <Drawer
-                title={editingRole ? 'Edit Role' : 'Create New Role'}
+                title={editingRole ? (editingRole.is_default_admin ? 'View System Role' : 'Edit Role') : 'Create New Role'}
                 open={isDrawerVisible}
                 onClose={() => setIsDrawerVisible(false)}
                 width={600}
@@ -198,6 +235,7 @@ const RoleManagement: FC<RoleManagementProps> = ({ hideHeader = false }) => {
                     form={form}
                     layout="vertical"
                     onFinish={handleFinish}
+                    disabled={editingRole?.is_default_admin}
                 >
                     <Card size="small" style={{ marginBottom: '16px' }} title="Role Details">
                         <Form.Item

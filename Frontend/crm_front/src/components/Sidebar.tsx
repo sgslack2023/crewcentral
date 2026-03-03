@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser: propUser }) => {
         window.location.href = '/login';
     };
 
-    const isSuperuser = currentUser.is_superuser;
+    const isSuperuser = currentUser.is_superuser === true || currentUser.is_superuser === 'true';
     const currentOrgRole = organizations.find(o => o.id.toString() === currentOrgId)?.role?.toLowerCase();
 
     const visibleMenuItems = menuItems.filter(item =>

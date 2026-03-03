@@ -160,11 +160,12 @@ const Branches: React.FC<BranchesProps> = ({ hideHeader = false }) => {
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: '12px',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '16px',
           flex: 1,
           overflow: 'auto',
-          alignContent: 'flex-start'
+          alignContent: 'flex-start',
+          padding: '4px'
         }}>
           {filteredBranches.map((branch) => (
             <SettingsCard

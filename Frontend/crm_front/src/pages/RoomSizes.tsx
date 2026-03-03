@@ -159,9 +159,10 @@ const RoomSizes: React.FC<RoomSizesProps> = ({ hideHeader = false }) => {
           flex: 1,
           overflow: 'auto',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: '12px',
-          alignContent: 'flex-start'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '16px',
+          alignContent: 'flex-start',
+          padding: '4px'
         }}>
           {filteredRoomSizes.map((roomSize) => (
             <SettingsCard

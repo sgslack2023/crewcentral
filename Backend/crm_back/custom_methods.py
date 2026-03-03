@@ -113,15 +113,18 @@ class isAdminUser(isAuthenticatedCustom):
         if request.user.is_superuser:
             return True
             
-        # Check global role legacy (optional)
-        if getattr(request.user, 'role', None) == 'Admin':
+        # Check global role legacy (case-insensitive)
+        user_role = getattr(request.user, 'role', '')
+        if user_role and user_role.lower() == 'admin':
             return True
             
         # Check organization membership and role (set by isAuthenticatedCustom)
         if hasattr(request, 'org_member') and request.org_member:
             role = request.org_member.role
-            if role and (role.is_default_admin or role.name == 'Admin'):
-                return True
+            if role:
+                # Check by boolean flag or standard 'Admin' name (case-insensitive)
+                if role.is_default_admin or (role.name and role.name.lower() == 'admin'):
+                    return True
                 
         return False
 
