@@ -12,15 +12,19 @@ class isAuthenticatedCustom(BasePermission):
     def has_permission(self, request, _):
         try:
             auth_token = request.META.get("HTTP_AUTHORIZATION", None)
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG AUTH: Exception getting token: {e}")
             return False
         if not auth_token:
+            print(f"DEBUG AUTH: No auth token found")
             return False
-        
+
         user = decodeJWT(auth_token)
         if not user:
+            print(f"DEBUG AUTH: Failed to decode JWT")
             return False
-        
+
+        print(f"DEBUG AUTH: User authenticated: {user.email}")
         request.user = user
 
         # Organization Context Logic

@@ -43,6 +43,9 @@ function Login() {
             const response = await axios.post(LoginUrl, values);
 
             if (response && response.data) {
+                console.log('DEBUG LOGIN: Full response data:', response.data);
+                console.log('DEBUG LOGIN: Organizations received:', response.data.organizations);
+                
                 localStorage.setItem(tokenName, response.data.access)
                 localStorage.setItem(id, response.data.id.toString());
                 localStorage.setItem(role, response.data.role);
@@ -52,11 +55,14 @@ function Login() {
 
                 // Store organizations
                 localStorage.setItem('user_organizations', JSON.stringify(response.data.organizations || []));
+                console.log('DEBUG LOGIN: Stored in localStorage:', localStorage.getItem('user_organizations'));
 
                 // Set default organization context
                 const orgs = response.data.organizations || [];
+                console.log('DEBUG LOGIN: Orgs array:', orgs, 'Length:', orgs.length);
                 if (orgs.length > 0) {
                     const defaultOrg = orgs.find((o: any) => o.is_default) || orgs[0];
+                    console.log('DEBUG LOGIN: Setting default org:', defaultOrg);
                     localStorage.setItem('current_org_id', defaultOrg.id.toString());
                 }
 

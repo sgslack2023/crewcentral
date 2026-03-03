@@ -35,6 +35,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser: propUser }) => {
     const currentUser = propUser || getCurrentUser();
     const organizations: OrganizationProps[] = currentUser?.organizations || [];
     const currentOrgId = localStorage.getItem('current_org_id');
+    
+    console.log('DEBUG SIDEBAR: currentUser:', currentUser);
+    console.log('DEBUG SIDEBAR: organizations:', organizations);
+    console.log('DEBUG SIDEBAR: currentOrgId:', currentOrgId);
 
     const isActive = (path: string) => location.pathname === path;
 

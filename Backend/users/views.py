@@ -243,6 +243,7 @@ class LoginView(ModelViewSet):
         
         # Get user's organizations
         organizations = []
+        print(f"DEBUG: Getting organizations for user {user.email}, is_superuser={user.is_superuser}")
         if user.is_superuser:
             all_orgs = Organization.objects.filter(is_active=True)
             all_perms = list(SystemPermission.objects.values_list('codename', flat=True))
@@ -250,13 +251,17 @@ class LoginView(ModelViewSet):
                 organizations.append({
                     "id": org.id,
                     "name": org.name,
-                    "type": org.org_type,
+                    "org_type": org.org_type,
                     "role": "Superuser",
                     "is_default": i == 0,
                     "permissions": all_perms
                 })
         else:
-            memberships = OrganizationMember.objects.filter(user=user).select_related('organization', 'role')
+            memberships = OrganizationMember.objects.filter(
+                user=user,
+                organization__is_active=True
+            ).select_related('organization', 'role')
+            print(f"DEBUG: Found {memberships.count()} memberships for user {user.email}")
             for member in memberships:
                 perms = []
                 if member.role:
@@ -265,14 +270,16 @@ class LoginView(ModelViewSet):
                     else:
                         perms = list(member.role.permissions.values_list('codename', flat=True))
                 
-                organizations.append({
+                org_data = {
                     "id": member.organization.id,
                     "name": member.organization.name,
-                    "type": member.organization.org_type,
+                    "org_type": member.organization.org_type,
                     "role": member.role.name if member.role else "Member",
                     "is_default": member.is_default,
                     "permissions": perms
-                })
+                }
+                print(f"DEBUG: Adding organization: {org_data}")
+                organizations.append(org_data)
 
         return Response ({
             "access":access,
@@ -365,6 +372,10 @@ class UsersView(ModelViewSet):
             # Check if user was just approved (approved changed from False to True)
             is_now_approved = serializer.instance.approved
             if not was_approved_before and is_now_approved:
+                # Activate the user when approved
+                user.is_active = True
+                user.save()
+                
                 # Send welcome email when user is approved
                 try:
                     template = EMAIL_TEMPLATES['ACCOUNT_APPROVED']
@@ -541,9 +552,22 @@ class OrganizationViewSet(ModelViewSet):
         if self.action == 'retrieve':
             return OrganizationDetailSerializer
         return OrganizationSerializer
+    
+    def list(self, request, *args, **kwargs):
+        print(f"DEBUG ORG LIST: Starting list method for user {request.user.email}")
+        try:
+            result = super().list(request, *args, **kwargs)
+            print(f"DEBUG ORG LIST: Successfully returning {len(result.data)} organizations")
+            return result
+        except Exception as e:
+            print(f"DEBUG ORG LIST: Exception in list: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     def get_queryset(self):
         user = self.request.user
+        print(f"DEBUG ORG QUERYSET: User={user.email}, is_superuser={user.is_superuser}, is_active={user.is_active}, approved={user.approved}")
         show_inactive = self.request.query_params.get('show_inactive', 'false').lower() == 'true'
         
         if user.is_superuser:
@@ -553,16 +577,19 @@ class OrganizationViewSet(ModelViewSet):
         
         # Get organizations where user is a member
         member_org_ids = OrganizationMember.objects.filter(user=user).values_list('organization_id', flat=True)
+        print(f"DEBUG ORG QUERYSET: member_org_ids={list(member_org_ids)}")
         
         # Non-superusers see organizations they are members of AND their direct sub-organizations
         qs = self.queryset.filter(
-            models.Q(id__in=member_org_ids) | 
-            models.Q(parent_organization_id__in=member_org_ids)
+            Q(id__in=member_org_ids) | 
+            Q(parent_organization_id__in=member_org_ids)
         ).distinct()
 
         if not show_inactive:
             qs = qs.filter(is_active=True)
-            
+        
+        print(f"DEBUG ORG QUERYSET: Returning {qs.count()} organizations")
+        print(f"DEBUG ORG QUERYSET: Organizations: {list(qs.values_list('id', 'name'))}")
         return qs
 
     def perform_create(self, serializer):
