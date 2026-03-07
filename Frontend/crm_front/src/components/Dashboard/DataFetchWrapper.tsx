@@ -56,9 +56,15 @@ const DataFetchWrapper: React.FC<DataFetchWrapperProps> = (props) => {
                 params += `&start_date=${start}&end_date=${end.format('YYYY-MM-DD')}`;
             }
 
-            // Specific time range from widget config (e.g. 'future', 'all_time', 'last_30_days')
             if (props.config?.timeRange) {
                 params += `&time_range=${props.config.timeRange}`;
+            }
+
+            // Grouping and Aggregation support
+            if (props.config?.groupBy && props.config.groupBy !== 'none') {
+                params += `&group_by=${props.config.groupBy}`;
+                if (props.config.aggregate) params += `&aggregate=${props.config.aggregate}`;
+                if (props.config.aggregateField) params += `&aggregate_field=${props.config.aggregateField}`;
             }
 
             if (props.config?.branch_id) params += `&branch_id=${props.config.branch_id}`;
@@ -116,14 +122,14 @@ const DataFetchWrapper: React.FC<DataFetchWrapperProps> = (props) => {
 
     if (loading && !data) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '100%', 
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
                 minHeight: '120px',
-                background: '#fff', 
-                borderRadius: '8px' 
+                background: '#fff',
+                borderRadius: '8px'
             }}>
                 <PropagateLoader color="#5b6cf9" size={8} />
             </div>

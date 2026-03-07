@@ -8,7 +8,8 @@ import {
     CreditCardOutlined,
     PlusOutlined,
     ShoppingOutlined,
-    TagOutlined
+    TagOutlined,
+    SendOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -36,7 +37,10 @@ const Finance: React.FC = () => {
 
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceProps | null>(null);
     const [savingPayment, setSavingPayment] = useState(false);
+    const [sendingInvoice, setSendingInvoice] = useState<number | null>(null);
+    const [sendingReceipt, setSendingReceipt] = useState<number | null>(null);
     const [form] = Form.useForm();
+
 
     useEffect(() => {
         fetchData();
@@ -126,6 +130,51 @@ const Finance: React.FC = () => {
         }
     };
 
+    const handleSendInvoice = async (invoiceId: number) => {
+        setSendingInvoice(invoiceId);
+        try {
+            const headers = getAuthToken();
+            await axios.post(`${InvoicesUrl}/${invoiceId}/send_to_customer`, {}, headers as any);
+            notification.success({
+                message: 'Success',
+                description: 'Invoice sent successfully',
+                title: 'Success',
+                duration: 3
+            });
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to send invoice',
+                title: 'Error'
+            });
+        } finally {
+            setSendingInvoice(null);
+        }
+    };
+
+    const handleSendReceipt = async (receiptId: number) => {
+        setSendingReceipt(receiptId);
+        try {
+            const headers = getAuthToken();
+            await axios.post(`${PaymentsUrl}/${receiptId}/send_to_customer`, {}, headers as any);
+            notification.success({
+                message: 'Success',
+                description: 'Payment receipt sent successfully',
+                title: 'Success',
+                duration: 3
+            });
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to send payment receipt',
+                title: 'Error'
+            });
+        } finally {
+            setSendingReceipt(null);
+        }
+    };
+
+
     // Columns for Invoices Table
     const invoiceColumns = [
         { id: 'invoice_number', label: 'Invoice #', width: 120, render: (val: any) => `#${val}` },
@@ -176,6 +225,18 @@ const Finance: React.FC = () => {
                     >
                         View
                     </Button>
+                    <Button
+                        size="small"
+                        type="text"
+                        icon={<SendOutlined />}
+                        loading={sendingInvoice === row.id}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (row.id) handleSendInvoice(row.id);
+                        }}
+                    >
+                        Send
+                    </Button>
                 </div>
             )
         }
@@ -183,28 +244,69 @@ const Finance: React.FC = () => {
 
     // Columns for Payments Table
     const paymentColumns = [
-        { id: 'payment_date', label: 'Date', width: 120 },
-        { id: 'amount', label: 'Amount', width: 120, render: (val: any) => `$${Number(val).toLocaleString()}` },
+        { id: 'payment_date', label: 'Date', width: 100 },
+        { id: 'customer_name', label: 'Customer', width: 180 },
+        { id: 'amount', label: 'Amount', width: 100, render: (val: any) => `$${Number(val).toLocaleString()}` },
         {
-            id: 'payment_method', label: 'Method', width: 150, render: (val: any) => {
+            id: 'payment_type', label: 'Type', width: 100, render: (val: any) => (
+                <span style={{
+                    backgroundColor: val === 'deposit' ? '#f0f2ff' : '#ecfdf5',
+                    color: val === 'deposit' ? '#5b6cf9' : '#059669',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase'
+                }}>
+                    {val || 'payment'}
+                </span>
+            )
+        },
+        {
+            id: 'payment_method', label: 'Method', width: 130, render: (val: any) => {
                 return (val || 'unknown').replace('_', ' ').toUpperCase();
             }
         },
-        { id: 'transaction_id', label: 'Reference', width: 150 },
         {
-            id: 'actions', label: 'Actions', width: 100, render: (_: any, row: PaymentReceiptProps) => (
-                <Button
-                    size="small"
-                    type="text"
-                    icon={<EyeOutlined />}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(`${PaymentsUrl}/${row.id}/download_pdf${row.estimate_public_token ? `?token=${row.estimate_public_token}` : ''}`, '_blank');
-                    }}
-                >
-                    View
-                </Button>
+            id: 'linked_to', label: 'Inv', width: 120, render: (_: any, row: any) => {
+                if (row.invoice_number) return row.invoice_number;
+                if (row.invoice) return `INV-${row.invoice}`;
+                if (row.estimate_id) return `EST-${row.estimate_id}`;
+                if (row.estimate) return `EST-${row.estimate}`;
+                return '—';
+            }
+        },
+        { id: 'transaction_id', label: 'Reference', width: 120 },
+
+        {
+            id: 'actions', label: 'Actions', width: 150, render: (_: any, row: PaymentReceiptProps) => (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <Button
+                        size="small"
+                        type="text"
+                        icon={<EyeOutlined />}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`${PaymentsUrl}/${row.id}/download_pdf${row.estimate_public_token ? `?token=${row.estimate_public_token}` : ''}`, '_blank');
+                        }}
+                    >
+                        View
+                    </Button>
+                    <Button
+                        size="small"
+                        type="text"
+                        icon={<SendOutlined />}
+                        loading={sendingReceipt === row.id}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (row.id) handleSendReceipt(row.id);
+                        }}
+                    >
+                        Send
+                    </Button>
+                </div>
             )
+
         }
     ];
 

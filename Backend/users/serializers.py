@@ -39,7 +39,9 @@ class CustomUserSerializer(serializers.ModelSerializer):
                 "role": "Superuser",
                 "is_default": i == 0,
                 "permissions": all_perms,
-                "google_business_link": o.google_business_link
+                "google_business_link": o.google_business_link,
+                "admin_email": o.admin_email,
+                "sub_organizations": OrganizationSerializer(o.sub_organizations.all(), many=True).data
             } for i, o in enumerate(orgs)]
             
         memberships = OrganizationMember.objects.filter(user=obj).select_related('organization', 'role')
@@ -62,7 +64,9 @@ class CustomUserSerializer(serializers.ModelSerializer):
                 "role": m.role.name if m.role else "Member",
                 "is_default": m.is_default,
                 "permissions": perms,
-                "google_business_link": m.organization.google_business_link
+                "google_business_link": m.organization.google_business_link,
+                "admin_email": m.organization.admin_email,
+                "sub_organizations": OrganizationSerializer(m.organization.sub_organizations.all(), many=True).data
             })
             
         # Also include sub-organizations of organizations they are members of
@@ -88,7 +92,9 @@ class CustomUserSerializer(serializers.ModelSerializer):
                 "role": f"{parent_m.role.name} (Parent)" if parent_m.role else "Parent Member",
                 "is_default": False,
                 "permissions": perms,
-                "google_business_link": s.google_business_link
+                "google_business_link": s.google_business_link,
+                "admin_email": s.admin_email,
+                "sub_organizations": OrganizationSerializer(s.sub_organizations.all(), many=True).data
             })
             
         return result
@@ -117,19 +123,46 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 class OrganizationSerializer(serializers.ModelSerializer):
     parent_organization_name = serializers.CharField(source='parent_organization.name', read_only=True)
+    sub_organizations = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
     
     class Meta:
         model = Organization
-        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'created_at')
+        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'created_at', 'sub_organizations', 'role')
         read_only_fields = ('created_at',)
 
-class OrganizationDetailSerializer(serializers.ModelSerializer):
-    parent_organization_name = serializers.CharField(source='parent_organization.name', read_only=True)
+    def get_role(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or request.user.is_anonymous:
+            return None
+        
+        if request.user.is_superuser:
+            return "Admin"
+            
+        # Try direct membership
+        membership = OrganizationMember.objects.filter(user=request.user, organization=obj).first()
+        if membership:
+            return membership.role.name if membership.role else "Member"
+            
+        # Try parent membership
+        if obj.parent_organization:
+            parent_membership = OrganizationMember.objects.filter(user=request.user, organization=obj.parent_organization).first()
+            if parent_membership:
+                return f"{parent_membership.role.name} (Parent)" if parent_membership.role else "Parent Member"
+        
+        return None
+
+    def get_sub_organizations(self, obj):
+        # Return only 1 level deep to avoid recursion issues if not needed, 
+        # but the frontend usually handles this.
+        return OrganizationSerializer(obj.sub_organizations.all(), many=True).data
+
+class OrganizationDetailSerializer(OrganizationSerializer):
     sub_organizations = OrganizationSerializer(many=True, read_only=True)
     
     class Meta:
         model = Organization
-        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'created_at', 'sub_organizations')
+        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'created_at', 'sub_organizations', 'role')
 
 class SystemPermissionSerializer(serializers.ModelSerializer):
     class Meta:

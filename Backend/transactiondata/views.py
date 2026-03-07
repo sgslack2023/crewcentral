@@ -25,7 +25,7 @@ from .serializers import (
     TransactionCategorySerializer, ExpenseSerializer, PurchaseSerializer
 )
 from .utils import create_estimate_from_template, calculate_estimate, process_document_template, generate_invoice_pdf
-from .email_utils import send_estimate_email, send_document_signature_email, send_invoice_pdf_email, send_receipt_pdf_email
+from .email_utils import send_estimate_email, send_document_signature_email, send_invoice_pdf_email, send_receipt_pdf_email, send_work_order_email
 from masterdata.models import Customer
 from django.utils import timezone
 from rest_framework.permissions import AllowAny
@@ -1010,6 +1010,46 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'])
+    def send_signed_documents(self, request, pk=None):
+        """
+        Send all signed documents back to the customer as confirmation attachments
+        """
+        estimate = self.get_object()
+        # Find documents that have BEEN signed (requires_signature=True AND customer_signed=True)
+        # However, some might not require signature but are still part of the "signed" set?
+        # User said "send ALL the signed documents". Usually this means those with customer_signed=True.
+        signed_docs = estimate.estimate_documents.filter(customer_signed=True)
+        
+        if not signed_docs.exists():
+            return Response({
+                'success': False,
+                'message': 'No signed documents found for this estimate.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        from .email_utils import send_signed_documents_email
+        success, message = send_signed_documents_email(estimate, signed_docs)
+        
+        if success:
+            CustomerActivity.objects.create(
+                customer=estimate.customer,
+                estimate=estimate,
+                activity_type='other',
+                title=f'Signed Documents Sent',
+                description=f'Sent {signed_docs.count()} signed documents to {estimate.customer.email}',
+                created_by=request.user
+            )
+            return Response({
+                'success': True,
+                'message': message
+            })
+        else:
+            return Response({
+                'success': False,
+                'message': message
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=True, methods=['post'])
     def generate_work_order(self, request, pk=None):
         """
         Generate a work order for the assigned contractor
@@ -1029,8 +1069,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             defaults={
                 'organization': estimate.organization,
                 'created_by': request.user,
-                'status': 'pending',
-                'work_order_template': estimate.work_order_template
+                'status': 'pending'
             }
         )
         
@@ -1048,12 +1087,65 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         serializer = WorkOrderSerializer(work_order, context={'request': request})
         return Response({
             'success': True,
-            'message': 'Work order generated successfully' if created else 'Work order already exists',
-            'data': serializer.data
-        })
+            'message': 'Internal work order generated and items copied.',
+            'work_order': serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
+    def collect_deposit(self, request, pk=None):
+        """
+        Collect a deposit for an estimate
+        POST /estimates/5/collect_deposit/
+        {
+            "amount": 500,
+            "payment_method": "credit_card",
+            "payment_date": "2023-10-01",
+            "transaction_id": "optional",
+            "notes": "optional"
+        }
+        """
+        estimate = self.get_object()
+        amount = request.data.get('amount')
+        payment_method = request.data.get('payment_method')
+        payment_date = request.data.get('payment_date', date.today())
+        
+        if not amount or not payment_method:
+            return Response(
+                {'error': 'amount and payment_method are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Create payment receipt
+        payment = PaymentReceipt.objects.create(
+            organization=estimate.organization,
+            estimate=estimate,
+            payment_type='deposit',
+            amount=amount,
+            payment_date=payment_date,
+            payment_method=payment_method,
+            transaction_id=request.data.get('transaction_id'),
+            notes=request.data.get('notes', ''),
+            created_by=request.user
+        )
+        
+        # Recalculate estimate balance
+        estimate.calculate_balance()
+        
+        # Create activity record
+        CustomerActivity.objects.create(
+            customer=estimate.customer,
+            estimate=estimate,
+            activity_type='other',
+            title='Deposit Collected',
+            description=f'Deposit of ${amount} collected via {payment.get_payment_method_display()}',
+            created_by=request.user
+        )
+        
+        return Response(PaymentReceiptSerializer(payment).data, status=status.HTTP_201_CREATED)
 
 
 class EstimateLineItemViewSet(viewsets.ModelViewSet):
+
     """
     ViewSet for managing estimate line items
     """
@@ -1436,8 +1528,17 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
             created_by=None
         )
         
+        # Check if all documents in the batch are signed to trigger automation
+        all_signed = not estimate_document.estimate.estimate_documents.filter(customer_signed=False).exists()
+        
+        if all_signed:
+            # Trigger async delivery task
+            from django_q.tasks import async_task
+            async_task('transactiondata.tasks.auto_send_signed_documents', estimate_document.estimate.id)
+            
         serializer = self.get_serializer(estimate_document)
         return Response(serializer.data)
+
 
 
 class InvoiceViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
@@ -1768,6 +1869,29 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             'public_token': work_order.public_token
         })
 
+    @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
+    def send_email(self, request, pk=None):
+        """Send work order email to contractor"""
+        work_order = self.get_object()
+        success, message = send_work_order_email(work_order)
+        
+        if success:
+            # Log activity
+            if 'crm_back.activity_logger' in settings.INSTALLED_APPS:
+                from crm_back.activity_logger import log_activity
+                log_activity(
+                    user=request.user,
+                    organization=work_order.organization,
+                    activity_type='email_sent',
+                    description=f"Sent work order #{work_order.id} email to contractor {work_order.contractor.name}",
+                    related_object=work_order
+                )
+            
+            return Response({'message': message})
+        else:
+            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+
+
     @action(detail=True, methods=['patch'], permission_classes=[isAuthenticatedCustom])
     def update_status(self, request, pk=None):
         """Specifically update work order status and log activity"""
@@ -1805,7 +1929,7 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         
         # Check if invoice already exists for this work order
         if Invoice.objects.filter(work_order=work_order).exists():
-             return Response({'error': 'Invoice already exists for this work order'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Invoice already exists for this work order'}, status=status.HTTP_400_BAD_REQUEST)
              
         # Create invoice
         invoice_number = f"INV-{''.join(random.choices(string.digits, k=6))}"
@@ -1824,6 +1948,16 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             status='draft',
             created_by=request.user
         )
+        
+        # Link existing deposits from Estimate to this Invoice
+        deposits = estimate.payments.all()
+        for deposit in deposits:
+            deposit.invoice = invoice
+            deposit.save(update_fields=['invoice'])
+        
+        # Recalculate invoice balance (will incorporate the deposits)
+        invoice.calculate_balance()
+
         
         # Generate PDF
         generate_invoice_pdf(invoice)

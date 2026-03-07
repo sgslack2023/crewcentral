@@ -283,10 +283,26 @@ class Estimate(models.Model):
         verbose_name = 'Estimate'
         verbose_name_plural = 'Estimates'
     
+    def calculate_balance(self):
+        """Recalculate amount_paid and balance_due based on payments/deposits"""
+        total_paid = self.payments.aggregate(total=models.Sum('amount'))['total'] or 0
+        self.amount_paid = total_paid
+        self.balance_due = self.total_amount - total_paid
+        
+        if self.balance_due <= 0 and self.total_amount > 0:
+            self.payment_status = 'paid'
+        elif total_paid > 0:
+            self.payment_status = 'partial'
+        else:
+            self.payment_status = 'unpaid'
+            
+        self.save(update_fields=['amount_paid', 'balance_due', 'payment_status', 'updated_at'])
+
     def save(self, *args, **kwargs):
         if not self.assigned_to and self.customer and self.customer.assigned_to:
             self.assigned_to = self.customer.assigned_to
         super().save(*args, **kwargs)
+
 
     def __str__(self):
         return f"Estimate #{self.id} - {self.customer.full_name}"
@@ -496,7 +512,14 @@ class PaymentReceipt(models.Model):
     )
     
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='payments', null=True, blank=True)
-    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payments')
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payments', null=True, blank=True)
+    estimate = models.ForeignKey(Estimate, on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
+    
+    payment_type = models.CharField(
+        max_length=20, 
+        choices=[('deposit', 'Deposit'), ('payment', 'Payment')], 
+        default='payment'
+    )
     
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_date = models.DateField()
@@ -513,7 +536,9 @@ class PaymentReceipt(models.Model):
         ordering = ('-payment_date',)
 
     def __str__(self):
-        return f"Payment {self.amount} for {self.invoice.invoice_number}"
+        target = self.invoice.invoice_number if self.invoice else f"Est #{self.estimate.id}" if self.estimate else "Unknown"
+        return f"{self.get_payment_type_display()} {self.amount} for {target}"
+
 
 
 class Feedback(models.Model):

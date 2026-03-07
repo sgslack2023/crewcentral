@@ -137,6 +137,9 @@ def calculate_estimate(estimate):
     # Calculate total (subtotal after discount + tax)
     estimate.total_amount = subtotal_after_discount + estimate.tax_amount
     
+    # Recalculate balance due based on existing payments
+    estimate.calculate_balance()
+    
     estimate.save()
     
     return estimate
@@ -192,8 +195,8 @@ def process_document_template(html_content, customer=None, estimate=None, signat
     try:
         html_content = (
             html_content
-            .replace('\\u200b', '')  # zero-width space
-            .replace('\\ufeff', '')  # BOM
+            .replace('\u200b', '')  # zero-width space
+            .replace('\ufeff', '')  # BOM
             .replace('&nbsp;', ' ')
             .replace('&#160;', ' ')
         )
@@ -216,7 +219,7 @@ def process_document_template(html_content, customer=None, estimate=None, signat
     # Estimate tags
     if estimate:
         html_content = html_content.replace('{{estimate_id}}', str(estimate.id))
-        html_content = html_content.replace('{{estimate_date}}', estimate.created_at.strftime('%B %d, %Y'))
+        html_content = html_content.replace('{{estimate_date}}', estimate.created_at.strftime('%B %d, %Y') if estimate.created_at else '')
         html_content = html_content.replace('{{estimate_subtotal}}', f'${estimate.subtotal:,.2f}')
         html_content = html_content.replace('{{estimate_tax}}', f'${estimate.tax_amount:,.2f}')
         html_content = html_content.replace('{{estimate_tax_percent}}', f'{estimate.tax_percentage:.2f}%')
@@ -458,7 +461,10 @@ def generate_payment_receipt_pdf(payment):
     Generate PDF for a payment receipt based on Document Library mapping
     """
     invoice = payment.invoice
-    estimate = invoice.estimate
+    # Fallback to estimate if no invoice is present (e.g., initial deposits)
+    estimate = payment.estimate if not invoice else invoice.estimate
+    customer = payment.invoice.customer if payment.invoice else (payment.estimate.customer if payment.estimate else None)
+    
     from masterdata.models import DocumentLibrary
     
     # 1. Try to find by purpose (preferred)
@@ -491,7 +497,7 @@ def generate_payment_receipt_pdf(payment):
 
     processed_html = process_document_template(
         html_content, 
-        customer=invoice.customer, 
+        customer=customer, 
         estimate=estimate
     )
     

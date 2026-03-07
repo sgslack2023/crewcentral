@@ -35,6 +35,48 @@ const ActivityList: React.FC<ActivityListProps> = ({
         }
     };
 
+    const isGrouped = config?.groupBy && config.groupBy !== 'none';
+
+    if (isGrouped) {
+        return (
+            <div style={{ height: '100%', overflow: 'auto' }}>
+                {data.length > 0 ? (
+                    <List
+                        dataSource={data}
+                        size="small"
+                        renderItem={(item: any) => (
+                            <List.Item
+                                style={{
+                                    padding: '12px 16px',
+                                    borderLeft: item.is_current ? `4px solid ${config.accentColor || '#1890ff'}` : 'none',
+                                    background: item.is_current ? '#f0faff' : 'transparent'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <Text strong style={{ fontSize: '14px' }}>{item.group}</Text>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <Text strong style={{ fontSize: '18px', color: config.accentColor || '#1890ff' }}>
+                                            {config.aggregate === 'sum' ? `$${(item.value || 0).toLocaleString()}` : item.value}
+                                        </Text>
+                                        <div style={{ fontSize: '10px', color: '#8c8c8c', textTransform: 'uppercase' }}>
+                                            {config.aggregate === 'sum' ? 'Total' : 'Count'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </List.Item>
+                        )}
+                    />
+                ) : (
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No summary data" />
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div style={{ height: '100%', overflow: 'auto' }}>
             {data.length > 0 ? (

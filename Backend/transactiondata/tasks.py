@@ -744,3 +744,54 @@ def send_pending_estimates(organization_id=None, **kwargs):
     except Exception as e:
         logger.error(f"Error in send_pending_estimates task: {e}")
         return {'sent': 0, 'failed': 0, 'skipped': 0, 'error': str(e)}
+
+
+def auto_send_signed_documents(estimate_id, **kwargs):
+    """
+    Async task to automatically send signed documents after client signatures.
+    """
+    from .models import Estimate, CustomerActivity
+    from .email_utils import send_signed_documents_email
+    
+    try:
+        estimate = Estimate.objects.get(id=estimate_id)
+        logger.info(f"Starting automatic signed documents delivery for Estimate {estimate_id}")
+        
+        # Check for signed documents
+        signed_docs = estimate.estimate_documents.filter(customer_signed=True)
+        if not signed_docs.exists():
+            logger.info(f"No signed documents found for Estimate {estimate_id}, skipping delivery.")
+            return {"sent": 0, "status": "No signed documents"}
+
+        # Check for specific automation configuration
+        schedule = get_active_schedule('signed_documents_email', estimate.organization.id)
+        if not schedule:
+            logger.info(f"No active automation found for 'signed_documents_email' for organization {estimate.organization.id}.")
+            # We don't skip entirely unless the user explicitly wants to use a TEMPLATE that we can't find.
+            # But usually we'd want at least a default behavior if the user triggered this but didn't set a template.
+            # Actually, per user request, we should probably just send it.
+            # If render_email_template handles missing template, we are golden.
+        
+        success, message = send_signed_documents_email(estimate, signed_docs)
+        
+        if success:
+            CustomerActivity.objects.create(
+                customer=estimate.customer,
+                estimate=estimate,
+                activity_type='other',
+                title=f'Auto: Signed Documents Delivery',
+                description=f'Automatically sent {signed_docs.count()} signed documents to {estimate.customer.email}',
+                created_by=None
+            )
+            logger.info(f"Automatically sent signed documents for Estimate {estimate_id}")
+            return {"sent": 1, "status": "Success"}
+        else:
+            logger.error(f"Failed to auto-send signed documents for Estimate {estimate_id}: {message}")
+            return {"sent": 0, "status": f"Error: {message}"}
+            
+    except Estimate.DoesNotExist:
+        logger.error(f"Estimate {estimate_id} not found during auto_send_signed_documents task")
+    except Exception as e:
+        logger.error(f"Error in auto_send_signed_documents task: {e}")
+        return {"sent": 0, "error": str(e)}
+

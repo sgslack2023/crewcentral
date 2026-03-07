@@ -655,11 +655,11 @@ class OrganizationViewSet(ModelViewSet):
         """
         organization = self.get_object()
         
-        # Permission check: superuser or member of this org
+        # Permission check: superuser, member of this org, or member of parent org
         is_superuser = request.user.is_superuser
         is_member = OrganizationMember.objects.filter(
-            user=request.user, 
-            organization=organization
+            Q(user=request.user, organization=organization) |
+            Q(user=request.user, organization=organization.parent_organization)
         ).exists()
 
         if not (is_superuser or is_member):

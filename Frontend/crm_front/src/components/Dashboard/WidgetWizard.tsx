@@ -21,36 +21,38 @@ interface WidgetWizardProps {
 }
 
 const METRICS = [
-    // KPIs (Metrics + Trends + Comparisons)
-    { key: 'total_leads', title: 'Total Leads', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'total_revenue', title: 'Total Revenue', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'win_rate', title: 'Win Rate', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'active_jobs', title: 'Active Jobs', category: 'kpis', icon: <CalendarOutlined /> },
-    { key: 'average_deal_size', title: 'Avg Deal Size', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'payment_count', title: 'Payment Count', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'average_payment', title: 'Avg Payment', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'due_invoices_amount', title: 'Due Invoices', category: 'kpis', icon: <DashboardOutlined /> },
-    { key: 'total_expenses', title: 'Total Expenses', category: 'kpis', icon: <AuditOutlined /> },
-    { key: 'total_purchases', title: 'Total Purchases', category: 'kpis', icon: <ShoppingOutlined /> },
-    { key: 'revenue_trends', title: 'Revenue Trends', category: 'kpis', icon: <LineChartOutlined /> },
-    { key: 'lead_volume', title: 'Lead Volume', category: 'kpis', icon: <LineChartOutlined /> },
-    { key: 'pipeline_value', title: 'Pipeline Value', category: 'kpis', icon: <LineChartOutlined /> },
-    { key: 'branch_performance', title: 'Branch Performance', category: 'kpis', icon: <BarChartOutlined /> },
-    { key: 'deals_by_stage', title: 'Deals by Stage', category: 'kpis', icon: <FunnelPlotOutlined /> },
-    { key: 'lead_source_distribution', title: 'Lead Source', category: 'kpis', icon: <PieChartOutlined /> },
-    { key: 'revenue_by_service_type', title: 'Revenue by Service', category: 'kpis', icon: <BarChartOutlined /> },
-    { key: 'service_funnel', title: 'Service Funnel', category: 'kpis', icon: <FunnelPlotOutlined /> },
+    // KPIs (True single-value metrics)
+    { key: 'total_leads', title: 'Total Leads', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'total_revenue', title: 'Total Revenue', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'win_rate', title: 'Win Rate', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'active_jobs', title: 'Active Jobs', category: 'kpis', metricType: 'scalar', icon: <CalendarOutlined /> },
+    { key: 'average_deal_size', title: 'Avg Deal Size', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'payment_count', title: 'Payment Count', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'average_payment', title: 'Avg Payment', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'due_invoices_amount', title: 'Due Invoices', category: 'kpis', metricType: 'scalar', icon: <DashboardOutlined /> },
+    { key: 'total_expenses', title: 'Total Expenses', category: 'kpis', metricType: 'scalar', icon: <AuditOutlined /> },
+    { key: 'total_purchases', title: 'Total Purchases', category: 'kpis', metricType: 'scalar', icon: <ShoppingOutlined /> },
+
+    // Charts & Trends (Moved to lists/activities category)
+    { key: 'revenue_trends', title: 'Revenue Trends', category: 'lists', metricType: 'complex', icon: <LineChartOutlined /> },
+    { key: 'lead_volume', title: 'Lead Volume', category: 'lists', metricType: 'complex', icon: <LineChartOutlined /> },
+    { key: 'pipeline_value', title: 'Pipeline Value', category: 'lists', metricType: 'complex', icon: <LineChartOutlined /> },
+    { key: 'branch_performance', title: 'Branch Performance', category: 'lists', metricType: 'complex', icon: <BarChartOutlined /> },
+    { key: 'deals_by_stage', title: 'Deals by Stage', category: 'lists', metricType: 'complex', icon: <FunnelPlotOutlined /> },
+    { key: 'lead_source_distribution', title: 'Lead Source', category: 'lists', metricType: 'complex', icon: <PieChartOutlined /> },
+    { key: 'revenue_by_service_type', title: 'Revenue by Service', category: 'lists', metricType: 'complex', icon: <BarChartOutlined /> },
+    { key: 'service_funnel', title: 'Service Funnel', category: 'lists', metricType: 'complex', icon: <FunnelPlotOutlined /> },
 
     // Lists (Activities)
-    { key: 'upcoming_jobs', title: 'Upcoming Jobs', category: 'lists', icon: <TableOutlined /> },
-    { key: 'recent_activities', title: 'Recent Activities', category: 'lists', icon: <TableOutlined /> },
-    { key: 'recent_invoices', title: 'Recent Invoices', category: 'lists', icon: <TableOutlined /> },
-    { key: 'recent_payments', title: 'Recent Payments', category: 'lists', icon: <TableOutlined /> },
-    { key: 'recent_expenses', title: 'Recent Expenses', category: 'lists', icon: <TableOutlined /> },
-    { key: 'recent_purchases', title: 'Recent Purchases', category: 'lists', icon: <TableOutlined /> },
-    { key: 'accounts_receivable', title: 'Accounts Receivable', category: 'lists', icon: <TableOutlined /> },
-    { key: 'due_invoices', title: 'Due Invoices List', category: 'lists', icon: <TableOutlined /> },
-    { key: 'site_visits', title: 'Site Visits', category: 'lists', icon: <CalendarOutlined /> },
+    { key: 'upcoming_jobs', title: 'Upcoming Jobs', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'recent_activities', title: 'Recent Activities', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'recent_invoices', title: 'Recent Invoices', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'recent_payments', title: 'Recent Payments', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'recent_expenses', title: 'Recent Expenses', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'recent_purchases', title: 'Recent Purchases', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'accounts_receivable', title: 'Accounts Receivable', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'due_invoices', title: 'Due Invoices List', category: 'lists', metricType: 'complex', icon: <TableOutlined /> },
+    { key: 'site_visits', title: 'Site Visits', category: 'lists', metricType: 'complex', icon: <CalendarOutlined /> },
 
     // Filters
     { key: 'rep_id', title: 'Sales Rep', category: 'filters', icon: <FilterOutlined /> },
@@ -63,16 +65,16 @@ const METRICS = [
 const VISUALIZATIONS: Record<string, any[]> = {
     kpis: [
         { type: 'kpi', title: 'KPI Card', icon: <DashboardOutlined /> },
+    ],
+    lists: [
+        { type: 'activity', title: 'Activity List', icon: <TableOutlined /> },
+        { type: 'table', title: 'Data Table', icon: <TableOutlined /> },
         { type: 'trend', chartType: 'line', library: 'recharts', title: 'Line Chart', icon: <LineChartOutlined /> },
         { type: 'trend', chartType: 'bar', library: 'recharts', title: 'Bar Chart', icon: <BarChartOutlined /> },
         { type: 'trend', chartType: 'area', library: 'recharts', title: 'Area Chart', icon: <LineChartOutlined /> },
         { type: 'breakdown', chartType: 'pie', library: 'recharts', title: 'Pie Chart', icon: <PieChartOutlined /> },
         { type: 'breakdown', chartType: 'bar', library: 'recharts', title: 'Bar Chart', icon: <BarChartOutlined /> },
         { type: 'funnel', chartType: 'Funnel', library: 'google_charts', title: 'Funnel', icon: <FunnelPlotOutlined /> },
-    ],
-    lists: [
-        { type: 'activity', title: 'Activity List', icon: <TableOutlined /> },
-        { type: 'table', title: 'Data Table', icon: <TableOutlined /> },
         { type: 'Calendar', library: 'recharts', title: 'Calendar', icon: <CalendarOutlined /> },
     ],
     filters: [
@@ -379,6 +381,7 @@ const WidgetWizard: React.FC<WidgetWizardProps> = ({ visible, onClose, onAdd }) 
                                                     key: `custom_${cm.id}`,
                                                     title: cm.name,
                                                     category: 'kpis',
+                                                    metricType: 'scalar',
                                                     isCustom: true,
                                                     customId: cm.id,
                                                     query_config: cm.query_config
@@ -641,6 +644,72 @@ const WidgetWizard: React.FC<WidgetWizardProps> = ({ visible, onClose, onAdd }) 
                                             ))}
                                         </Row>
                                     </div>
+                                    {selectedMetric?.category === 'lists' && (
+                                        <div>
+                                            <Divider style={{ margin: '12px 0' }} />
+                                            <Text type="secondary">Grouping & Summary</Text>
+                                            <div style={{ marginTop: '8px' }}>
+                                                <Space direction="vertical" style={{ width: '100%' }}>
+                                                    <Select
+                                                        placeholder="Group by..."
+                                                        value={config.groupBy || 'none'}
+                                                        onChange={v => setConfig({ ...config, groupBy: v })}
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        <Select.Option value="none">No Grouping (Individual Items)</Select.Option>
+                                                        <Select.Option value="month">Monthly Summary</Select.Option>
+                                                        <Select.Option value="status">Group by Status</Select.Option>
+                                                        {selectedMetric.key.includes('jobs') && (
+                                                            <Select.Option value="service_type__service_type">Group by Service</Select.Option>
+                                                        )}
+                                                        <Select.Option value="branch__name">Group by Branch</Select.Option>
+                                                    </Select>
+
+                                                    {config.groupBy && config.groupBy !== 'none' && (
+                                                        <Row gutter={8}>
+                                                            <Col span={12}>
+                                                                <Select
+                                                                    value={config.aggregate || 'count'}
+                                                                    onChange={v => setConfig({
+                                                                        ...config,
+                                                                        aggregate: v,
+                                                                        aggregateField: v === 'sum' && !config.aggregateField ?
+                                                                            (selectedMetric.key.includes('invoice') ? 'total_amount' : 'amount') :
+                                                                            config.aggregateField
+                                                                    })}
+                                                                    style={{ width: '100%' }}
+                                                                >
+                                                                    <Select.Option value="count">Count</Select.Option>
+                                                                    <Select.Option value="sum">Sum</Select.Option>
+                                                                </Select>
+                                                            </Col>
+                                                            {config.aggregate === 'sum' && (
+                                                                <Col span={12}>
+                                                                    <Select
+                                                                        placeholder="Field to sum"
+                                                                        value={config.aggregateField || 'total_amount'}
+                                                                        onChange={v => setConfig({ ...config, aggregateField: v })}
+                                                                        style={{ width: '100%' }}
+                                                                    >
+                                                                        {selectedMetric.key.includes('invoice') || selectedMetric.key.includes('receivable') ? (
+                                                                            <>
+                                                                                <Select.Option value="total_amount">Invoice Total</Select.Option>
+                                                                                <Select.Option value="balance_due">Balance Due</Select.Option>
+                                                                            </>
+                                                                        ) : selectedMetric.key.includes('payment') || selectedMetric.key.includes('expense') ? (
+                                                                            <Select.Option value="amount">Payment/Expense Amount</Select.Option>
+                                                                        ) : (
+                                                                            <Select.Option value="amount">Amount / Value</Select.Option>
+                                                                        )}
+                                                                    </Select>
+                                                                </Col>
+                                                            )}
+                                                        </Row>
+                                                    )}
+                                                </Space>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div>
                                         <Divider style={{ margin: '12px 0' }} />
                                         <Text type="secondary">Interactivity</Text>

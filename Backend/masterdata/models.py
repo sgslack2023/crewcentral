@@ -30,7 +30,7 @@ class Branch(models.Model):
     """
     Branch/Location model for managing different office locations
     """
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     destination = models.CharField(max_length=255, blank=True, null=True)
     dispatch_location = models.CharField(max_length=255)
     sales_tax_percentage = models.DecimalField(
@@ -54,6 +54,7 @@ class Branch(models.Model):
         ordering = ('name',)
         verbose_name = 'Branch'
         verbose_name_plural = 'Branches'
+        unique_together = ('organization', 'name')
     
     def __str__(self):
         return self.name
@@ -63,7 +64,7 @@ class ServiceType(models.Model):
     """
     Service Type model for categorizing different types of services
     """
-    service_type = models.CharField(max_length=255, unique=True)
+    service_type = models.CharField(max_length=255)
     scaling_factor = models.DecimalField(max_digits=10, decimal_places=2, default=1.0)
     color = models.CharField(max_length=7, blank=True, null=True, help_text="Hex color code (e.g., #FF5733)")
     estimate_content = models.TextField(blank=True, null=True, help_text="Additional content to display on estimates for this service type")
@@ -82,6 +83,7 @@ class ServiceType(models.Model):
         ordering = ('service_type',)
         verbose_name = 'Service Type'
         verbose_name_plural = 'Service Types'
+        unique_together = ('organization', 'service_type')
     
     def __str__(self):
         return self.service_type
@@ -112,8 +114,10 @@ class DocumentLibrary(models.Model):
         ('receipt_pdf', 'Receipt PDF'),
         ('work_order_pdf', 'Work Order PDF'),
         ('contract_pdf', 'Contract PDF'),
+        ('signed_documents_email', 'Signed Documents Email'),
         ('none', 'None'),
     )
+
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -280,7 +284,7 @@ class MoveType(models.Model):
     """
     Move Type model for managing different types of moves
     """
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     cubic_feet = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
@@ -299,6 +303,7 @@ class MoveType(models.Model):
         ordering = ('name',)
         verbose_name = 'Move Type'
         verbose_name_plural = 'Move Types'
+        unique_together = ('organization', 'name')
     
     def __str__(self):
         return self.name
@@ -308,7 +313,7 @@ class RoomSize(models.Model):
     """
     Room Size model for managing different room sizes
     """
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     cubic_feet = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
     weight = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
@@ -327,6 +332,7 @@ class RoomSize(models.Model):
         ordering = ('name',)
         verbose_name = 'Room Size'
         verbose_name_plural = 'Room Sizes'
+        unique_together = ('organization', 'name')
     
     def __str__(self):
         return self.name

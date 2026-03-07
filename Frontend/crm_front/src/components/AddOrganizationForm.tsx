@@ -144,6 +144,15 @@ const AddOrganizationForm: FC<AddOrganizationFormProps> = ({
                         <Input prefix={<GoogleOutlined />} placeholder="https://g.page/r/your-id/review" />
                     </Form.Item>
 
+                    <Form.Item
+                        label="Admin Email Address (Optional)"
+                        name="admin_email"
+                        style={{ marginBottom: '16px' }}
+                        help="Official email for work orders and notifications"
+                    >
+                        <Input prefix={<TeamOutlined />} placeholder="admin@organization.com" />
+                    </Form.Item>
+
                     {isActuallySuperuser && (
                         <Form.Item
                             label="Parent Organization (Optional)"

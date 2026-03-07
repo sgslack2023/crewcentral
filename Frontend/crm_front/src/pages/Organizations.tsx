@@ -179,26 +179,21 @@ const Organizations: React.FC<OrganizationsProps> = ({ hideHeader = false }) => 
         });
     };
 
-    const handleCreateOrg = async (values: any) => {
-        try {
-            const headers = getAuthToken() as any;
-            await axios.post(OrganizationsUrl, values, headers);
-            notification.success({
-                message: 'Success',
-                description: 'Organization created successfully',
-                title: 'Success'
-            });
-            setIsModalVisible(false);
-            form.resetFields();
-            await fetchOrganizations();
-            await refreshUserContext(); // Refresh localStorage cache
-        } catch (error: any) {
-            notification.error({
-                message: 'Error',
-                description: error.response?.data?.error || 'Failed to create organization',
-                title: 'Error'
-            });
+    const handleUpdateSuccess = async () => {
+        await fetchOrganizations();
+        if (selectedOrg) {
+            // Refresh the specific organization data to update the detail modal
+            try {
+                const headers = getAuthToken() as any;
+                const response = await axios.get(`${OrganizationsUrl}/${selectedOrg.id}`, headers);
+                if (response.data) {
+                    setSelectedOrg(response.data);
+                }
+            } catch (error) {
+                console.error('Failed to refresh selected organization details:', error);
+            }
         }
+        await refreshUserContext();
     };
 
     const handleDeleteOrg = (id: number) => {
@@ -361,7 +356,7 @@ const Organizations: React.FC<OrganizationsProps> = ({ hideHeader = false }) => 
             <AddOrganizationForm
                 isVisible={isModalVisible}
                 onClose={() => setIsModalVisible(false)}
-                onSuccessCallBack={fetchOrganizations}
+                onSuccessCallBack={handleUpdateSuccess}
                 organizations={organizations}
                 isActuallySuperuser={isActuallySuperuser}
                 editingOrganization={selectedOrg}
@@ -426,16 +421,6 @@ const Organizations: React.FC<OrganizationsProps> = ({ hideHeader = false }) => 
                             </div>
                         </div>
                     </div>
-                    {(isActuallySuperuser || selectedOrg?.role === 'Admin') && (
-                        <BlackButton
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={() => setIsModalVisible(true)}
-                            style={{ fontSize: '12px' }}
-                        >
-                            Edit Organization
-                        </BlackButton>
-                    )}
                 </div>
 
                 {/* Main Content Area */}
@@ -468,10 +453,22 @@ const Organizations: React.FC<OrganizationsProps> = ({ hideHeader = false }) => 
                                         </div>
 
                                         <div style={{ border: '1px solid #eef0f2', borderRadius: '12px', background: '#fff', padding: '16px' }}>
-                                            <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <CheckCircleOutlined style={{ color: '#5b6cf9' }} />
-                                                Organization Details
-                                            </h3>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                <h3 style={{ fontSize: '13px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <CheckCircleOutlined style={{ color: '#5b6cf9' }} />
+                                                    Organization Details
+                                                </h3>
+                                                {(isActuallySuperuser || selectedOrg?.role?.includes('Admin')) && (
+                                                    <BlackButton
+                                                        size="small"
+                                                        icon={<EditOutlined />}
+                                                        onClick={() => setIsModalVisible(true)}
+                                                        style={{ fontSize: '11px', height: '28px' }}
+                                                    >
+                                                        Quick Edit
+                                                    </BlackButton>
+                                                )}
+                                            </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                                 <div>
                                                     <div style={{ marginBottom: '16px' }}>
@@ -492,6 +489,16 @@ const Organizations: React.FC<OrganizationsProps> = ({ hideHeader = false }) => 
                                                         <div style={{ fontSize: '11px', color: '#8e8ea8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</div>
                                                         <Badge status={selectedOrg?.is_active ? 'success' : 'error'} text={selectedOrg?.is_active ? 'Performance Optimized' : 'Inactive'} style={{ fontSize: '13px' }} />
                                                     </div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ marginTop: '16px', borderTop: '1px solid #f6f8fa', paddingTop: '16px' }}>
+                                                <div style={{ fontSize: '11px', color: '#8e8ea8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    <MailOutlined style={{ marginRight: '6px' }} />
+                                                    Administrative Email
+                                                </div>
+                                                <div style={{ fontSize: '13px', color: selectedOrg?.admin_email ? '#1a1a2e' : '#8c8c8c' }}>
+                                                    {selectedOrg?.admin_email || 'No administrative email assigned.'}
                                                 </div>
                                             </div>
 

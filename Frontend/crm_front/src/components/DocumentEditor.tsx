@@ -90,7 +90,8 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
               horizontalRule
             ],
             width: '100%',
-            height: '500px',
+            height: 'auto',
+            minHeight: '400px',
             buttonList: [
               ['undo', 'redo'],
               ['font', 'fontSize', 'formatBlock'],
@@ -523,7 +524,9 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                     { key: 'weight', label: 'Weight', onClick: () => insertTag('{{weight}}') },
                     { key: 'labour_hours', label: 'Labour Hours', onClick: () => insertTag('{{labour_hours}}') },
                     { key: 'pickup_time_window', label: 'Pickup Time Window', onClick: () => insertTag('{{pickup_time_window}}') },
-                    { key: 'delivery_time_window', label: 'Delivery Time Window', onClick: () => insertTag('{{delivery_time_window}}') }
+                    { key: 'delivery_time_window', label: 'Delivery Time Window', onClick: () => insertTag('{{delivery_time_window}}') },
+                    { key: 'pickup_date_range', label: 'Pickup Date Range', onClick: () => insertTag('{{pickup_date_range}}') },
+                    { key: 'delivery_date_range', label: 'Delivery Date Range', onClick: () => insertTag('{{delivery_date_range}}') }
                   ]
                 },
                 {

@@ -193,6 +193,11 @@ class AnalyticsDataView(APIView):
         branch_id = request.query_params.get('branch_id')
         rep_id = request.query_params.get('rep_id')
         limit = int(request.query_params.get('limit', 10))
+        
+        # New grouping and aggregation params
+        group_by = request.query_params.get('group_by') # e.g. 'month', 'status', 'branch_id'
+        aggregate_type = request.query_params.get('aggregate') # 'count' or 'sum'
+        aggregate_field = request.query_params.get('aggregate_field') # 'amount', 'total_amount', etc.
 
         org = getattr(request, 'organization', None)
         if not org:
@@ -328,6 +333,70 @@ class AnalyticsDataView(APIView):
                         
             return qs
 
+        def apply_grouping(qs, date_field='created_at'):
+            if not group_by:
+                return None
+            
+            # Prepare Aggregation
+            annotation = {}
+            if aggregate_type == 'sum':
+                # Try to find a valid numeric field to sum
+                valid_field = aggregate_field
+                model_fields = [f.name for f in qs.model._meta.get_fields()]
+                
+                # If field is missing or invalid, try defaults
+                if not valid_field or valid_field not in model_fields:
+                    options = [aggregate_field, 'total_amount', 'amount', 'balance_due', 'price']
+                    valid_field = None
+                    for opt in options:
+                        if opt and opt in model_fields:
+                            valid_field = opt
+                            break
+                
+                if valid_field:
+                    annotation['aggregated_value'] = Sum(valid_field)
+                else:
+                    # Fallback to count if no numeric field found
+                    annotation['aggregated_value'] = Count('id')
+            else:
+                annotation['aggregated_value'] = Count('id')
+            
+            # Date grouping (Monthly)
+            if group_by == 'month':
+                # Apply time filters before truncating if start/end exist
+                if start and end:
+                    qs = qs.filter(**{f"{date_field}__range": [start, end]})
+                
+                # Truncate by month and group
+                gs = qs.annotate(
+                    group_label=TruncMonth(date_field)
+                ).values('group_label').annotate(**annotation).order_by('-group_label')
+                
+                now = timezone.now()
+                return [
+                    {
+                        "group": item['group_label'].strftime('%B %Y') if item['group_label'] else "Unknown",
+                        "value": float(item['aggregated_value'] or 0),
+                        "is_current": (item['group_label'].month == now.month and item['group_label'].year == now.year) if item['group_label'] else False,
+                        "date": item['group_label']
+                    }
+                    for item in gs
+                ]
+            
+            # Generic field grouping (e.g., status, branch__name)
+            try:
+                # Use F() to handle potential relations or field renaming
+                gs = qs.values(group_label=F(group_by)).annotate(**annotation).order_by('-aggregated_value')
+                return [
+                    {
+                        "group": str(item['group_label'] or "Unassigned"),
+                        "value": float(item['aggregated_value'] or 0)
+                    }
+                    for item in gs
+                ]
+            except Exception as e:
+                print(f"Grouping error for {group_by}: {e}")
+                return None
 
         def get_metric_value(m_source):
             """Helper to get just the numerical value for a base metric."""
@@ -592,24 +661,31 @@ class AnalyticsDataView(APIView):
             qs = Customer.objects.filter(
                 organization_id=org_id, 
                 stage='booked'
-            ).filter(
-                Q(move_date__gte=timezone.now().date()) | Q(move_date__isnull=True)
             )
             qs = apply_filters(qs, 'move_date')
-            # Order nulls last (assuming they are less urgent than dated jobs)
-            customers = qs.order_by(F('move_date').asc(nulls_last=True))[:limit]
             
-            data = []
-            for c in customers:
-                est = c.estimates.filter(status__in=['approved', 'booked', 'invoiced']).first()
-                data.append({
-                    "id": c.id,
-                    "customer": c.full_name,
-                    "date": c.move_date,
-                    "amount": float(est.total_amount) if est else 0,
-                    "service": c.service_type.service_type if c.service_type else "General",
-                    "estimate_id": est.id if est else None
-                })
+            # Grouping support
+            grouped_data = apply_grouping(qs, 'move_date')
+            if grouped_data is not None:
+                data = grouped_data
+            else:
+                qs = qs.filter(
+                    Q(move_date__gte=timezone.now().date()) | Q(move_date__isnull=True)
+                )
+                # Order nulls last (assuming they are less urgent than dated jobs)
+                customers = qs.order_by(F('move_date').asc(nulls_last=True))[:limit]
+                
+                data = []
+                for c in customers:
+                    est = c.estimates.filter(status__in=['approved', 'booked', 'invoiced']).first()
+                    data.append({
+                        "id": c.id,
+                        "customer": c.full_name,
+                        "date": c.move_date,
+                        "amount": float(est.total_amount) if est else 0,
+                        "service": c.service_type.service_type if c.service_type else "General",
+                        "estimate_id": est.id if est else None
+                    })
 
         elif source == 'active_jobs':
             qs = Customer.objects.filter(organization_id=org_id, stage__in=['booked', 'opportunity', 'in_progress'])
@@ -712,45 +788,66 @@ class AnalyticsDataView(APIView):
             data = [{"name": i['name'] or "General", "value": float(i['value'] or 0)} for i in breakdown]
 
         elif source == 'recent_activities':
-            qs = Customer.objects.filter(organization_id=org_id).order_by('-updated_at')[:limit]
-            data = [
-                {
-                    "id": c.id,
-                    "customer": c.full_name,
-                    "date": c.updated_at,
-                    "type": "Stage Update",
-                    "description": f"Moved to {c.get_stage_display()}"
-                }
-                for c in qs
-            ]
+            qs = Customer.objects.filter(organization_id=org_id)
+            qs = apply_filters(qs, 'updated_at')
+            
+            grouped_data = apply_grouping(qs, 'updated_at')
+            if grouped_data is not None:
+                data = grouped_data
+            else:
+                qs = qs.order_by('-updated_at')[:limit]
+                data = [
+                    {
+                        "id": c.id,
+                        "customer": c.full_name,
+                        "date": c.updated_at,
+                        "type": "Stage Update",
+                        "description": f"Moved to {c.get_stage_display()}"
+                    }
+                    for c in qs
+                ]
 
         elif source == 'recent_invoices':
-            qs = Invoice.objects.filter(organization_id=org_id).order_by('-issue_date')[:limit]
-            data = [
-                {
-                    "id": inv.id,
-                    "title": inv.invoice_number,
-                    "customer": inv.customer.full_name,
-                    "date": inv.issue_date,
-                    "amount": float(inv.total_amount),
-                    "status": inv.get_status_display()
-                }
-                for inv in qs
-            ]
+            qs = Invoice.objects.filter(organization_id=org_id)
+            qs = apply_filters(qs, 'issue_date')
+            
+            grouped_data = apply_grouping(qs, 'issue_date')
+            if grouped_data is not None:
+                data = grouped_data
+            else:
+                qs = qs.order_by('-issue_date')[:limit]
+                data = [
+                    {
+                        "id": inv.id,
+                        "title": inv.invoice_number,
+                        "customer": inv.customer.full_name,
+                        "date": inv.issue_date,
+                        "amount": float(inv.total_amount),
+                        "status": inv.get_status_display()
+                    }
+                    for inv in qs
+                ]
 
         elif source == 'recent_payments':
-            qs = PaymentReceipt.objects.filter(organization_id=org_id).order_by('-payment_date')[:limit]
-            data = [
-                {
-                    "id": p.id,
-                    "title": f"Payment for {p.invoice.invoice_number}",
-                    "customer": p.invoice.customer.full_name,
-                    "date": p.payment_date,
-                    "amount": float(p.amount),
-                    "type": p.get_payment_method_display()
-                }
-                for p in qs
-            ]
+            qs = PaymentReceipt.objects.filter(organization_id=org_id)
+            qs = apply_filters(qs, 'payment_date')
+            
+            grouped_data = apply_grouping(qs, 'payment_date')
+            if grouped_data is not None:
+                data = grouped_data
+            else:
+                qs = qs.order_by('-payment_date')[:limit]
+                data = [
+                    {
+                        "id": p.id,
+                        "title": f"Payment for {p.invoice.invoice_number}",
+                        "customer": p.invoice.customer.full_name,
+                        "date": p.payment_date,
+                        "amount": float(p.amount),
+                        "type": p.get_payment_method_display()
+                    }
+                    for p in qs
+                ]
 
         elif source == 'service_funnel':
             qs = Customer.objects.filter(organization_id=org_id)
@@ -831,32 +928,46 @@ class AnalyticsDataView(APIView):
             }
 
         elif source == 'recent_expenses':
-            qs = Expense.objects.filter(organization_id=org_id).order_by('-expense_date')[:limit]
-            data = [
-                {
-                    "id": e.id,
-                    "title": e.title,
-                    "category": e.category.name if e.category else "Uncategorized",
-                    "date": e.expense_date,
-                    "amount": float(e.amount),
-                    "type": "Expense"
-                }
-                for e in qs
-            ]
+            qs = Expense.objects.filter(organization_id=org_id)
+            qs = apply_filters(qs, 'expense_date')
+            
+            grouped_data = apply_grouping(qs, 'expense_date')
+            if grouped_data is not None:
+                data = grouped_data
+            else:
+                qs = qs.order_by('-expense_date')[:limit]
+                data = [
+                    {
+                        "id": e.id,
+                        "title": e.title,
+                        "category": e.category.name if e.category else "Uncategorized",
+                        "date": e.expense_date,
+                        "amount": float(e.amount),
+                        "type": "Expense"
+                    }
+                    for e in qs
+                ]
 
         elif source == 'recent_purchases':
-            qs = Purchase.objects.filter(organization_id=org_id).order_by('-purchase_date')[:limit]
-            data = [
-                {
-                    "id": p.id,
-                    "title": p.item_name,
-                    "vendor": p.vendor,
-                    "date": p.purchase_date,
-                    "amount": float(p.total_amount),
-                    "type": "Purchase"
-                }
-                for p in qs
-            ]
+            qs = Purchase.objects.filter(organization_id=org_id)
+            qs = apply_filters(qs, 'purchase_date')
+            
+            grouped_data = apply_grouping(qs, 'purchase_date')
+            if grouped_data is not None:
+                data = grouped_data
+            else:
+                qs = qs.order_by('-purchase_date')[:limit]
+                data = [
+                    {
+                        "id": p.id,
+                        "title": p.item_name,
+                        "vendor": p.vendor,
+                        "date": p.purchase_date,
+                        "amount": float(p.total_amount),
+                        "type": "Purchase"
+                    }
+                    for p in qs
+                ]
 
         return Response({
             "source": source,

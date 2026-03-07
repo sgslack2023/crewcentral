@@ -95,6 +95,7 @@ class Organization(models.Model):
     parent_organization = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='sub_organizations')
     is_active = models.BooleanField(default=True)
     google_business_link = models.URLField(max_length=500, blank=True, null=True)
+    admin_email = models.EmailField(blank=True, null=True, help_text="Optional admin email for the organization, used for notifications such as Work Orders")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

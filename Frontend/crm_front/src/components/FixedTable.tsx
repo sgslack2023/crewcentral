@@ -178,7 +178,7 @@ const FixedHeaderCell = styled(TableCell)<{ fontSize?: string }>(
     overflow: 'hidden',
     borderBottom: '1px solid #e5e7eb',
     borderRight: 'none',
-    textAlign: 'left',
+    textAlign: 'center',
     verticalAlign: 'middle',
     boxShadow: 'none',
     '&[style*="width: 0"]': {
@@ -201,6 +201,7 @@ const FixedFilterCell = styled(TableCell)(({ theme }: any) => ({
   textOverflow: 'ellipsis',
   borderBottom: '1px solid #e5e7eb',
   borderRight: 'none',
+  textAlign: 'center',
   '&[style*="width: 0"]': {
     padding: 0,
     border: 'none'
@@ -222,8 +223,7 @@ const FixedLeftCell = styled(TableCell)<{ index: number; fontSize?: string }>(
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     borderBottom: '1px solid #f0f0f0',
-    borderRight: 'none',
-    textAlign: 'left',
+    textAlign: 'center',
     transition: 'background-color 0.15s ease',
     color: '#1f2937',
     '&[style*="width: 0"]': {
@@ -257,7 +257,7 @@ const FixedHeaderLeftCell = styled(TableCell)<{ index: number; fontSize?: string
     overflow: 'hidden',
     borderBottom: '1px solid #e5e7eb',
     borderRight: 'none',
-    textAlign: 'left',
+    textAlign: 'center',
     verticalAlign: 'middle',
     boxShadow: 'none',
   })
@@ -279,6 +279,7 @@ const FixedFilterLeftCell = styled(TableCell)<{ index: number }>(
     textOverflow: 'ellipsis',
     borderBottom: '1px solid #e5e7eb',
     borderRight: 'none',
+    textAlign: 'center',
   })
 );
 
@@ -305,8 +306,7 @@ const StyledTableRow = styled(TableRow)<{
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     borderBottom: '1px solid #f0f0f0',
-    borderRight: 'none',
-    textAlign: 'left',
+    textAlign: 'center',
     color: '#1f2937',
     '&.fixed-column': {
       fontSize: $frozenFontSize || '0.875rem',
@@ -1622,7 +1622,7 @@ const FixedTable: React.FC<FixedTableProps> = ({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             position: 'relative',
-                            textAlign: 'left',
+                            textAlign: 'center',
                             backgroundColor: isChecked ? '#fef3c7' : (cellBgColor || undefined),
                             color: '#1f2937',
                             borderBottom: '1px solid #f0f0f0',

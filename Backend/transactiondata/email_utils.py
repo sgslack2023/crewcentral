@@ -11,6 +11,82 @@ def generate_public_token():
     return secrets.token_urlsafe(32)
 
 
+def send_signed_documents_email(estimate, signed_docs):
+    """
+    Send all signed documents back to the customer as confirmation attachments
+    """
+    from .utils import generate_pdf_from_html, convert_images_to_base64
+    from xhtml2pdf import pisa
+    from io import BytesIO
+    import re
+    from .serializers import EstimateDocumentSerializer
+
+    context = {
+        'customer_name': estimate.customer.full_name if estimate.customer else 'Customer',
+        'customer_first_name': estimate.customer.full_name.split()[0] if estimate.customer and estimate.customer.full_name else 'Customer',
+        'job_number': estimate.customer.job_number if estimate.customer else 'N/A'
+    }
+
+    default_subject = f"Signed Documents - Estimate #{estimate.id}"
+    default_html = f"""
+    <p>Dear {context['customer_first_name']},</p>
+    <p>Please find attached the signed documents for your records.</p>
+    <p>Job Number: {context['job_number']}</p>
+    <p>Thank you for choosing Baltic Van Lines.</p>
+    """
+
+    subject, html_message, text_message, attachments = render_email_template(
+        "Signed Documents Email", context, default_subject, default_html,
+        purpose='signed_documents_email', organization=estimate.organization,
+        customer=estimate.customer, estimate=estimate
+    )
+
+    try:
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[estimate.customer.email]
+        )
+        email.attach_alternative(html_message, "text/html")
+
+        # Process and attach library documents
+        process_and_attach_documents(email, attachments, customer=estimate.customer, estimate=estimate)
+
+        # Attach signed documents as PDFs
+        for doc in signed_docs:
+            # We need the processed content with signatures
+            serializer = EstimateDocumentSerializer(doc)
+            html_content = serializer.data.get('processed_content')
+
+            if html_content:
+                # Clean and wrap
+                html_content = re.sub(r'[\u200b-\u200f\u2028-\u202f\ufeff]', '', html_content)
+                html_content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', html_content)
+
+                full_html = f"<html><head><style>body {{ font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #000000; }} table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }} th, td {{ border: 1px solid #000000; padding: 8px; text-align: left; vertical-align: top; }} th {{ background-color: #f4f4f4; font-weight: bold; }} img {{ max-width: 100%; }}</style></head><body>{html_content}</body></html>"
+                full_html = convert_images_to_base64(full_html)
+
+                pdf_buffer = BytesIO()
+                # pisa.CreatePDF needs context if it's not simple, but here it's full HTML
+                pisa_status = pisa.CreatePDF(
+                    full_html,
+                    dest=pdf_buffer,
+                    encoding='utf-8'
+                )
+
+                if not pisa_status.err:
+                    doc_title = (doc.document.title if doc.document else "Document").replace(' ', '_').replace('/', '_')
+                    email.attach(f"{doc_title}.pdf", pdf_buffer.getvalue(), 'application/pdf')
+
+        email.send(fail_silently=False)
+        return True, "Signed documents sent successfully"
+    except Exception as e:
+        logger.error(f"Failed to send signed documents: {e}")
+        return False, str(e)
+
+
+
 def process_and_attach_documents(email, attachments, customer=None, estimate=None):
     """
     Process HTML documents (convert to PDF with context) or attach static files.
@@ -129,7 +205,8 @@ def send_feedback_email(customer, organization, base_url=None):
     # Note: render_email_template fetches by title, but we might want to fetch by purpose later.
     # For now, we'll look for a template titled "Feedback Request" or "Closed Email"
     subject, html_message, text_message, attachments = render_email_template(
-        "Feedback Request", context, default_subject, default_html
+        "Feedback Request", context, default_subject, default_html,
+        customer=customer
     )
     
     # Send email
@@ -158,13 +235,14 @@ def send_feedback_email(customer, organization, base_url=None):
         return False, str(e)
 
 
-def render_email_template(template_name, context, default_subject, default_body, purpose=None, organization=None, template=None, tracking_token=None):
+def render_email_template(template_name, context, default_subject, default_body, purpose=None, organization=None, template=None, tracking_token=None, customer=None, estimate=None):
     """
     Fetch email template from DB (by purpose or title) or use default.
     If 'template' is provided directly, it bypasses the lookup.
     Returns (subject, html_body, text_body, attachments)
     """
     from masterdata.models import DocumentLibrary
+    from .utils import process_document_template
     
     subject = default_subject
     html_body = default_body
@@ -233,6 +311,9 @@ def render_email_template(template_name, context, default_subject, default_body,
             html_body = html_body.replace('\ufeff', '')  # Zero-width no-break space
             html_body = html_body.replace('â€‹', '')  # Zero-width space as read on Windows (cp1252)
             
+            # Use process_document_template for unified tag replacement (handles model-based tags)
+            html_body = process_document_template(html_body, customer, estimate)
+
             # Strip SunEditor's styled span wrapper around feedback_button tag
             # SunEditor inserts: <span style="...">{{feedback_button}}</span>
             import re
@@ -242,7 +323,7 @@ def render_email_template(template_name, context, default_subject, default_body,
                 html_body
             )
             
-            # Support both {tag} and {{tag}} substitution
+            # Support both {tag} and {{tag}} substitution for context-based tags
             for key, value in context.items():
                 placeholders = ["{" + str(key) + "}", "{{" + str(key) + "}}"]
                 for placeholder in placeholders:
@@ -413,7 +494,8 @@ def send_estimate_email(estimate, base_url=None, backend_base_url=None):
     # Get rendered content
     subject, html_message, text_message, attachments = render_email_template(
         "Estimate Email", context, default_subject, default_html_message, 
-        purpose='estimate_email', organization=estimate.organization
+        purpose='estimate_email', organization=estimate.organization,
+        customer=estimate.customer, estimate=estimate
     )
     
     # Send email
@@ -571,7 +653,8 @@ def send_document_signature_email(estimate, base_url=None, tracking_token=None):
     # Get rendered content
     subject, html_message, text_message, attachments = render_email_template(
         "Document Signature Email", context, default_subject, default_html_message,
-        tracking_token=tracking_token, organization=estimate.organization
+        tracking_token=tracking_token, organization=estimate.organization,
+        customer=estimate.customer, estimate=estimate
     )
     
     # Send email
@@ -678,7 +761,8 @@ def send_feedback_email(feedback, base_url=None, tracking_token=None):
     # Get rendered content
     subject, html_message, text_message, attachments = render_email_template(
         "Feedback Request Email", context, default_subject, default_html_message,
-        tracking_token=tracking_token, organization=feedback.organization
+        tracking_token=tracking_token, organization=feedback.organization,
+        customer=feedback.customer
     )
     
     # Send email
@@ -733,7 +817,8 @@ def send_invoice_pdf_email(invoice, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='invoice_email', organization=estimate.organization,
-            template=template, tracking_token=tracking_token
+            template=template, tracking_token=tracking_token,
+            customer=estimate.customer, estimate=estimate
         )
         
         # Create email
@@ -818,7 +903,8 @@ def send_receipt_pdf_email(receipt, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='receipt_email', organization=estimate.organization,
-            template=template, tracking_token=tracking_token
+            template=template, tracking_token=tracking_token,
+            customer=estimate.customer, estimate=estimate
         )
         
         # Create email
@@ -892,7 +978,8 @@ def send_estimate_pdf_email(estimate, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='estimate_email', organization=estimate.organization,
-            template=template, tracking_token=tracking_token
+            template=template, tracking_token=tracking_token,
+            customer=estimate.customer, estimate=estimate
         )
         
 
@@ -971,7 +1058,7 @@ def send_new_lead_email(customer, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='new_lead_email', organization=customer.organization,
-            tracking_token=tracking_token
+            tracking_token=tracking_token, customer=customer
         )
         
         # Create email
@@ -1025,7 +1112,7 @@ def send_booked_email(customer, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='booked_email', organization=customer.organization,
-            tracking_token=tracking_token
+            tracking_token=tracking_token, customer=customer
         )
         
         # Create email
@@ -1079,7 +1166,7 @@ def send_closed_email(customer, feedback_link, template=None, tracking_token=Non
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='closed_email', organization=customer.organization,
-            tracking_token=tracking_token
+            tracking_token=tracking_token, customer=customer
         )
         
         # Create email
@@ -1102,3 +1189,68 @@ def send_closed_email(customer, feedback_link, template=None, tracking_token=Non
     except Exception as e:
         logger.error(f"Failed to send closed email to {customer.email}: {e}")
         return False, str(e)
+
+
+def send_work_order_email(work_order, base_url=None):
+    """
+    Send work order notification email to contractor with a link to the public portal.
+    """
+    if base_url is None:
+        base_url = settings.FRONTEND_URL.rstrip('/')
+    
+    contractor = work_order.contractor
+    if not contractor or not contractor.admin_email:
+        return False, "Contractor has no admin email address assigned."
+    
+    # Generate token if not exists
+    if not work_order.public_token:
+        import uuid
+        work_order.public_token = str(uuid.uuid4())
+        work_order.save(update_fields=['public_token'])
+    
+    portal_link = f"{base_url}/contractor/portal/{work_order.public_token}"
+    
+    context = {
+        'contractor_name': contractor.name,
+        'portal_link': portal_link,
+        'work_order_id': work_order.id,
+        'organization_name': work_order.organization.name if work_order.organization else "Baltic Van Lines"
+    }
+    
+    default_subject = f"New Work Order Assignment #{work_order.id} - {context['organization_name']}"
+    default_html = f"""
+    <p>Dear {contractor.name} team,</p>
+    <p>A new work order has been assigned to you. Please review the details and accept or decline the assignment using the link below:</p>
+    <div style="margin: 20px 0;">
+        <a href="{portal_link}" style="background-color: #5b6cf9; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+            View Work Order Portal
+        </a>
+    </div>
+    <p>Work Order: #{work_order.id}</p>
+    <p>Thank you!</p>
+    """
+    
+    # Try to find a template specifically for work orders if one exists
+    subject, html_message, text_message, attachments = render_email_template(
+        "Work Order Notification", context, default_subject, default_html,
+        purpose='work_order_email', organization=work_order.organization
+    )
+    
+    try:
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[contractor.admin_email]
+        )
+        email.attach_alternative(html_message, "text/html")
+        
+        # Process and attach library documents
+        process_and_attach_documents(email, attachments)
+        
+        email.send(fail_silently=False)
+        return True, f"Work order email sent successfully to {contractor.admin_email}"
+    except Exception as e:
+        logger.error(f"Failed to send work order email: {e}")
+        return False, str(e)
+

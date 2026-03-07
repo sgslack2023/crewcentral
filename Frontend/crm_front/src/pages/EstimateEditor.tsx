@@ -25,7 +25,8 @@ import {
   CalendarOutlined,
   TagOutlined,
   FilePdfOutlined,
-  CameraOutlined
+  CameraOutlined,
+  MailOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -48,6 +49,8 @@ import {
 } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
+import CollectDepositModal from '../components/CollectDepositModal';
+
 import AddEstimateLineItemForm from '../components/AddEstimateLineItemForm';
 import AttachDocumentsForm from '../components/AttachDocumentsForm';
 import { WhiteButton, BlackButton } from '../components';
@@ -213,7 +216,9 @@ const EstimateEditor: React.FC = () => {
   const [attachedDocuments, setAttachedDocuments] = useState<EstimateDocumentProps[]>([]);
   const [isAttachDocsVisible, setIsAttachDocsVisible] = useState(false);
   const [sendingDocs, setSendingDocs] = useState(false);
+  const [sendingSignedDocs, setSendingSignedDocs] = useState(false);
   const [editingTax, setEditingTax] = useState(false);
+
   const [tempTaxPercentage, setTempTaxPercentage] = useState<number>(0);
   const [editingDates, setEditingDates] = useState(false);
   const [tempPickupFrom, setTempPickupFrom] = useState<any>(null);
@@ -227,7 +232,10 @@ const EstimateEditor: React.FC = () => {
   const [tempWeight, setTempWeight] = useState<number | null>(null);
   const [tempLabourHours, setTempLabourHours] = useState<number | null>(null);
   const [isDiscountModalVisible, setIsDiscountModalVisible] = useState(false);
+  const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
+  const [collectingDeposit, setCollectingDeposit] = useState(false);
   const [editingExternalNotes, setEditingExternalNotes] = useState(false);
+
   const [tempExternalNotes, setTempExternalNotes] = useState('');
   const [editingContractor, setEditingContractor] = useState(false);
   const [tempContractor, setTempContractor] = useState<number | null>(null);
@@ -504,6 +512,27 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
+  const handleSendWorkOrderEmail = async () => {
+    if (!externalWorkOrder) return;
+
+    try {
+      const headers = getAuthToken() as AuthTokenType;
+      const response = await axios.post(`${WorkOrdersUrl}/${externalWorkOrder.id}/send_email`, {}, headers);
+      notification.success({
+        message: 'Email Sent',
+        description: response.data.message || 'Work order has been emailed to the contractor.',
+        title: 'Success'
+      });
+      fetchWorkOrder();
+    } catch (error: any) {
+      notification.error({
+        message: 'Error',
+        description: error.response?.data?.error || 'Failed to send work order email',
+        title: 'Error'
+      });
+    }
+  };
+
   const handleShareWorkOrder = async () => {
     if (!externalWorkOrder) return;
 
@@ -559,7 +588,10 @@ const EstimateEditor: React.FC = () => {
         title: 'Success'
       });
       setEditingContractorKey(null);
-      if (externalWorkOrder?.id) fetchContractorLineItems(externalWorkOrder.id);
+      if (externalWorkOrder?.id) {
+        await fetchContractorLineItems(externalWorkOrder.id);
+        fetchWorkOrder(); // Refresh to update total_contractor_amount
+      }
     } catch (error) {
       notification.error({
         message: 'Error',
@@ -957,6 +989,78 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
+  const handleSendSignedDocuments = async () => {
+    const signedDocs = attachedDocuments.filter(doc => doc.customer_signed);
+    if (signedDocs.length === 0) {
+      notification.warning({
+        message: 'No Signed Documents',
+        description: 'There are no signed documents to send.',
+        title: 'Warning'
+      });
+      return;
+    }
+
+    setSendingSignedDocs(true);
+    try {
+      const headers = getAuthToken() as any;
+      await axios.post(
+        `${EstimatesUrl}/${estimateId}/send_signed_documents`,
+        {},
+        headers
+      );
+
+      notification.success({
+        message: 'Documents Sent',
+        description: `All signed documents have been sent to ${estimate?.customer_name}`,
+        title: 'Success'
+      });
+    } catch (error: any) {
+      notification.error({
+        message: 'Email Error',
+        description: error.response?.data?.message || 'Failed to send signed documents',
+        title: 'Error'
+      });
+    } finally {
+      setSendingSignedDocs(false);
+    }
+  };
+
+  const handleCollectDeposit = async (values: any) => {
+    if (!estimateId) return;
+    setCollectingDeposit(true);
+    try {
+      const headers = getAuthToken() as any;
+      const payload = {
+        ...values,
+        payment_date: values.payment_date.format('YYYY-MM-DD')
+      };
+
+      await axios.post(
+        `${EstimatesUrl}/${estimateId}/collect_deposit`,
+        payload,
+        headers
+      );
+
+      notification.success({
+        message: 'Deposit Recorded',
+        description: `Successfully collected deposit of $${values.amount}`,
+        title: 'Success'
+      });
+      setIsDepositModalVisible(false);
+      fetchEstimate(); // Refresh estimate data to show updated balances
+    } catch (error: any) {
+      notification.error({
+        message: 'Payment Error',
+        description: error.response?.data?.error || 'Failed to record deposit',
+        title: 'Error'
+      });
+    } finally {
+      setCollectingDeposit(false);
+    }
+  };
+
+
+
   const contractorColumns = [
     {
       title: 'Description',
@@ -1011,35 +1115,36 @@ const EstimateEditor: React.FC = () => {
         const isEditing = editingContractorKey === record.id;
         return isEditing ? (
           <Space>
-            <Button
-              size="small"
-              type="primary"
-              icon={<CheckOutlined />}
-              onClick={() => handleSaveContractorLineItem(record.id!)}
-            >
-              Save
-            </Button>
-            <Button
-              size="small"
-              icon={<CloseOutlined />}
-              onClick={() => setEditingContractorKey(null)}
-            >
-              Cancel
-            </Button>
+            <Tooltip title="Save">
+              <Button
+                size="small"
+                type="primary"
+                icon={<CheckOutlined />}
+                onClick={() => handleSaveContractorLineItem(record.id!)}
+              />
+            </Tooltip>
+            <Tooltip title="Cancel">
+              <Button
+                size="small"
+                icon={<CloseOutlined />}
+                onClick={() => setEditingContractorKey(null)}
+              />
+            </Tooltip>
           </Space>
         ) : (
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setEditingContractorKey(record.id!);
-              setEditedContractorValues({
-                [record.id!]: { contractor_rate: record.contractor_rate }
-              });
-            }}
-          >
-            Edit Rate
-          </Button>
+          <Tooltip title="Edit Rate">
+            <Button
+              size="small"
+              type="text"
+              icon={<EditOutlined style={{ color: '#5b6cf9' }} />}
+              onClick={() => {
+                setEditingContractorKey(record.id!);
+                setEditedContractorValues({
+                  [record.id!]: { contractor_rate: record.contractor_rate }
+                });
+              }}
+            />
+          </Tooltip>
         );
       }
     }
@@ -1359,6 +1464,8 @@ const EstimateEditor: React.FC = () => {
                     )}
                   </div>
 
+
+
                   {/* Physical Specs & Logistics */}
                   <div style={{
                     padding: '12px',
@@ -1396,11 +1503,12 @@ const EstimateEditor: React.FC = () => {
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: '4px' }}>WEIGHT (LBS)</div>
-                            <InputNumber size="small" value={tempWeight} onChange={setTempWeight} style={{ width: '100%' }} />
+                            <InputNumber size="small" value={tempWeight || undefined} onChange={(val) => setTempWeight(val as number || null)} style={{ width: '100%' }} />
                           </div>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: '4px' }}>HOURS</div>
-                            <InputNumber size="small" value={tempLabourHours} onChange={setTempLabourHours} style={{ width: '100%' }} />
+                            <InputNumber size="small" value={tempLabourHours || undefined} onChange={(val) => setTempLabourHours(val as number || null)} style={{ width: '100%' }} />
+
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
@@ -1595,8 +1703,22 @@ const EstimateEditor: React.FC = () => {
                       <div style={{ fontSize: '24px', fontWeight: 800, color: '#fff' }}>
                         ${estimate.total_amount ? Number(estimate.total_amount).toFixed(2) : '0.00'}
                       </div>
+
+                      {Number(estimate.amount_paid) > 0 && (
+                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
+                            <span>Amount Paid:</span>
+                            <span>${Number(estimate.amount_paid).toFixed(2)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#fff', marginTop: '2px' }}>
+                            <span>Balance Due:</span>
+                            <span>${Number(estimate.balance_due).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+
 
                   {/* Action Buttons */}
                   <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1609,15 +1731,6 @@ const EstimateEditor: React.FC = () => {
                       borderTop: '1px dashed #f0f0f0',
                       marginTop: '8px'
                     }}>
-                      <Tooltip title="Recalculate">
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<CalculatorOutlined style={{ fontSize: '16px' }} />}
-                          onClick={handleRecalculate}
-                          style={{ color: '#5b6cf9', padding: '0 2px', height: '28px', minWidth: '32px' }}
-                        />
-                      </Tooltip>
 
                       <Tooltip title="Download PDF">
                         <Button
@@ -1629,16 +1742,16 @@ const EstimateEditor: React.FC = () => {
                         />
                       </Tooltip>
 
-                      <Tooltip title="Copy Public Link">
+                      <Tooltip title="Collect Deposit">
                         <Button
                           size="small"
                           type="text"
-                          icon={<CopyOutlined style={{ fontSize: '16px' }} />}
-                          onClick={handleCopyPublicLink}
-                          disabled={!estimate.public_token}
-                          style={{ color: '#5b6cf9', padding: '0 2px', height: '28px', minWidth: '32px' }}
+                          icon={<DollarOutlined style={{ fontSize: '16px' }} />}
+                          onClick={() => setIsDepositModalVisible(true)}
+                          style={{ color: '#52c41a', padding: '0 2px', height: '28px', minWidth: '32px' }}
                         />
                       </Tooltip>
+
 
                       <Tooltip title="Send to Customer">
                         <Button
@@ -1650,6 +1763,18 @@ const EstimateEditor: React.FC = () => {
                           style={{ color: '#5b6cf9', padding: '0 2px', height: '28px', minWidth: '32px' }}
                         />
                       </Tooltip>
+
+                      {externalWorkOrder && (
+                        <Tooltip title="Email Contractor">
+                          <Button
+                            size="small"
+                            type="text"
+                            icon={<MailOutlined style={{ fontSize: '16px' }} />}
+                            onClick={handleSendWorkOrderEmail}
+                            style={{ color: '#fa8c16', padding: '0 2px', height: '28px', minWidth: '32px' }}
+                          />
+                        </Tooltip>
+                      )}
 
                       {estimate?.status === 'approved' && !internalWorkOrder && (
                         <Tooltip title="Convert to Work Order">
@@ -1703,22 +1828,6 @@ const EstimateEditor: React.FC = () => {
                         </Tooltip>
                       )}
 
-                      <Tooltip title="Save & Close">
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<SaveOutlined style={{ fontSize: '16px' }} />}
-                          onClick={() => {
-                            notification.success({
-                              message: 'Estimate Saved',
-                              description: 'Estimate has been saved successfully',
-                              title: 'Success'
-                            });
-                            navigate('/customers');
-                          }}
-                          style={{ color: '#5b6cf9', padding: '0 2px', height: '28px', minWidth: '32px' }}
-                        />
-                      </Tooltip>
 
                       {estimate?.status === 'invoiced' && (
                         <div style={{
@@ -2211,71 +2320,21 @@ const EstimateEditor: React.FC = () => {
                               </div>
                             </div>
                             <Space>
-                              <Select
-                                size="small"
-                                value={externalWorkOrder.status}
-                                onChange={(value) => handleUpdateWorkOrderStatus(externalWorkOrder.id!, value)}
-                                style={{ width: '130px' }}
-                              >
-                                <Option value="pending">PENDING</Option>
-                                <Option value="accepted">ACCEPTED</Option>
-                                <Option value="completed">COMPLETED</Option>
-                                <Option value="disputed">DISPUTED</Option>
-                                <Option value="cancelled">CANCELLED</Option>
-                              </Select>
-                              {externalWorkOrder.public_token ? (
-                                <Button
-                                  size="small"
-                                  icon={<CopyOutlined />}
-                                  onClick={() => {
-                                    const url = `${window.location.origin}/contractor/portal/${externalWorkOrder.public_token}`;
-                                    navigator.clipboard.writeText(url);
-                                    notification.success({
-                                      message: 'Copied',
-                                      description: 'Sharing link copied to clipboard',
-                                      title: 'Success'
-                                    });
-                                  }}
-                                >
-                                  Copy Link
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="small"
-                                  icon={<SendOutlined />}
-                                  onClick={handleShareWorkOrder}
-                                >
-                                  Share
-                                </Button>
-                              )}
-                              <Button
-                                size="small"
-                                icon={<FilePdfOutlined />}
-                                onClick={handleGenerateWorkOrderPDF}
-                              >
-                                Update PDF
-                              </Button>
+                              <Tag color={
+                                externalWorkOrder.status === 'accepted' ? 'green' :
+                                  externalWorkOrder.status === 'cancelled' ? 'red' :
+                                    externalWorkOrder.status === 'completed' ? 'cyan' : 'orange'
+                              } style={{ fontWeight: 600 }}>
+                                {externalWorkOrder.status?.toUpperCase()}
+                              </Tag>
                               {externalWorkOrder.pdf_file && (
                                 <Button
                                   size="small"
-                                  type="primary"
                                   icon={<FilePdfOutlined />}
                                   href={`${BaseUrl.replace('/api/', '')}${externalWorkOrder.pdf_file}`}
                                   target="_blank"
                                 >
                                   View PDF
-                                </Button>
-                              )}
-                              {estimate?.status === 'work_order' && (
-                                <Button
-                                  size="small"
-                                  type="primary"
-                                  icon={<DollarOutlined />}
-                                  onClick={() => handleGenerateInvoiceFromWO(externalWorkOrder.id!)}
-                                  loading={invoicing}
-                                  style={{ backgroundColor: '#5b6cf9', borderColor: '#5b6cf9' }}
-                                >
-                                  Invoice Order
                                 </Button>
                               )}
                             </Space>
@@ -2396,10 +2455,13 @@ const EstimateEditor: React.FC = () => {
         serviceTypeId={estimate?.service_type || null}
         attachedDocuments={attachedDocuments}
         onClose={() => setIsAttachDocsVisible(false)}
+        onSendSignedDocs={handleSendSignedDocuments}
+        sendingSignedDocs={sendingSignedDocs}
         onSuccessCallBack={() => {
           fetchAttachedDocuments();
         }}
       />
+
 
       {/* Discount Modal */}
       <DiscountModal
@@ -2485,8 +2547,19 @@ const EstimateEditor: React.FC = () => {
           <div style={{ padding: '20px', textAlign: 'center' }}>No internal work order found.</div>
         )}
       </Modal>
+
+      {estimate && (
+        <CollectDepositModal
+          isVisible={isDepositModalVisible}
+          onClose={() => setIsDepositModalVisible(false)}
+          onFinish={handleCollectDeposit}
+          loading={collectingDeposit}
+          maxAmount={Number(estimate.balance_due)}
+        />
+      )}
     </div>
   );
 };
+
 
 export default EstimateEditor;

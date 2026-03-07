@@ -502,6 +502,9 @@ const DashboardContent: React.FC<{ hideHeader?: boolean }> = ({ hideHeader }) =>
                 : widget.config?.defaultValue,
             isLocked: widget.config?.isLocked || false,
             isHidden: widget.config?.isHidden || false,
+            groupBy: widget.config?.groupBy || 'none',
+            aggregate: widget.config?.aggregate || 'count',
+            aggregateField: widget.config?.aggregateField || 'amount',
         });
         setIsWidgetConfigOpen(true);
     };
@@ -558,6 +561,9 @@ const DashboardContent: React.FC<{ hideHeader?: boolean }> = ({ hideHeader }) =>
                             : values.defaultValue,
                         isLocked: values.isLocked,
                         isHidden: values.isHidden,
+                        groupBy: values.groupBy,
+                        aggregate: values.aggregate,
+                        aggregateField: values.aggregateField,
                     }
                 }
                 : w
@@ -1015,15 +1021,17 @@ const DashboardContent: React.FC<{ hideHeader?: boolean }> = ({ hideHeader }) =>
                                     </Select>
                                 </Form.Item>
 
-                                <Form.Item name="chartType" label="Chart Type">
-                                    <Select>
-                                        <Select.Option value="line">Line</Select.Option>
-                                        <Select.Option value="area">Area</Select.Option>
-                                        <Select.Option value="bar">Bar</Select.Option>
-                                        <Select.Option value="pie">Pie</Select.Option>
-                                        <Select.Option value="Funnel">Funnel</Select.Option>
-                                    </Select>
-                                </Form.Item>
+                                {!['table', 'activity', 'Calendar'].includes(editingWidget?.widget_type) && (
+                                    <Form.Item name="chartType" label="Chart Type">
+                                        <Select>
+                                            <Select.Option value="line">Line</Select.Option>
+                                            <Select.Option value="area">Area</Select.Option>
+                                            <Select.Option value="bar">Bar</Select.Option>
+                                            <Select.Option value="pie">Pie</Select.Option>
+                                            <Select.Option value="Funnel">Funnel</Select.Option>
+                                        </Select>
+                                    </Form.Item>
+                                )}
 
                                 {!['table', 'activity', 'Calendar'].includes(editingWidget?.widget_type) && (
                                     <>
@@ -1079,6 +1087,60 @@ const DashboardContent: React.FC<{ hideHeader?: boolean }> = ({ hideHeader }) =>
                                         </Row>
                                     </>
                                 )}
+
+                                <Divider />
+
+                                {/* Grouping & Summary */}
+                                <Title level={5} style={{ fontSize: '14px', marginBottom: '16px' }}>Grouping & Summary</Title>
+                                <Form.Item name="groupBy" label="Group Results By">
+                                    <Select>
+                                        <Select.Option value="none">No Grouping (Individual Items)</Select.Option>
+                                        <Select.Option value="month">Monthly Summary</Select.Option>
+                                        <Select.Option value="status">Group by Status</Select.Option>
+                                        <Select.Option value="branch__name">Group by Branch</Select.Option>
+                                    </Select>
+                                </Form.Item>
+
+                                <Form.Item
+                                    noStyle
+                                    shouldUpdate={(prevValues, currentValues) => prevValues.groupBy !== currentValues.groupBy}
+                                >
+                                    {({ getFieldValue }) => getFieldValue('groupBy') !== 'none' && (
+                                        <Row gutter={16}>
+                                            <Col span={12}>
+                                                <Form.Item name="aggregate" label="Calculation">
+                                                    <Select onChange={(v) => {
+                                                        if (v === 'sum' && !widgetForm.getFieldValue('aggregateField')) {
+                                                            const source = widgetForm.getFieldValue('data_source') || '';
+                                                            widgetForm.setFieldsValue({
+                                                                aggregateField: source.includes('invoice') ? 'total_amount' : 'amount'
+                                                            });
+                                                        }
+                                                    }}>
+                                                        <Select.Option value="count">Count (Number of items)</Select.Option>
+                                                        <Select.Option value="sum">Sum (Total monetary value)</Select.Option>
+                                                    </Select>
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    noStyle
+                                                    shouldUpdate={(prevValues, currentValues) => prevValues.aggregate !== currentValues.aggregate}
+                                                >
+                                                    {({ getFieldValue }) => getFieldValue('aggregate') === 'sum' && (
+                                                        <Form.Item name="aggregateField" label="Field to Sum">
+                                                            <Select>
+                                                                <Select.Option value="amount">Universal Amount (Payment)</Select.Option>
+                                                                <Select.Option value="total_amount">Invoice Total</Select.Option>
+                                                                <Select.Option value="balance_due">Balance Due</Select.Option>
+                                                            </Select>
+                                                        </Form.Item>
+                                                    )}
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+                                    )}
+                                </Form.Item>
 
                                 <Divider />
                             </>

@@ -140,6 +140,47 @@ class EstimateLineItemSerializer(serializers.ModelSerializer):
         return obj.charge.category.name if obj.charge and obj.charge.category else None
 
 
+
+class PaymentReceiptSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+    customer_name = serializers.SerializerMethodField()
+    estimate_public_token = serializers.SerializerMethodField()
+    invoice_number = serializers.SerializerMethodField()
+    estimate_id = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PaymentReceipt
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
+        
+    def get_created_by_name(self, obj):
+        return obj.created_by.fullname if obj.created_by else 'System'
+        
+    def get_customer_name(self, obj):
+        if obj.invoice and obj.invoice.customer:
+            return obj.invoice.customer.full_name
+        if obj.estimate and obj.estimate.customer:
+            return obj.estimate.customer.full_name
+        return None
+        
+    def get_estimate_public_token(self, obj):
+        if obj.invoice and obj.invoice.estimate:
+            return obj.invoice.estimate.public_token
+        if obj.estimate:
+            return obj.estimate.public_token
+        return None
+
+    def get_invoice_number(self, obj):
+        return obj.invoice.invoice_number if obj.invoice else None
+
+    def get_estimate_id(self, obj):
+        if obj.estimate:
+            return obj.estimate.id
+        if obj.invoice and obj.invoice.estimate:
+            return obj.invoice.estimate.id
+        return None
+
+
 class EstimateSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
@@ -152,9 +193,11 @@ class EstimateSerializer(serializers.ModelSerializer):
     pickup_time_window_display = serializers.SerializerMethodField()
     delivery_time_window_display = serializers.SerializerMethodField()
     items = EstimateLineItemSerializer(many=True, read_only=True)
+    payments = PaymentReceiptSerializer(many=True, read_only=True)
     items_count = serializers.SerializerMethodField()
     document_signing_token = serializers.SerializerMethodField()
     assigned_contractor_name = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Estimate
@@ -165,13 +208,14 @@ class EstimateSerializer(serializers.ModelSerializer):
             'delivery_date_from', 'delivery_date_to', 'delivery_time_window', 'delivery_time_window_display',
             'origin_address', 'destination_address',
             'discount_type', 'discount_value', 'subtotal', 'discount_amount', 'tax_percentage', 'tax_amount', 'total_amount',
-            'status', 'notes', 'external_notes', 'assigned_contractor', 'assigned_contractor_name',
+            'status', 'payment_status', 'amount_paid', 'balance_due', 'notes', 'external_notes', 'assigned_contractor', 'assigned_contractor_name',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
-            'items', 'items_count',
+            'items', 'items_count', 'payments',
             'public_token', 'email_sent_at', 'customer_viewed_at', 'customer_responded_at', 'link_active',
             'document_signing_token'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'created_by', 'subtotal', 'tax_amount', 'total_amount', 'public_token']
+
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'subtotal', 'tax_amount', 'total_amount', 'amount_paid', 'balance_due', 'payment_status', 'public_token']
 
     def get_created_by_name(self, obj):
         if obj.created_by:
@@ -419,20 +463,8 @@ class DocumentSigningBatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['signing_token', 'created_at', 'created_by']
 
 
-class PaymentReceiptSerializer(serializers.ModelSerializer):
-    created_by_name = serializers.SerializerMethodField()
-    estimate_public_token = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = PaymentReceipt
-        fields = '__all__'
-        read_only_fields = ['created_at', 'created_by']
-        
-    def get_created_by_name(self, obj):
-        return obj.created_by.fullname if obj.created_by else 'System'
-        
-    def get_estimate_public_token(self, obj):
-        return obj.invoice.estimate.public_token if obj.invoice and obj.invoice.estimate else None
+
+
 
 class InvoiceSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()

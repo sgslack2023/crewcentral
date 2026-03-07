@@ -4,7 +4,8 @@ import {
   FileTextOutlined,
   PlusOutlined,
   DeleteOutlined,
-  EyeOutlined
+  EyeOutlined,
+  SendOutlined
 } from "@ant-design/icons";
 import { AuthTokenType, EstimateDocumentProps, DocumentProps } from "../utils/types";
 import { WhiteButton, BlackButton } from "../components";
@@ -19,6 +20,8 @@ interface AttachDocumentsFormProps {
   estimateId: number | null;
   serviceTypeId: number | null;
   attachedDocuments: EstimateDocumentProps[];
+  onSendSignedDocs?: () => void;
+  sendingSignedDocs?: boolean;
 }
 
 const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
@@ -27,7 +30,9 @@ const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
   onClose,
   estimateId,
   serviceTypeId,
-  attachedDocuments
+  attachedDocuments,
+  onSendSignedDocs,
+  sendingSignedDocs = false
 }) => {
   const [loading, setLoading] = useState(false);
   const [availableDocuments, setAvailableDocuments] = useState<DocumentProps[]>([]);
@@ -176,10 +181,23 @@ const AttachDocumentsForm: FC<AttachDocumentsFormProps> = ({
         open={isVisible}
         onCancel={onClose}
         footer={[
+          attachedDocuments.some(doc => doc.customer_signed) && (
+            <Button
+              key="send-signed"
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={onSendSignedDocs}
+              loading={sendingSignedDocs}
+              style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+            >
+              Send All Signed Documents
+            </Button>
+          ),
           <WhiteButton key="close" onClick={onClose}>
             Close
           </WhiteButton>
         ]}
+
         width={600}
         className="premium-modal"
       >

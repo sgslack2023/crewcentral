@@ -375,7 +375,11 @@ export interface EstimateProps {
     external_notes?: string;
     assigned_contractor?: number;
     assigned_contractor_name?: string;
+    amount_paid?: number;
+    balance_due?: number;
+    payments?: PaymentReceiptProps[];
 }
+
 
 // Customer Activity Types
 export interface CustomerActivityProps {
@@ -426,6 +430,7 @@ export interface OrganizationProps {
     is_default?: boolean;
     permissions?: string[];
     google_business_link?: string;
+    admin_email?: string;
 }
 
 export interface OrganizationMemberProps {
@@ -485,12 +490,18 @@ export interface PaymentReceiptProps {
     payment_method: string;
     transaction_id?: string;
     notes?: string;
-    invoice: number;
+    invoice?: number;
+    estimate?: number;
+    payment_type?: 'deposit' | 'payment';
+    customer_name?: string;
+    invoice_number?: string;
+    estimate_id?: number;
     created_at?: string;
     created_by_name?: string;
     pdf_file?: string;
     estimate_public_token?: string;
 }
+
 
 export interface AccountingStatsProps {
     overall_balance: number;

@@ -23,6 +23,8 @@ import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import { WhiteButton, BlackButton, SearchBar } from '../components';
 import FixedTable from '../components/FixedTable';
+import CollectDepositModal from '../components/CollectDepositModal';
+
 
 const Estimates: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +39,11 @@ const Estimates: React.FC = () => {
   const [selectedEstimateForDocs, setSelectedEstimateForDocs] = useState<EstimateProps | null>(null);
   const [estimateDocuments, setEstimateDocuments] = useState<EstimateDocumentProps[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+
+  const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
+  const [selectedEstimateForDeposit, setSelectedEstimateForDeposit] = useState<EstimateProps | null>(null);
+  const [collectingDeposit, setCollectingDeposit] = useState(false);
+
 
   const currentUser = getCurrentUser();
 
@@ -333,18 +340,30 @@ const Estimates: React.FC = () => {
       const taxPct = Number(e.tax_percentage ?? 0);
       const taxAmt = Number(e.tax_amount ?? 0);
       const total = Number(e.total_amount ?? 0);
+      const paid = Number(e.amount_paid ?? 0);
+      const balance = Number(e.balance_due ?? 0);
+
+      const totalsBody: any[] = [
+        ['Subtotal', `$${subtotal.toFixed(2)}`],
+        ...(taxPct > 0 ? [[`Tax (${taxPct.toFixed(2)}%)`, `$${taxAmt.toFixed(2)}`]] : []),
+        [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: `$${total.toFixed(2)}`, styles: { fontStyle: 'bold' } }] as any
+      ];
+
+      if (paid > 0) {
+        totalsBody.push(['Amount Paid', `$${paid.toFixed(2)}`]);
+        totalsBody.push([
+          { content: 'Balance Due', styles: { fontStyle: 'bold', textColor: [200, 0, 0] } },
+          { content: `$${balance.toFixed(2)}`, styles: { fontStyle: 'bold', textColor: [200, 0, 0] } }
+        ] as any);
+      }
 
       autoTable(doc, {
         startY: totalsTop,
         margin: { left: marginX, right: marginX },
         theme: 'plain',
         styles: { font: 'helvetica', fontSize: 10, cellPadding: 1.5, textColor: [30, 30, 30] },
-        tableWidth: 70,
-        body: [
-          ['Subtotal', `$${subtotal.toFixed(2)}`],
-          ...(taxPct > 0 ? [[`Tax (${taxPct.toFixed(2)}%)`, `$${taxAmt.toFixed(2)}`]] : []),
-          [{ content: 'Total', styles: { fontStyle: 'bold' } }, { content: `$${total.toFixed(2)}`, styles: { fontStyle: 'bold' } }]
-        ],
+        tableWidth: 80,
+        body: totalsBody,
         columnStyles: {
           0: { halign: 'left' },
           1: { halign: 'right' }
@@ -387,6 +406,41 @@ const Estimates: React.FC = () => {
         description: 'Failed to generate PDF',
         title: 'Error'
       });
+    }
+  };
+
+  const handleCollectDeposit = async (values: any) => {
+    if (!selectedEstimateForDeposit?.id) return;
+    setCollectingDeposit(true);
+    try {
+      const headers = getAuthToken() as any;
+      const payload = {
+        ...values,
+        payment_date: values.payment_date.format('YYYY-MM-DD')
+      };
+
+      await axios.post(
+        `${EstimatesUrl}/${selectedEstimateForDeposit.id}/collect_deposit/`,
+        payload,
+        headers
+      );
+
+      notification.success({
+        message: 'Deposit Recorded',
+        description: `Successfully collected deposit of $${values.amount}`,
+        title: 'Success'
+      });
+      setIsDepositModalVisible(false);
+      setSelectedEstimateForDeposit(null);
+      fetchEstimates(); // Refresh list to show updated balance if needed (not shown in list but good practice)
+    } catch (error: any) {
+      notification.error({
+        message: 'Payment Error',
+        description: error.response?.data?.error || 'Failed to record deposit',
+        title: 'Error'
+      });
+    } finally {
+      setCollectingDeposit(false);
     }
   };
 
@@ -504,25 +558,44 @@ const Estimates: React.FC = () => {
     },
     {
       id: 'total_amount',
-      label: 'Total Amount',
-      width: 140,
+      label: 'Financials',
+      width: 160,
       render: (value: any, record: EstimateProps) => {
-        const amountNum = record.total_amount ? Number(record.total_amount) : 0;
+        const total = Number(record.total_amount || 0);
+        const paid = Number(record.amount_paid || 0);
+        const balance = Number(record.balance_due || 0);
+
         return (
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            backgroundColor: '#f0f2ff',
-            border: '1px solid #a5affd',
-            borderRadius: '8px',
-            fontWeight: 600,
-            color: '#5b6cf9',
-            fontSize: '14px'
-          }}>
-            <DollarOutlined />
-            ${amountNum.toFixed(2)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 8px',
+              backgroundColor: '#f0f2ff',
+              border: '1px solid #a5affd',
+              borderRadius: '6px',
+              fontWeight: 600,
+              color: '#5b6cf9',
+              fontSize: '13px'
+            }}>
+              <DollarOutlined style={{ fontSize: '11px' }} />
+              ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            {paid > 0 && (
+              <div style={{
+                fontSize: '11px',
+                padding: '1px 8px',
+                color: balance <= 0 ? '#059669' : '#d97706',
+                backgroundColor: balance <= 0 ? '#ecfdf5' : '#fff7ed',
+                border: `1px solid ${balance <= 0 ? '#6ee7b7' : '#fdba74'}`,
+                borderRadius: '4px',
+                textAlign: 'center',
+                fontWeight: 700
+              }}>
+                {balance <= 0 ? 'PAID' : `DUE: $${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </div>
+            )}
           </div>
         );
       }
@@ -607,6 +680,21 @@ const Estimates: React.FC = () => {
               borderRadius: '6px',
               backgroundColor: '#f9fafb',
               border: '1px solid #e5e7eb'
+            }}
+          />
+          <Button
+            size="small"
+            icon={<DollarOutlined />}
+            onClick={() => {
+              setSelectedEstimateForDeposit(record);
+              setIsDepositModalVisible(true);
+            }}
+            title="Collect Deposit"
+            style={{
+              borderRadius: '6px',
+              backgroundColor: '#f6ffed',
+              border: '1px solid #b7eb8f',
+              color: '#52c41a'
             }}
           />
         </Space>
@@ -820,6 +908,17 @@ const Estimates: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <CollectDepositModal
+        isVisible={isDepositModalVisible}
+        onClose={() => {
+          setIsDepositModalVisible(false);
+          setSelectedEstimateForDeposit(null);
+        }}
+        onFinish={handleCollectDeposit}
+        loading={collectingDeposit}
+        maxAmount={Number(selectedEstimateForDeposit?.balance_due || selectedEstimateForDeposit?.total_amount || 0)}
+      />
     </div>
   );
 };

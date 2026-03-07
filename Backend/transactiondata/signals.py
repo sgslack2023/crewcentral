@@ -53,13 +53,27 @@ def invoice_saved(sender, instance, created, **kwargs):
 @receiver(post_save, sender=PaymentReceipt)
 def payment_receipt_created(sender, instance, created, **kwargs):
     """
-    Update invoice balance, generate PDF and queue email when a payment receipt is created
+    Update invoice or estimate balance, generate PDF and queue email when a payment receipt is created
     """
     if created:
-        instance.invoice.calculate_balance()
+        # Update balance depending on what it's linked to
+        if instance.invoice:
+            instance.invoice.calculate_balance()
+        elif instance.estimate:
+            instance.estimate.calculate_balance()
+            
+        # Generate receipt PDF if not already done
         if not instance.pdf_file:
+            # We don't import at top to avoid circular imports if any
+            from .utils import generate_payment_receipt_pdf
             generate_payment_receipt_pdf(instance)
             
         # Queue email automation
-        if instance.invoice.customer and instance.invoice.customer.email:
+        customer_email = None
+        if instance.invoice and instance.invoice.customer:
+            customer_email = instance.invoice.customer.email
+        elif instance.estimate and instance.estimate.customer:
+            customer_email = instance.estimate.customer.email
+            
+        if customer_email:
             async_task(send_receipt_async, instance.id)
