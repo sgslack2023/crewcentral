@@ -609,6 +609,11 @@ class OrganizationViewSet(ModelViewSet):
         if not show_inactive:
             qs = qs.filter(is_active=True)
         
+        # Filter by org_type if provided
+        org_type = self.request.query_params.get('type')
+        if org_type:
+            qs = qs.filter(org_type=org_type)
+            
         print(f"DEBUG ORG QUERYSET: Returning {qs.count()} organizations")
         print(f"DEBUG ORG QUERYSET: Organizations: {list(qs.values_list('id', 'name'))}")
         return qs

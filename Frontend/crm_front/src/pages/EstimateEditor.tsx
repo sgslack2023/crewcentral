@@ -247,7 +247,10 @@ const EstimateEditor: React.FC = () => {
   const [activeTab, setActiveTab] = useState('customer');
   const [workOrders, setWorkOrders] = useState<WorkOrderProps[]>([]);
   const internalWorkOrder = workOrders.find(wo => String(wo.work_order_type).toLowerCase() === 'internal');
-  const externalWorkOrder = workOrders.find(wo => String(wo.work_order_type).toLowerCase() === 'external' || !wo.work_order_type);
+  const externalWorkOrder = workOrders.find(wo =>
+    (String(wo.work_order_type).toLowerCase() === 'external' || !wo.work_order_type) &&
+    (wo.contractor === estimate?.assigned_contractor || !estimate?.assigned_contractor)
+  );
   const [contractorLineItems, setContractorLineItems] = useState<ContractorEstimateLineItemProps[]>([]);
   const [generatingWorkOrder, setGeneratingWorkOrder] = useState(false);
   const [editingContractorKey, setEditingContractorKey] = useState<number | null>(null);

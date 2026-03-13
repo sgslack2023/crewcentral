@@ -121,15 +121,20 @@ class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField(max_length=256)
 
 
-class OrganizationSerializer(serializers.ModelSerializer):
+class BasicOrganizationSerializer(serializers.ModelSerializer):
     parent_organization_name = serializers.CharField(source='parent_organization.name', read_only=True)
-    sub_organizations = serializers.SerializerMethodField()
-    role = serializers.SerializerMethodField()
     
     class Meta:
         model = Organization
-        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'phone_number', 'equipment_type', 'notes', 'payment_method', 'created_at', 'sub_organizations', 'role')
+        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'phone_number', 'equipment_type', 'notes', 'payment_method', 'created_at')
         read_only_fields = ('created_at',)
+
+class OrganizationSerializer(BasicOrganizationSerializer):
+    sub_organizations = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
+    
+    class Meta(BasicOrganizationSerializer.Meta):
+        fields = BasicOrganizationSerializer.Meta.fields + ('sub_organizations', 'role')
 
     def get_role(self, obj):
         request = self.context.get('request')
@@ -153,16 +158,15 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return None
 
     def get_sub_organizations(self, obj):
-        # Return only 1 level deep to avoid recursion issues if not needed, 
-        # but the frontend usually handles this.
-        return OrganizationSerializer(obj.sub_organizations.all(), many=True).data
+        # Use BasicOrganizationSerializer here to prevent recursion
+        return BasicOrganizationSerializer(obj.sub_organizations.all(), many=True).data
 
 class OrganizationDetailSerializer(OrganizationSerializer):
-    sub_organizations = OrganizationSerializer(many=True, read_only=True)
+    # Use BasicOrganizationSerializer for nested ones to avoid deep loops
+    sub_organizations = BasicOrganizationSerializer(many=True, read_only=True)
     
-    class Meta:
-        model = Organization
-        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'phone_number', 'equipment_type', 'notes', 'payment_method', 'created_at', 'sub_organizations', 'role')
+    class Meta(OrganizationSerializer.Meta):
+        fields = OrganizationSerializer.Meta.fields
 
 class SystemPermissionSerializer(serializers.ModelSerializer):
     class Meta:
