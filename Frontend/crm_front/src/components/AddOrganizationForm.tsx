@@ -4,7 +4,11 @@ import { BlackButton } from './';
 import {
     ClusterOutlined,
     TeamOutlined,
-    GoogleOutlined
+    GoogleOutlined,
+    PhoneOutlined,
+    ToolOutlined,
+    FileTextOutlined,
+    CreditCardOutlined
 } from "@ant-design/icons";
 import { AuthTokenType, OrganizationProps } from "../utils/types";
 import { getAuthToken } from "../utils/functions";
@@ -151,6 +155,44 @@ const AddOrganizationForm: FC<AddOrganizationFormProps> = ({
                         help="Official email for work orders and notifications"
                     >
                         <Input prefix={<TeamOutlined />} placeholder="admin@organization.com" />
+                    </Form.Item>
+
+                    <Form.Item
+                        label="Phone Number (Optional)"
+                        name="phone_number"
+                        style={{ marginBottom: '16px' }}
+                    >
+                        <Input prefix={<PhoneOutlined />} placeholder="e.g. +1 123 456 7890" />
+                    </Form.Item>
+
+                    <Form.Item
+                        label="Type of Equipment (Optional)"
+                        name="equipment_type"
+                        style={{ marginBottom: '16px' }}
+                    >
+                        <Input prefix={<ToolOutlined />} placeholder="e.g. 26ft Truck, Liftgate" />
+                    </Form.Item>
+
+                    <Form.Item
+                        label="Payment Method (Optional)"
+                        name="payment_method"
+                        style={{ marginBottom: '16px' }}
+                    >
+                        <Select placeholder="Select payment method" allowClear>
+                            <Option value="Credit Card">Credit Card</Option>
+                            <Option value="E-Transfer">E-Transfer</Option>
+                            <Option value="Cash">Cash</Option>
+                            <Option value="Certified Cheque">Certified Cheque</Option>
+                            <Option value="Other">Other</Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        label="Notes (Optional)"
+                        name="notes"
+                        style={{ marginBottom: '16px' }}
+                    >
+                        <Input.TextArea placeholder="Any additional notes..." rows={3} />
                     </Form.Item>
 
                     {isActuallySuperuser && (

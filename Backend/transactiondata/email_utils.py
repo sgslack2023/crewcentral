@@ -1199,8 +1199,10 @@ def send_work_order_email(work_order, base_url=None):
         base_url = settings.FRONTEND_URL.rstrip('/')
     
     contractor = work_order.contractor
-    if not contractor or not contractor.admin_email:
-        return False, "Contractor has no admin email address assigned."
+    if not contractor:
+        return False, "No contractor assigned to this work order."
+    if not contractor.admin_email:
+        return False, f"Contractor '{contractor.name}' has no admin email address assigned."
     
     # Generate token if not exists
     if not work_order.public_token:

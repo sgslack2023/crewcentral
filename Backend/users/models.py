@@ -96,6 +96,13 @@ class Organization(models.Model):
     is_active = models.BooleanField(default=True)
     google_business_link = models.URLField(max_length=500, blank=True, null=True)
     admin_email = models.EmailField(blank=True, null=True, help_text="Optional admin email for the organization, used for notifications such as Work Orders")
+    
+    # Optional fields for company setup
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    equipment_type = models.CharField(max_length=100, blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    payment_method = models.CharField(max_length=50, blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

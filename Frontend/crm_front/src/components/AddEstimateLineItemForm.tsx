@@ -12,7 +12,7 @@ import {
 import { AuthTokenType, ChargeDefinitionProps, ChargeCategoryProps, ServiceTypeProps } from "../utils/types";
 import { getAuthToken, getServiceTypes } from "../utils/functions";
 import axios, { AxiosResponse } from "axios";
-import { EstimateLineItemsUrl, ChargeDefinitionsUrl, EstimatesUrl, ChargeCategoriesUrl } from "../utils/network";
+import { EstimateLineItemsUrl, ChargeDefinitionsUrl, EstimatesUrl, ChargeCategoriesUrl, ContractorLineItemsUrl } from "../utils/network";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -23,6 +23,8 @@ interface AddEstimateLineItemFormProps {
   onSuccessCallBack: () => void;
   onClose: () => void;
   estimateId: number | null;
+  type?: 'customer' | 'contractor';
+  workOrderId?: number | null;
 }
 
 const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
@@ -30,6 +32,8 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
   onSuccessCallBack,
   onClose,
   estimateId,
+  type = 'customer',
+  workOrderId = null,
 }) => {
   const [form] = Form.useForm();
   const [newChargeForm] = Form.useForm();
@@ -100,33 +104,44 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
   };
 
   const onSubmit = async (values: any) => {
-    if (!estimateId || !selectedCharge) return;
+    if ((type === 'customer' && !estimateId) || (type === 'contractor' && !workOrderId) || !selectedCharge) return;
 
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
 
-    const submitData = {
-      estimate: estimateId,
-      charge: values.charge,
-      charge_name: selectedCharge.name,
-      charge_type: selectedCharge.charge_type,
-      rate: values.rate,
-      percentage: values.percentage,
-      quantity: values.quantity || 1,
-      display_order: 999 // Add at the end
-    };
-
     try {
-      await axios.post(EstimateLineItemsUrl, submitData, headers);
-
-      // Trigger recalculation on backend (backend already does this, but being explicit)
-      await axios.post(`${EstimatesUrl}/${estimateId}/recalculate`, {}, headers);
-
-      notification.success({
-        message: "Line Item Added",
-        description: "New charge has been added and estimate recalculated.",
-        title: "Success"
-      });
+      if (type === 'contractor') {
+        const contractorData = {
+          work_order: workOrderId,
+          description: selectedCharge.name,
+          quantity: values.quantity || 1,
+          contractor_rate: values.rate || 0,
+        };
+        await axios.post(ContractorLineItemsUrl, contractorData, headers);
+        notification.success({
+          message: "Contractor Cost Added",
+          description: "New cost item has been added to the contractor quote.",
+          title: "Success"
+        });
+      } else {
+        const submitData = {
+          estimate: estimateId,
+          charge: values.charge,
+          charge_name: selectedCharge.name,
+          charge_type: selectedCharge.charge_type,
+          rate: values.rate,
+          percentage: values.percentage,
+          quantity: values.quantity || 1,
+          display_order: 999
+        };
+        await axios.post(EstimateLineItemsUrl, submitData, headers);
+        await axios.post(`${EstimatesUrl}/${estimateId}/recalculate`, {}, headers);
+        notification.success({
+          message: "Line Item Added",
+          description: "New charge has been added and estimate recalculated.",
+          title: "Success"
+        });
+      }
 
       setLoading(false);
       form.resetFields();
@@ -136,7 +151,7 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
     } catch (error: any) {
       notification.error({
         message: "Operation Error",
-        description: error.response?.data?.error || "An error occurred while adding the line item.",
+        description: error.response?.data?.error || "An error occurred while adding the item.",
         title: "Operation Error"
       });
       setLoading(false);
@@ -144,7 +159,7 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
   };
 
   const onSubmitNewCharge = async (values: any) => {
-    if (!estimateId) return;
+    if ((type === 'customer' && !estimateId) || (type === 'contractor' && !workOrderId)) return;
 
     setLoading(true);
     const headers = getAuthToken() as AuthTokenType;
@@ -167,28 +182,38 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
       const chargeResponse = await axios.post(ChargeDefinitionsUrl, chargeData, headers);
       const newCharge = chargeResponse.data;
 
-      // Then add it as a line item to the estimate
-      const lineItemData = {
-        estimate: estimateId,
-        charge: newCharge.id,
-        charge_name: newCharge.name,
-        charge_type: newCharge.charge_type,
-        rate: values.default_rate,
-        percentage: values.default_percentage,
-        quantity: values.quantity || 1,
-        display_order: 999
-      };
-
-      await axios.post(EstimateLineItemsUrl, lineItemData, headers);
-
-      // Trigger recalculation
-      await axios.post(`${EstimatesUrl}/${estimateId}/recalculate`, {}, headers);
-
-      notification.success({
-        message: "Charge Created & Added",
-        description: `New charge "${newCharge.name}" has been created and added to the estimate.`,
-        title: "Success"
-      });
+      if (type === 'contractor') {
+        const contractorData = {
+          work_order: workOrderId,
+          description: newCharge.name,
+          quantity: values.quantity || 1,
+          contractor_rate: values.default_rate || 0,
+        };
+        await axios.post(ContractorLineItemsUrl, contractorData, headers);
+        notification.success({
+          message: "Charge Created & Added",
+          description: `New charge "${newCharge.name}" has been created and added to the contractor quote.`,
+          title: "Success"
+        });
+      } else {
+        const lineItemData = {
+          estimate: estimateId,
+          charge: newCharge.id,
+          charge_name: newCharge.name,
+          charge_type: newCharge.charge_type,
+          rate: values.default_rate,
+          percentage: values.default_percentage,
+          quantity: values.quantity || 1,
+          display_order: 999
+        };
+        await axios.post(EstimateLineItemsUrl, lineItemData, headers);
+        await axios.post(`${EstimatesUrl}/${estimateId}/recalculate`, {}, headers);
+        notification.success({
+          message: "Charge Created & Added",
+          description: `New charge "${newCharge.name}" has been created and added to the estimate.`,
+          title: "Success"
+        });
+      }
 
       setLoading(false);
       newChargeForm.resetFields();

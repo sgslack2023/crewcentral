@@ -2453,15 +2453,15 @@ label {
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #5b6cf9;
+    background: #d1d5db;
     border-radius: 10px;
 
     &:hover {
-      background: #4a59d4;
+      background: #9ca3af;
     }
   }
 
   // Firefox Support
   scrollbar-width: thin;
-  scrollbar-color: #5b6cf9 transparent;
+  scrollbar-color: #d1d5db transparent;
 }

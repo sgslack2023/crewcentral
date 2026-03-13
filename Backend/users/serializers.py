@@ -128,7 +128,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Organization
-        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'created_at', 'sub_organizations', 'role')
+        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'phone_number', 'equipment_type', 'notes', 'payment_method', 'created_at', 'sub_organizations', 'role')
         read_only_fields = ('created_at',)
 
     def get_role(self, obj):
@@ -162,7 +162,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
     
     class Meta:
         model = Organization
-        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'created_at', 'sub_organizations', 'role')
+        fields = ('id', 'name', 'org_type', 'parent_organization', 'parent_organization_name', 'is_active', 'google_business_link', 'admin_email', 'phone_number', 'equipment_type', 'notes', 'payment_method', 'created_at', 'sub_organizations', 'role')
 
 class SystemPermissionSerializer(serializers.ModelSerializer):
     class Meta:

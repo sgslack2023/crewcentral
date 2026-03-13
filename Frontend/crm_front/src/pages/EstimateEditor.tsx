@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Button, Tag, notification, Table, InputNumber,
-  Space, Avatar, DatePicker, Select, Modal, Form,
+  Space, Avatar, DatePicker, Select, Modal, Form, Popconfirm,
   Radio, Input, Tabs, Tooltip, Empty, Divider,
   List, Typography
 } from 'antd';
@@ -853,6 +853,30 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
+  const handleDeleteContractorLineItem = async (lineItemId: number) => {
+    try {
+      const headers = getAuthToken() as any;
+      await axios.delete(`${ContractorLineItemsUrl}/${lineItemId}`, headers);
+
+      notification.success({
+        message: 'Contractor Item Deleted',
+        description: 'Charge has been removed from the contractor quote.',
+        title: 'Success'
+      });
+
+      if (externalWorkOrder?.id) {
+        fetchContractorLineItems(externalWorkOrder.id);
+        fetchWorkOrder();
+      }
+    } catch (error) {
+      notification.error({
+        message: 'Delete Error',
+        description: 'Failed to delete contractor line item',
+        title: 'Error'
+      });
+    }
+  };
+
   const handleSendToCustomer = async () => {
     setSendingEmail(true);
     try {
@@ -1132,19 +1156,38 @@ const EstimateEditor: React.FC = () => {
             </Tooltip>
           </Space>
         ) : (
-          <Tooltip title="Edit Rate">
-            <Button
-              size="small"
-              type="text"
-              icon={<EditOutlined style={{ color: '#5b6cf9' }} />}
-              onClick={() => {
-                setEditingContractorKey(record.id!);
-                setEditedContractorValues({
-                  [record.id!]: { contractor_rate: record.contractor_rate }
-                });
-              }}
-            />
-          </Tooltip>
+          <Space>
+            <Tooltip title="Edit Rate">
+              <Button
+                size="small"
+                type="text"
+                icon={<EditOutlined style={{ color: '#5b6cf9' }} />}
+                onClick={() => {
+                  setEditingContractorKey(record.id!);
+                  setEditedContractorValues({
+                    [record.id!]: { contractor_rate: record.contractor_rate }
+                  });
+                }}
+              />
+            </Tooltip>
+            <Popconfirm
+              title="Delete item?"
+              description="Are you sure you want to delete this charge?"
+              onConfirm={() => handleDeleteContractorLineItem(record.id!)}
+              okText="Yes"
+              cancelText="No"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="Delete">
+                <Button
+                  size="small"
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
+              </Tooltip>
+            </Popconfirm>
+          </Space>
         );
       }
     }
@@ -2441,10 +2484,17 @@ const EstimateEditor: React.FC = () => {
       <AddEstimateLineItemForm
         isVisible={isAddLineItemVisible}
         estimateId={estimateId ? parseInt(estimateId) : null}
+        type={activeTab === 'contractor' ? 'contractor' : 'customer'}
+        workOrderId={externalWorkOrder?.id}
         onClose={() => setIsAddLineItemVisible(false)}
         onSuccessCallBack={() => {
           setIsAddLineItemVisible(false);
-          fetchEstimate();
+          if (activeTab === 'contractor' && externalWorkOrder?.id) {
+            fetchContractorLineItems(externalWorkOrder.id);
+            fetchWorkOrder();
+          } else {
+            fetchEstimate();
+          }
         }}
       />
 

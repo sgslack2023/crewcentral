@@ -680,6 +680,12 @@ class ContractorEstimateLineItem(models.Model):
         # Update WorkOrder total
         self.work_order.update_total()
 
+    def delete(self, *args, **kwargs):
+        work_order = self.work_order
+        super().delete(*args, **kwargs)
+        if work_order:
+            work_order.update_total()
+
     def __str__(self):
         return f"{self.description} - {self.total_amount}"
 

@@ -12,7 +12,7 @@ interface ThinScrollProps {
 
 /**
  * A wrapper component that provides a thin, themed scrollbar for its content.
- * Uses the brand color #5b6cf9 for consistent UI throughout the application.
+ * Uses a neutral grey color for consistent UI throughout the application.
  */
 const ThinScroll: React.FC<ThinScrollProps> = ({
     children,
