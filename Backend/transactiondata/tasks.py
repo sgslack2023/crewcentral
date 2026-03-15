@@ -5,6 +5,66 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def generate_receipt_pdf_async(receipt_id):
+    """
+    Task to generate payment receipt PDF asynchronously.
+    """
+    from .models import PaymentReceipt
+    from .utils import generate_payment_receipt_pdf
+    try:
+        receipt = PaymentReceipt.objects.get(id=receipt_id)
+        logger.info(f"Generating PDF for receipt {receipt_id} asynchronously")
+        generate_payment_receipt_pdf(receipt)
+    except PaymentReceipt.DoesNotExist:
+        logger.error(f"Receipt {receipt_id} not found for PDF generation")
+    except Exception as e:
+        logger.error(f"Error generating PDF for receipt {receipt_id}: {e}")
+
+def generate_invoice_pdf_async(invoice_id):
+    """
+    Task to generate invoice PDF asynchronously.
+    """
+    from .models import Invoice
+    from .utils import generate_invoice_pdf
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+        logger.info(f"Generating PDF for invoice {invoice_id} asynchronously")
+        generate_invoice_pdf(invoice)
+    except Invoice.DoesNotExist:
+        logger.error(f"Invoice {invoice_id} not found for PDF generation")
+    except Exception as e:
+        logger.error(f"Error generating PDF for invoice {invoice_id}: {e}")
+
+def send_manual_estimate_async(estimate_id, base_url, backend_base_url, user_id=None):
+    """
+    Task to send estimate email (Share) manual from ViewSet.
+    """
+    from .models import Estimate, CustomerActivity
+    from .email_utils import send_estimate_email
+    from django.contrib.auth.models import User
+    
+    try:
+        estimate = Estimate.objects.get(id=estimate_id)
+        user = User.objects.get(id=user_id) if user_id else None
+        
+        success, message = send_estimate_email(estimate, base_url, backend_base_url)
+        
+        if success:
+            CustomerActivity.objects.create(
+                customer=estimate.customer,
+                estimate=estimate,
+                activity_type='estimate_sent',
+                title=f'Estimate #{estimate.id} Sent to Customer',
+                description=f'Estimate emailed to {estimate.customer.email}',
+                created_by=user
+            )
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error in send_manual_estimate_async task: {e}")
+        return False
+
+
 def process_document_signing(estimate_id, base_url):
     """
     Task to process document signature request asynchronously.
@@ -148,9 +208,13 @@ def send_invoice_async(invoice_id, **kwargs):
         from masterdata.models import DocumentLibrary
         invoice = Invoice.objects.get(id=invoice_id)
         
+        # Determine organization early
+        organization = invoice.organization
+        org_id = organization.id if organization else None
+        
         # Check for specific automation configuration
         template = None
-        schedule = get_active_schedule('invoices', invoice.organization.id)
+        schedule = get_active_schedule('invoices', org_id) if org_id else None
         if schedule:
             schedule_kwargs = schedule.kwargs
             if isinstance(schedule_kwargs, str):
@@ -217,9 +281,16 @@ def send_receipt_async(receipt_id, **kwargs):
         from masterdata.models import DocumentLibrary
         receipt = PaymentReceipt.objects.get(id=receipt_id)
         
+        # Determine organization early
+        invoice = receipt.invoice
+        estimate = receipt.estimate if not invoice else invoice.estimate
+        customer = estimate.customer if estimate else (invoice.customer if invoice else None)
+        organization = receipt.organization or (estimate.organization if estimate else None)
+        org_id = organization.id if organization else None
+
         # Check for specific automation configuration
         template = None
-        schedule = get_active_schedule('receipts', receipt.organization.id)
+        schedule = get_active_schedule('receipts', org_id) if org_id else None
         if schedule:
             schedule_kwargs = schedule.kwargs
             if isinstance(schedule_kwargs, str):
@@ -232,19 +303,27 @@ def send_receipt_async(receipt_id, **kwargs):
                 except DocumentLibrary.DoesNotExist:
                     pass
 
+        if not customer:
+            return {"sent": 0, "error": "No customer associated with this receipt."}
+
         # Prepare tracking record
         import uuid
         from .models import EmailLog
         tracking_token = str(uuid.uuid4())
         
         # Create EmailLog record
+        subject_text = template.subject if template and template.subject else f"Payment Receipt"
+        if invoice:
+            subject_text = template.subject if template and template.subject else f"Payment Receipt for Invoice #{invoice.invoice_number}"
+        
         EmailLog.objects.create(
-            organization=receipt.invoice.organization,
-            customer=receipt.invoice.customer,
-            subject=template.subject if template and template.subject else f"Payment Receipt for Invoice #{receipt.invoice.invoice_number}",
+            organization=organization,
+            customer=customer,
+            subject=subject_text,
             purpose='receipt_email',
             tracking_token=tracking_token,
-            invoice=receipt.invoice
+            invoice=invoice,
+            estimate=estimate
         )
 
         success, message = send_receipt_pdf_email(receipt, template=template, tracking_token=tracking_token)
@@ -252,7 +331,7 @@ def send_receipt_async(receipt_id, **kwargs):
         if success:
             receipt.email_sent_at = timezone.now()
             receipt.save(update_fields=['email_sent_at'])
-            return {"sent": 1, "customer": receipt.invoice.customer.full_name}
+            return {"sent": 1, "customer": customer.full_name}
         return {"sent": 0, "error": message}
     except PaymentReceipt.DoesNotExist:
         logger.error(f"Receipt {receipt_id} not found")
@@ -273,9 +352,13 @@ def send_estimate_async(estimate_id, **kwargs):
     try:
         estimate = Estimate.objects.get(id=estimate_id)
         
+        # Determine organization early
+        organization = estimate.organization
+        org_id = organization.id if organization else None
+        
         # Check for specific automation configuration
         template = None
-        schedule = get_active_schedule('estimates', estimate.organization.id)
+        schedule = get_active_schedule('estimates', org_id) if org_id else None
         if schedule:
             schedule_kwargs = schedule.kwargs
             if isinstance(schedule_kwargs, str):
@@ -328,7 +411,11 @@ def send_booked_async(customer_id, **kwargs):
     try:
         customer = Customer.objects.get(id=customer_id)
         
-        schedule = get_active_schedule('booked', customer.organization.id)
+        # Determine organization early
+        organization = customer.organization
+        org_id = organization.id if organization else None
+        
+        schedule = get_active_schedule('booked', org_id) if org_id else None
         if not schedule:
             return {"sent": 0, "status": "Skipped"}
 
@@ -392,9 +479,12 @@ def send_closed_async(customer_id, base_url, **kwargs):
     
     try:
         customer = Customer.objects.get(id=customer_id)
-        logger.info(f"Starting async Closed Email for customer {customer_id} (Org: {customer.organization.id})")
+        # Determine organization early
+        organization = customer.organization
+        org_id = organization.id if organization else None
+        logger.info(f"Starting async Closed Email for customer {customer_id} (Org: {org_id})")
         
-        schedule = get_active_schedule('closed', customer.organization.id)
+        schedule = get_active_schedule('closed', org_id) if org_id else None
         if not schedule:
             logger.info(f"No active automation found for 'closed' for organization {customer.organization.id}.")
             return {"sent": 0, "status": "Skipped"}
@@ -580,7 +670,7 @@ def send_pending_receipts(organization_id=None, **kwargs):
         if organization_id:
             query = query.filter(organization_id=organization_id)
         
-        pending_receipts = query.select_related('invoice', 'invoice__estimate', 'invoice__customer')
+        pending_receipts = query.select_related('invoice', 'invoice__estimate', 'invoice__customer', 'estimate', 'estimate__customer')
         
         sent_count = 0
         failed_count = 0
@@ -589,9 +679,12 @@ def send_pending_receipts(organization_id=None, **kwargs):
         sent_customers = []
         
         for receipt in pending_receipts:
-            estimate = receipt.invoice.estimate if receipt.invoice else None
-            if not estimate:
-                logger.warning(f"Skipping Receipt {receipt.id}: No linked estimate/invoice")
+            invoice = receipt.invoice
+            estimate = receipt.estimate if not invoice else invoice.estimate
+            customer = estimate.customer if estimate else (invoice.customer if invoice else None)
+            
+            if not estimate or not customer:
+                logger.warning(f"Skipping Receipt {receipt.id}: No linked estimate/customer")
                 skipped_count += 1
                 continue
 
@@ -618,7 +711,7 @@ def send_pending_receipts(organization_id=None, **kwargs):
                     continue
             
             # Skip if customer has no email
-            if not receipt.invoice.customer.email:
+            if not customer.email:
                 logger.warning(f"Skipping Receipt {receipt.id}: Customer has no email")
                 skipped_count += 1
                 continue
@@ -629,7 +722,7 @@ def send_pending_receipts(organization_id=None, **kwargs):
                     receipt.email_sent_at = timezone.now()
                     receipt.save(update_fields=['email_sent_at'])
                     sent_count += 1
-                    sent_customers.append(receipt.invoice.customer.full_name)
+                    sent_customers.append(customer.full_name)
                     logger.info(f"Successfully sent receipt {receipt.id}")
                 else:
                     failed_count += 1

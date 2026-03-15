@@ -602,6 +602,8 @@ export interface ContractorEstimateLineItemProps {
     description: string;
     quantity: number;
     contractor_rate: number;
+    charge_type?: string;
+    percentage?: number;
     total_amount: number;
     is_active?: boolean;
 }

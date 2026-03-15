@@ -222,7 +222,7 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
 
   const insertTag = (tag: string) => {
     if (editorRef.current) {
-      const tagHtml = `<span style="background-color: #f0f2ff; padding: 2px 6px; border-radius: 3px; color: #5b6cf9; font-weight: 600; font-family: monospace;">${tag}</span>&nbsp;`;
+      const tagHtml = `<span>${tag}</span>`;
       editorRef.current.insertHTML(tagHtml);
     }
   };
@@ -527,6 +527,17 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                     { key: 'delivery_time_window', label: 'Delivery Time Window', onClick: () => insertTag('{{delivery_time_window}}') },
                     { key: 'pickup_date_range', label: 'Pickup Date Range', onClick: () => insertTag('{{pickup_date_range}}') },
                     { key: 'delivery_date_range', label: 'Delivery Date Range', onClick: () => insertTag('{{delivery_date_range}}') }
+                  ]
+                },
+                {
+                  key: 'payment',
+                  label: 'Payment Fields',
+                  icon: <DollarOutlined />,
+                  children: [
+                    { key: 'payment_amount', label: 'Payment Amount', onClick: () => insertTag('{{payment_amount}}') },
+                    { key: 'payment_date', label: 'Payment Date', onClick: () => insertTag('{{payment_date}}') },
+                    { key: 'payment_type', label: 'Payment Type', onClick: () => insertTag('{{payment_type}}') },
+                    { key: 'payment_method', label: 'Payment Method', onClick: () => insertTag('{{payment_method}}') }
                   ]
                 },
                 {

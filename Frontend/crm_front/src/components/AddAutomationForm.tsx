@@ -32,7 +32,8 @@ const AddAutomationForm: FC<AddAutomationFormProps> = ({
     const [emailTemplates, setEmailTemplates] = useState<DocumentProps[]>([]);
     const taskType = Form.useWatch('task_type', form);
 
-    const isEventDriven = ['new_lead', 'booked', 'closed', 'invoices', 'receipts', 'estimates'].includes(taskType);
+    const isEventDriven = ['new_lead', 'booked', 'closed', 'signed_documents_email'].includes(taskType);
+    const isHybrid = ['invoices', 'receipts', 'estimates'].includes(taskType);
 
     const handleFormClose = () => {
         form.resetFields();
@@ -169,14 +170,15 @@ const AddAutomationForm: FC<AddAutomationFormProps> = ({
                             <Option value="new_lead">New Lead Welcome Email</Option>
                             <Option value="booked">Booking Confirmation Email</Option>
                             <Option value="closed">Closed Email</Option>
+                            <Option value="signed_documents_email">Send Signed Documents</Option>
                         </Select>
                     </Form.Item>
 
-                    {(isEventDriven || taskType === 'leads') && (
+                    {(isEventDriven || isHybrid || taskType === 'leads') && (
                         <Form.Item
                             label="Email Template"
                             name="document_id"
-                            rules={[{ required: isEventDriven, message: 'Please select an email template!' }]}
+                            rules={[{ required: (isEventDriven || isHybrid), message: 'Please select an email template!' }]}
                             style={{ marginBottom: '16px' }}
                             help="Select which document library template to use."
                         >
@@ -228,10 +230,18 @@ const AddAutomationForm: FC<AddAutomationFormProps> = ({
                         </>
                     )}
 
-                    {isEventDriven && (
+                    {isHybrid && (
                         <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: '4px', marginTop: '8px' }}>
                             <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>
                                 <strong>Event & Scheduled:</strong> This automation triggers immediately on creation (Invoices, Receipts) or status change (Leads) AND periodically checks for any pending items.
+                            </p>
+                        </div>
+                    )}
+                    
+                    {isEventDriven && (
+                        <div style={{ padding: '12px', background: '#f6ffed', borderRadius: '4px', marginTop: '8px', border: '1px solid #b7eb8f' }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#389e0d' }}>
+                                <strong>Event Driven Only:</strong> This automation doesn't run on a schedule. It only triggers when the specific action occurs (e.g., clicking send, lead created).
                             </p>
                         </div>
                     )}

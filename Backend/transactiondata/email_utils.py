@@ -253,11 +253,32 @@ def render_email_template(template_name, context, default_subject, default_body,
         if not template:
             # 1. Try to find by purpose (preferred)
             if purpose:
-                from django.db.models import Q
-                query = DocumentLibrary.objects.filter(document_purpose=purpose, is_active=True)
-                if organization:
-                    query = query.filter(Q(organization=organization) | Q(organization__isnull=True)).order_by('-organization')
-                template = query.first()
+                from .tasks import get_active_schedule
+                # Use organization from context or default
+                org_id = organization.id if organization else None
+                schedule = get_active_schedule(purpose, org_id)
+                
+                if schedule and hasattr(schedule, 'kwargs'):
+                    import json
+                    import ast
+                    kw = schedule.kwargs
+                    if isinstance(kw, str):
+                        try: kw = ast.literal_eval(kw)
+                        except:
+                            try: kw = json.loads(kw.replace("'", '"'))
+                            except: kw = {}
+                    
+                    doc_id = kw.get('document_id')
+                    if doc_id:
+                        template = DocumentLibrary.objects.filter(id=doc_id, is_active=True).first()
+                
+                # Fallback to direct purpose match if no automation-linked template
+                if not template:
+                    from django.db.models import Q
+                    query = DocumentLibrary.objects.filter(document_purpose=purpose, is_active=True)
+                    if organization:
+                        query = query.filter(Q(organization=organization) | Q(organization__isnull=True)).order_by('-organization')
+                    template = query.first()
                 
             # 2. Try to find by title (legacy fallback)
             if not template and template_name:
@@ -821,6 +842,10 @@ def send_invoice_pdf_email(invoice, template=None, tracking_token=None):
             customer=estimate.customer, estimate=estimate
         )
         
+        # Filter out attachments that are already invoices to avoid duplicates
+        # (since we attach the actual invoice PDF below)
+        attachments = [a for a in attachments if a.category != 'Invoice']
+        
         # Create email
         email = EmailMultiAlternatives(
             subject=subject,
@@ -830,7 +855,7 @@ def send_invoice_pdf_email(invoice, template=None, tracking_token=None):
         )
         email.attach_alternative(html_message, "text/html")
         
-        # Process and attach library documents
+        # Process and attach remaining library documents
         process_and_attach_documents(email, attachments, customer=estimate.customer, estimate=estimate)
         
         # Attach PDF if it exists, or generate it
@@ -875,7 +900,11 @@ def send_receipt_pdf_email(receipt, template=None, tracking_token=None):
     """
     try:
         invoice = receipt.invoice
-        estimate = invoice.estimate
+        # Fallback to estimate if no invoice is present (e.g., initial deposits)
+        estimate = receipt.estimate if not invoice else invoice.estimate
+        
+        if not estimate:
+            return False, "No estimate associated with this receipt."
         
         # Build context
         context = {
@@ -907,6 +936,10 @@ def send_receipt_pdf_email(receipt, template=None, tracking_token=None):
             customer=estimate.customer, estimate=estimate
         )
         
+        # Filter out attachments that are already payment receipts to avoid duplicates
+        # (since we attach the actual receipt PDF below)
+        attachments = [a for a in attachments if a.category != 'Payment Receipt']
+        
         # Create email
         email = EmailMultiAlternatives(
             subject=subject,
@@ -916,7 +949,7 @@ def send_receipt_pdf_email(receipt, template=None, tracking_token=None):
         )
         email.attach_alternative(html_message, "text/html")
         
-        # Process and attach library documents
+        # Process and attach remaining library documents
         process_and_attach_documents(email, attachments, customer=estimate.customer, estimate=estimate)
         
         # Attach PDF if it exists, or generate it

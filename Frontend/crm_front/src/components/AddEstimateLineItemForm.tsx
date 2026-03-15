@@ -58,7 +58,12 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
       const headers = getAuthToken() as AuthTokenType;
       // Include all charges (including estimate-only ones) for the estimate editor
       const response = await axios.get(`${ChargeDefinitionsUrl}?include_estimate_only=true`, headers);
-      setChargeDefinitions(response.data.filter((cd: ChargeDefinitionProps) => cd.is_active));
+      const data = response.data.results ? response.data.results : response.data;
+      if (Array.isArray(data)) {
+        setChargeDefinitions(data.filter((cd: ChargeDefinitionProps) => cd.is_active));
+      } else {
+        setChargeDefinitions([]);
+      }
     } catch (error) {
       console.error('Error fetching charge definitions:', error);
     }
@@ -116,6 +121,8 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
           description: selectedCharge.name,
           quantity: values.quantity || 1,
           contractor_rate: values.rate || 0,
+          charge_type: selectedCharge.charge_type,
+          percentage: values.percentage || selectedCharge.default_percentage || 0,
         };
         await axios.post(ContractorLineItemsUrl, contractorData, headers);
         notification.success({

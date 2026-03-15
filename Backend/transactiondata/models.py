@@ -642,6 +642,16 @@ class WorkOrder(models.Model):
 
     def update_total(self):
         """Recalculate total_contractor_amount based on line items"""
+        # Recalculate percentage-base items if any exist
+        percent_items = self.items.filter(charge_type='percent', is_active=True)
+        if percent_items.exists():
+            base_sum = self.items.filter(is_active=True).exclude(charge_type='percent').aggregate(
+                total=models.Sum('total_amount')
+            )['total'] or 0
+            
+            for item in percent_items:
+                item.recalculate_amount(base_sum)
+
         total = self.items.filter(is_active=True).aggregate(
             total=models.Sum('total_amount')
         )['total'] or 0
@@ -670,12 +680,54 @@ class ContractorEstimateLineItem(models.Model):
     description = models.CharField(max_length=255)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     contractor_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
+    # NEW FIELDS: Support dynamic calculations like customer-side charges
+    charge_type = models.CharField(
+        max_length=20, 
+        choices=ChargeType.choices, 
+        default=ChargeType.FLAT
+    )
+    percentage = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Used if charge_type = percent"
+    )
+    
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
 
+    def recalculate_amount(self, base_sum):
+        """Update amount for percentage items without triggering full save cycle"""
+        if self.charge_type == ChargeType.PERCENT:
+            percentage = self.percentage or 0
+            self.total_amount = (percentage / 100) * base_sum
+            super(ContractorEstimateLineItem, self).save(update_fields=['total_amount'])
+
     def save(self, *args, **kwargs):
-        self.total_amount = self.quantity * self.contractor_rate
+        # Calculate total_amount based on charge_type
+        if self.charge_type == ChargeType.PER_LB:
+            weight = self.work_order.weight_lbs or 0
+            self.total_amount = self.contractor_rate * weight
+        elif self.charge_type == ChargeType.PERCENT:
+            # For percentage, we sum up other non-percentage active items in the work order
+            # Note: This might cause issues if multiple percentage items depend on each other,
+            # but for a basic Fuel Surcharge it works on the sum of base charges.
+            other_items_sum = self.work_order.items.filter(
+                is_active=True
+            ).exclude(
+                id=self.id
+            ).exclude(
+                charge_type=ChargeType.PERCENT
+            ).aggregate(total=models.Sum('total_amount'))['total'] or 0
+            
+            percentage = self.percentage or 0
+            self.total_amount = (percentage / 100) * other_items_sum
+        else:
+            # Default to quantity * rate
+            self.total_amount = self.quantity * self.contractor_rate
+            
         super().save(*args, **kwargs)
         # Update WorkOrder total
         self.work_order.update_total()

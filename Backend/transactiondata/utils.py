@@ -226,8 +226,40 @@ def process_document_template(html_content, customer=None, estimate=None, signat
         html_content = html_content.replace('{{estimate_total}}', f'${estimate.total_amount:,.2f}')
         html_content = html_content.replace('{{service_type}}', estimate.service_type.service_type if estimate.service_type else '')
         html_content = html_content.replace('{{move_date}}', estimate.customer.move_date.strftime('%B %d, %Y') if estimate.customer.move_date else '')
+        # Handle bracketed version requested by user
+        html_content = html_content.replace('[move_date]', estimate.customer.move_date.strftime('%B %d, %Y') if estimate.customer.move_date else '')
+
         html_content = html_content.replace('{{weight}}', f'{estimate.weight_lbs} lbs' if estimate.weight_lbs else '')
         html_content = html_content.replace('{{labour_hours}}', f'{estimate.labour_hours} hours' if estimate.labour_hours else '')
+        
+        # Time windows and Date Ranges
+        html_content = html_content.replace('{{pickup_time_window}}', str(estimate.pickup_time_window) if estimate.pickup_time_window else '')
+        html_content = html_content.replace('{{delivery_time_window}}', str(estimate.delivery_time_window) if estimate.delivery_time_window else '')
+        
+        pickup_range_str = ''
+        if getattr(estimate, 'pickup_date_from', None) and getattr(estimate, 'pickup_date_to', None):
+            pickup_range_str = f"{estimate.pickup_date_from.strftime('%B %d, %Y')} - {estimate.pickup_date_to.strftime('%B %d, %Y')}"
+        elif getattr(estimate, 'pickup_date_from', None):
+            pickup_range_str = estimate.pickup_date_from.strftime('%B %d, %Y')
+        html_content = html_content.replace('{{pickup_date_range}}', pickup_range_str)
+
+        delivery_range_str = ''
+        if getattr(estimate, 'delivery_date_from', None) and getattr(estimate, 'delivery_date_to', None):
+            delivery_range_str = f"{estimate.delivery_date_from.strftime('%B %d, %Y')} - {estimate.delivery_date_to.strftime('%B %d, %Y')}"
+        elif getattr(estimate, 'delivery_date_from', None):
+            delivery_range_str = estimate.delivery_date_from.strftime('%B %d, %Y')
+        html_content = html_content.replace('{{delivery_date_range}}', delivery_range_str)
+
+        # Payment tags (Change #6)
+        payment = PaymentReceipt.objects.filter(estimate=estimate).last() or PaymentReceipt.objects.filter(invoice__estimate=estimate).last()
+        if payment:
+            html_content = html_content.replace('{{payment_amount}}', f"${payment.amount:.2f}")
+            html_content = html_content.replace('{{payment_date}}', payment.payment_date.strftime('%B %d, %Y') if payment.payment_date else '')
+            html_content = html_content.replace('{{payment_type}}', payment.get_payment_method_display())
+        else:
+            html_content = html_content.replace('{{payment_amount}}', '')
+            html_content = html_content.replace('{{payment_date}}', '')
+            html_content = html_content.replace('{{payment_type}}', '')
         
         # Generate line items table (tolerate whitespace + escaped braces)
         import re
@@ -299,8 +331,8 @@ def process_document_template(html_content, customer=None, estimate=None, signat
         text_value = text_inputs_dict.get(str(current_index))
         
         if text_value:
-            # Filled - show the text
-            inner = f'<span style="font-weight: normal; color: #000;">{text_value}</span>'
+            # Filled - show the text (Removed forced black/normal style - Change #8)
+            inner = f'<span>{text_value}</span>'
         else:
             # Not filled - show placeholder
             inner = 'Click to type'
@@ -415,12 +447,20 @@ def generate_invoice_pdf(invoice):
     estimate = invoice.estimate
     from masterdata.models import DocumentLibrary
     
-    # 1. Try to find by purpose (preferred)
+    # 1. Try to find by category (Main)
     template = DocumentLibrary.objects.filter(
         organization=invoice.organization,
-        document_purpose='invoice_pdf',
+        category='Invoice',
         is_active=True
     ).first()
+
+    # 2. Fallback to purpose if category not found
+    if not template:
+        template = DocumentLibrary.objects.filter(
+            organization=invoice.organization,
+            document_purpose='invoice_pdf',
+            is_active=True
+        ).first()
 
     if not template:
         logger.warning(f"No invoice template found for Invoice {invoice.id}")
@@ -467,12 +507,20 @@ def generate_payment_receipt_pdf(payment):
     
     from masterdata.models import DocumentLibrary
     
-    # 1. Try to find by purpose (preferred)
+    # 1. Try to find by category (Main)
     template = DocumentLibrary.objects.filter(
         organization=payment.organization,
-        document_purpose='receipt_pdf',
+        category='Payment Receipt',
         is_active=True
     ).first()
+
+    # 2. Fallback to purpose if category not found
+    if not template:
+        template = DocumentLibrary.objects.filter(
+            organization=payment.organization,
+            document_purpose='receipt_pdf',
+            is_active=True
+        ).first()
 
     if not template:
         logger.warning(f"No payment receipt template found for Payment {payment.id}")
@@ -521,11 +569,20 @@ def generate_work_order_pdf(work_order):
     estimate = work_order.estimate
     from masterdata.models import DocumentLibrary
     
+    # 1. Try to find by category (Main)
     template = DocumentLibrary.objects.filter(
         organization=work_order.organization,
-        document_purpose='work_order_pdf',
+        category='Work Order',
         is_active=True
     ).first()
+
+    # 2. Fallback to purpose if category not found
+    if not template:
+        template = DocumentLibrary.objects.filter(
+            organization=work_order.organization,
+            document_purpose='work_order_pdf',
+            is_active=True
+        ).first()
 
     if not template:
         logger.warning(f"No work order template found for WorkOrder {work_order.id}")

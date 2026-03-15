@@ -656,8 +656,6 @@ class DocumentMappingViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         kwargs = {'created_by': self.request.user}
-        if hasattr(self.request, 'organization') and self.request.organization:
-            kwargs['organization'] = self.request.organization
         serializer.save(**kwargs)
 
 
@@ -866,7 +864,8 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             'leads': 'masterdata.tasks.process_raw_endpoint_leads',
             'new_lead': None,  # Event-driven
             'booked': None,    # Event-driven
-            'closed': None     # Event-driven
+            'closed': None,    # Event-driven
+            'signed_documents_email': None # Event-driven
         }
         
         if task_type not in task_functions:
@@ -902,7 +901,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             kwargs['organization_id'] = request.organization.id
             
         next_run = timezone.now()
-        if task_type in ['new_lead', 'booked', 'closed']:
+        if task_type in ['new_lead', 'booked', 'closed', 'signed_documents_email']:
             mapped_type = 'D' # Daily (dummy)
             repeats = -1 # Always active for logic checks
             # Set next_run to the far future so it stays as a config placeholder
@@ -914,6 +913,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             'new_lead': 'New Lead Welcome Email',
             'booked': 'Booking Confirmation Email',
             'closed': 'Closed Email',
+            'signed_documents_email': 'Signed Documents Auto-Reply',
         }
         default_name = default_name_map.get(task_type, f"{task_type.replace('_', ' ').capitalize()} Automation")
 

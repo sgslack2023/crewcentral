@@ -26,6 +26,7 @@ import { CustomerActivityProps, CustomerProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import { BlackButton, WhiteButton, SearchBar, PageLoader } from '../components';
+import AddCustomerForm from '../components/AddCustomerForm';
 
 const STAGE_OPTIONS = [
   { value: 'new_lead', label: 'New Lead', color: '#c7d2ff' },
@@ -47,6 +48,8 @@ const CustomerTimeline: React.FC = () => {
   const [viewNotesModalVisible, setViewNotesModalVisible] = useState(false);
   const [noteForm] = Form.useForm();
   const [stageUpdating, setStageUpdating] = useState(false);
+  const [isEditFormVisible, setIsEditFormVisible] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerProps | null>(null);
 
   const currentUser = getCurrentUser();
 
@@ -254,6 +257,15 @@ const CustomerTimeline: React.FC = () => {
                     }))}
                   />
                 </div>
+                <Button 
+                  type="text" 
+                  icon={<EditOutlined />} 
+                  onClick={() => {
+                    setEditingCustomer(customer);
+                    setIsEditFormVisible(true);
+                  }}
+                  style={{ color: '#5b6cf9', flexShrink: 0 }}
+                />
               </div>
 
               {/* Contact Information */}
@@ -844,6 +856,21 @@ const CustomerTimeline: React.FC = () => {
           </div>
         )}
       </Modal>
+      {isEditFormVisible && (
+        <AddCustomerForm
+          isVisible={isEditFormVisible}
+          onSuccessCallBack={() => {
+            setIsEditFormVisible(false);
+            setEditingCustomer(null);
+            fetchCustomer();
+          }}
+          onClose={() => {
+            setIsEditFormVisible(false);
+            setEditingCustomer(null);
+          }}
+          editingCustomer={editingCustomer}
+        />
+      )}
     </>
   );
 };

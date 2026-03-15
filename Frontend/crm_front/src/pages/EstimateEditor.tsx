@@ -26,7 +26,8 @@ import {
   TagOutlined,
   FilePdfOutlined,
   CameraOutlined,
-  MailOutlined
+  MailOutlined,
+  SolutionOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -1108,7 +1109,9 @@ const EstimateEditor: React.FC = () => {
       key: 'contractor_rate',
       width: 120,
       render: (rate: number, record: ContractorEstimateLineItemProps) => {
-        const isEditing = editingContractorKey === record.id;
+        if (record.charge_type === 'percent') return <span>-</span>;
+
+        const isEditing = editingContractorKey === record.id && record.charge_type !== 'per_lb';
         return isEditing ? (
           <InputNumber
             value={editedContractorValues[record.id!]?.contractor_rate ?? rate}
@@ -1120,6 +1123,30 @@ const EstimateEditor: React.FC = () => {
           />
         ) : (
           <span>${rate ? Number(rate).toFixed(2) : '0.00'}</span>
+        );
+      }
+    },
+    {
+      title: 'Percentage',
+      dataIndex: 'percentage',
+      key: 'percentage',
+      width: 100,
+      render: (percentage: number, record: ContractorEstimateLineItemProps) => {
+        if (record.charge_type !== 'percent') return <span>-</span>;
+
+        const isEditing = editingContractorKey === record.id;
+        return isEditing ? (
+          <InputNumber
+            value={editedContractorValues[record.id!]?.percentage ?? percentage}
+            onChange={(value) => handleFieldChangeContractor(record.id!, 'percentage', value)}
+            style={{ width: '100%' }}
+            min={0}
+            max={100}
+            step={0.01}
+            suffix="%"
+          />
+        ) : (
+          <span>{percentage ? Number(percentage).toFixed(2) : '0.00'}%</span>
         );
       }
     },
@@ -1168,7 +1195,10 @@ const EstimateEditor: React.FC = () => {
                 onClick={() => {
                   setEditingContractorKey(record.id!);
                   setEditedContractorValues({
-                    [record.id!]: { contractor_rate: record.contractor_rate }
+                    [record.id!]: {
+                      contractor_rate: record.contractor_rate,
+                      percentage: record.percentage
+                    }
                   });
                 }}
               />
@@ -1798,6 +1828,19 @@ const EstimateEditor: React.FC = () => {
                         />
                       </Tooltip>
 
+                      {(estimate?.status === 'work_order' || estimate?.status === 'approved') && (internalWorkOrder?.status === 'completed' || externalWorkOrder?.status === 'completed' || externalWorkOrder?.status === 'accepted') && (
+                        <Tooltip title="Invoice Order">
+                          <Button
+                            size="small"
+                            type="text"
+                            icon={<SolutionOutlined style={{ fontSize: '16px' }} />}
+                            onClick={() => handleGenerateInvoiceFromWO(internalWorkOrder?.id || externalWorkOrder?.id || 0)}
+                            loading={invoicing}
+                            style={{ color: '#722ed1', padding: '0 2px', height: '28px', minWidth: '32px' }}
+                          />
+                        </Tooltip>
+                      )}
+
 
                       <Tooltip title="Send to Customer">
                         <Button
@@ -1835,18 +1878,6 @@ const EstimateEditor: React.FC = () => {
                         </Tooltip>
                       )}
 
-                      {estimate?.status === 'work_order' && internalWorkOrder?.status === 'completed' && (
-                        <Tooltip title="Generate Invoice">
-                          <Button
-                            size="small"
-                            type="text"
-                            icon={<DollarOutlined style={{ fontSize: '16px' }} />}
-                            onClick={() => handleGenerateInvoiceFromWO(internalWorkOrder.id!)}
-                            loading={invoicing}
-                            style={{ color: '#5b6cf9', padding: '0 2px', height: '28px', minWidth: '32px' }}
-                          />
-                        </Tooltip>
-                      )}
 
                       {estimate?.status === 'invoiced' && invoices.length > 0 && invoices[0].pdf_file && (
                         <Tooltip title="Invoice PDF">
@@ -2396,7 +2427,7 @@ const EstimateEditor: React.FC = () => {
                             sticky
                             summary={() => (
                               <Table.Summary.Row style={{ backgroundColor: '#f0f2ff' }}>
-                                <Table.Summary.Cell index={0} colSpan={3}>
+                                <Table.Summary.Cell index={0} colSpan={4}>
                                   <strong style={{ fontSize: '14px' }}>Total Contractor Amount</strong>
                                 </Table.Summary.Cell>
                                 <Table.Summary.Cell index={1}>

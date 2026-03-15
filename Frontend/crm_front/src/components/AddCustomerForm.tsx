@@ -1,5 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
-import { Drawer, notification, Form, Input, Select, Button, Card, DatePicker } from "antd";
+import { Drawer, notification, Form, Input, Select, Button, Card, DatePicker, Collapse } from "antd";
 import {
   UserOutlined,
   MailOutlined,
@@ -183,16 +183,21 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
     >
       <Form layout="vertical" onFinish={onSubmit} form={form}>
         {/* Basic Information Card */}
-        <Card
-          size="small"
-          style={{ marginBottom: '16px' }}
-          title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
-              <UserOutlined />
-              Basic Information
-            </span>
-          }
+        <Collapse
+          defaultActiveKey={[]}
+          style={{ marginBottom: '16px', backgroundColor: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }}
+          expandIconPosition="end"
         >
+          <Collapse.Panel
+            key="basic"
+            header={
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
+                <UserOutlined />
+                Basic Information
+              </span>
+            }
+            style={{ border: 'none' }}
+          >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Form.Item
               label="Full Name"
@@ -233,75 +238,87 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
               <Input prefix={<TeamOutlined />} placeholder="Company Name" />
             </Form.Item>
           </div>
-        </Card>
+          </Collapse.Panel>
+        </Collapse>
 
         {/* Address Information Card */}
-        <Card
-          size="small"
-          style={{ marginBottom: '16px' }}
-          title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
-              <HomeOutlined />
-              Address Information
-            </span>
-          }
+        <Collapse
+          defaultActiveKey={[]}
+          style={{ marginBottom: '16px', backgroundColor: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }}
+          expandIconPosition="end"
         >
-          <Form.Item
-            label="Address"
-            name="address"
-            style={{ marginBottom: '12px' }}
+          <Collapse.Panel
+            key="1"
+            header={
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
+                <HomeOutlined />
+                Address Information
+              </span>
+            }
+            style={{ border: 'none' }}
           >
-            <TextArea rows={2} placeholder="Street address" />
-          </Form.Item>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Form.Item
-              label="City"
-              name="city"
+              label="Address"
+              name="address"
               style={{ marginBottom: '12px' }}
             >
-              <Input placeholder="City" />
+              <TextArea rows={2} placeholder="Street address" />
             </Form.Item>
 
-            <Form.Item
-              label="State"
-              name="state"
-              style={{ marginBottom: '12px' }}
-            >
-              <Input placeholder="State" />
-            </Form.Item>
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Form.Item
+                label="City"
+                name="city"
+                style={{ marginBottom: '12px' }}
+              >
+                <Input placeholder="City" />
+              </Form.Item>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <Form.Item
-              label="Country"
-              name="country"
-              style={{ marginBottom: '0' }}
-            >
-              <Input placeholder="Country" />
-            </Form.Item>
+              <Form.Item
+                label="State"
+                name="state"
+                style={{ marginBottom: '12px' }}
+              >
+                <Input placeholder="State" />
+              </Form.Item>
+            </div>
 
-            <Form.Item
-              label="Postal Code"
-              name="postal_code"
-              style={{ marginBottom: '0' }}
-            >
-              <Input placeholder="Postal Code" />
-            </Form.Item>
-          </div>
-        </Card>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <Form.Item
+                label="Country"
+                name="country"
+                style={{ marginBottom: '0' }}
+              >
+                <Input placeholder="Country" />
+              </Form.Item>
+
+              <Form.Item
+                label="Postal Code"
+                name="postal_code"
+                style={{ marginBottom: '0' }}
+              >
+                <Input placeholder="Postal Code" />
+              </Form.Item>
+            </div>
+          </Collapse.Panel>
+        </Collapse>
 
         {/* Move Information Card */}
-        <Card
-          size="small"
-          style={{ marginBottom: '16px' }}
-          title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
-              <CarOutlined />
-              Move Information
-            </span>
-          }
+        <Collapse
+          defaultActiveKey={[]}
+          style={{ marginBottom: '16px', backgroundColor: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }}
+          expandIconPosition="end"
         >
+          <Collapse.Panel
+            key="move"
+            header={
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
+                <CarOutlined />
+                Move Information
+              </span>
+            }
+            style={{ border: 'none' }}
+          >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Form.Item
               label="Service Type"
@@ -371,19 +388,25 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
           >
             <TextArea rows={2} placeholder="Drop-off address" />
           </Form.Item>
-        </Card>
+          </Collapse.Panel>
+        </Collapse>
 
         {/* CRM Information Card */}
-        <Card
-          size="small"
-          style={{ marginBottom: '16px' }}
-          title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
-              <TagsOutlined />
-              CRM Information
-            </span>
-          }
+        <Collapse
+          defaultActiveKey={[]}
+          style={{ marginBottom: '16px', backgroundColor: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }}
+          expandIconPosition="end"
         >
+          <Collapse.Panel
+            key="crm"
+            header={
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
+                <TagsOutlined />
+                CRM Information
+              </span>
+            }
+            style={{ border: 'none' }}
+          >
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <Form.Item
               label="Source"
@@ -435,26 +458,33 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
               ))}
             </Select>
           </Form.Item>
-        </Card>
+          </Collapse.Panel>
+        </Collapse>
 
         {/* Notes Card */}
-        <Card
-          size="small"
-          style={{ marginBottom: '16px' }}
-          title={
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9' }}>
-              <FileTextOutlined />
-              Notes
-            </span>
-          }
+        <Collapse
+          defaultActiveKey={[]}
+          style={{ marginBottom: '16px', backgroundColor: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px' }}
+          expandIconPosition="end"
         >
+          <Collapse.Panel
+            key="notes"
+            header={
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
+                <FileTextOutlined />
+                Notes
+              </span>
+            }
+            style={{ border: 'none' }}
+          >
           <Form.Item
             name="notes"
             style={{ marginBottom: '0' }}
           >
             <TextArea rows={4} placeholder="Additional notes about this customer..." />
           </Form.Item>
-        </Card>
+          </Collapse.Panel>
+        </Collapse>
 
         <Form.Item style={{ marginBottom: '0', marginTop: '24px' }}>
           <BlackButton htmlType="submit" block loading={loading} style={{ height: '40px', fontSize: '16px' }}>

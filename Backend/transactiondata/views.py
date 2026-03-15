@@ -119,12 +119,39 @@ class ChargeDefinitionViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     permission_classes = (isAuthenticatedCustom,)
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        # Start with all charges and apply context-aware filtering
+        queryset = ChargeDefinition.objects.all()
         
-        # By default, exclude estimate-only charges from configure views
-        # unless explicitly requested with include_estimate_only=true
-        include_estimate_only = self.request.query_params.get('include_estimate_only', None)
-        if include_estimate_only != 'true':
+        # Apply organization context if user is not superuser
+        if not self.request.user.is_superuser and hasattr(self.request, 'organization') and self.request.organization:
+            from masterdata.models import Organization
+            active_org = self.request.organization
+            
+            # Find all ancestors (parents) to include their charges (e.g., franchisor charges)
+            ancestor_ids = []
+            current = active_org.parent_organization
+            while current:
+                ancestor_ids.append(current.id)
+                current = current.parent_organization
+                
+            # Find all descendants (franchisees)
+            descendants = Organization.objects.filter(parent_organization=active_org).values_list('id', flat=True)
+            
+            # Filter: own org + parents + children + global (null)
+            queryset = queryset.filter(
+                Q(organization=active_org) | 
+                Q(organization_id__in=descendants) |
+                Q(organization_id__in=ancestor_ids) |
+                Q(organization__isnull=True)
+            ).distinct()
+        elif not self.request.user.is_superuser:
+            # If no org and not superuser, return none for safety
+            return ChargeDefinition.objects.none()
+
+        # Handle is_estimate_only flag
+        # By default, exclude estimate-only charges unless explicitly requested
+        include_estimate_only = self.request.query_params.get('include_estimate_only', 'false').lower() == 'true'
+        if not include_estimate_only:
             queryset = queryset.filter(is_estimate_only=False)
         
         # Filter by active status
@@ -555,34 +582,20 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         # If not provided, try to get from request
         if backend_base_url is None and hasattr(request, 'build_absolute_uri'):
             try:
-                backend_base_url = request.build_absolute_uri('/')[:-1]  # Remove trailing slash
+                backend_base_url = request.build_absolute_uri('/')[:-1]
             except:
                 pass
         
-        success, message = send_estimate_email(estimate, base_url, backend_base_url)
+        from django_q.tasks import async_task
+        from .tasks import send_manual_estimate_async
         
-        if success:
-            # Create activity
-            CustomerActivity.objects.create(
-                customer=estimate.customer,
-                estimate=estimate,
-                activity_type='estimate_sent',
-                title=f'Estimate #{estimate.id} Sent to Customer',
-                description=f'Estimate emailed to {estimate.customer.email}',
-                created_by=request.user
-            )
-            
-            serializer = self.get_serializer(estimate)
-            return Response({
-                'success': True,
-                'message': message,
-                'estimate': serializer.data
-            })
-        else:
-            return Response({
-                'success': False,
-                'message': message
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Offload slow email sending and PDF generation to Django Q
+        async_task(send_manual_estimate_async, estimate.id, base_url, backend_base_url, request.user.id if request.user else None)
+        
+        return Response({
+            'success': True,
+            'message': 'Estimate email has been queued for sending.'
+        })
     
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def public_view(self, request):
@@ -1015,9 +1028,8 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         Send all signed documents back to the customer as confirmation attachments
         """
         estimate = self.get_object()
-        # Find documents that have BEEN signed (requires_signature=True AND customer_signed=True)
-        # However, some might not require signature but are still part of the "signed" set?
-        # User said "send ALL the signed documents". Usually this means those with customer_signed=True.
+        
+        # Find documents that have BEEN signed
         signed_docs = estimate.estimate_documents.filter(customer_signed=True)
         
         if not signed_docs.exists():
@@ -1026,27 +1038,15 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 'message': 'No signed documents found for this estimate.'
             }, status=status.HTTP_400_BAD_REQUEST)
             
-        from .email_utils import send_signed_documents_email
-        success, message = send_signed_documents_email(estimate, signed_docs)
+        from .tasks import auto_send_signed_documents
+        from django_q.tasks import async_task
         
-        if success:
-            CustomerActivity.objects.create(
-                customer=estimate.customer,
-                estimate=estimate,
-                activity_type='other',
-                title=f'Signed Documents Sent',
-                description=f'Sent {signed_docs.count()} signed documents to {estimate.customer.email}',
-                created_by=request.user
-            )
-            return Response({
-                'success': True,
-                'message': message
-            })
-        else:
-            return Response({
-                'success': False,
-                'message': message
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        async_task(auto_send_signed_documents, estimate.id)
+        
+        return Response({
+            'success': True,
+            'message': 'Signed documents delivery has been queued. The customer will receive them shortly.'
+        })
 
 
     @action(detail=True, methods=['post'])
@@ -1062,7 +1062,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 'message': 'No contractor assigned to this estimate.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Create WorkOrder
+        # Create or Get WorkOrder
         work_order, created = WorkOrder.objects.get_or_create(
             estimate=estimate,
             contractor=estimate.assigned_contractor,
@@ -1073,16 +1073,29 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             }
         )
         
-        if created:
-            # Copy line items
-            for item in estimate.items.all():
-                ContractorEstimateLineItem.objects.create(
-                    work_order=work_order,
-                    estimate_item=item,
-                    description=item.charge_name,
-                    quantity=item.quantity,
-                    contractor_rate=0 # Default to 0, user can edit
-                )
+        # Sync line items (update existing or create new)
+        for item in estimate.items.all():
+            contractor_item, itm_created = ContractorEstimateLineItem.objects.get_or_create(
+                work_order=work_order,
+                estimate_item=item,
+                defaults={
+                    'description': item.charge_name,
+                    'quantity': item.quantity,
+                    'contractor_rate': 0,
+                    'charge_type': item.charge_type,
+                    'percentage': item.percentage
+                }
+            )
+            
+            if not itm_created:
+                # If it already existed, make sure the calculation type and percentage are synced
+                # but don't overwrite the contractor_rate which might have been edited.
+                contractor_item.charge_type = item.charge_type
+                contractor_item.percentage = item.percentage
+                contractor_item.save() # This triggers recalculation
+        
+        # Trigger a full update of the work order totals
+        work_order.update_total()
         
         serializer = WorkOrderSerializer(work_order, context={'request': request})
         return Response({
@@ -1528,14 +1541,9 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
             created_by=None
         )
         
-        # Check if all documents in the batch are signed to trigger automation
-        all_signed = not estimate_document.estimate.estimate_documents.filter(customer_signed=False).exists()
+        # Automated background sending removed at user request.
+        # Handled manually via the 'Send Signed Documents' button, which queues a Django-Q task.
         
-        if all_signed:
-            # Trigger async delivery task
-            from django_q.tasks import async_task
-            async_task('transactiondata.tasks.auto_send_signed_documents', estimate_document.estimate.id)
-            
         serializer = self.get_serializer(estimate_document)
         return Response(serializer.data)
 
@@ -1601,13 +1609,15 @@ class InvoiceViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def send_to_customer(self, request, pk=None):
         """
-        Send invoice to customer via email
+        Send invoice to customer via email (async via Django Q)
         """
         invoice = self.get_object()
-        success, message = send_invoice_pdf_email(invoice)
-        if success:
-            return Response({'message': message})
-        return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        from django_q.tasks import async_task
+        from .tasks import send_invoice_async
+        
+        async_task(send_invoice_async, invoice.id)
+        
+        return Response({'message': 'Invoice email has been queued for sending.'})
 
 
 class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
@@ -1646,9 +1656,16 @@ class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             return Response({'error': 'Receipt not found'}, status=status.HTTP_404_NOT_FOUND)
             
         token = request.query_params.get('token')
-        # Allow access if authenticated OR if correct estimate token is provided via its invoice
+        # Allow access if authenticated OR if correct estimate token is provided via its invoice OR directly
         is_authenticated = request.user and request.user.is_authenticated
-        is_token_valid = token and receipt.invoice and receipt.invoice.estimate and receipt.invoice.estimate.public_token == token
+        is_token_valid = False
+        if token:
+            # Check via invoice -> estimate path
+            if receipt.invoice and receipt.invoice.estimate and receipt.invoice.estimate.public_token == token:
+                is_token_valid = True
+            # Check via direct estimate path (deposits taken before invoice)
+            elif receipt.estimate and receipt.estimate.public_token == token:
+                is_token_valid = True
         
         if not (is_authenticated or is_token_valid):
             return Response({'error': 'Authentication required or invalid token'}, status=status.HTTP_403_FORBIDDEN)
@@ -1664,13 +1681,15 @@ class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def send_to_customer(self, request, pk=None):
         """
-        Send payment receipt to customer via email
+        Send payment receipt to customer via email (async via Django Q)
         """
         receipt = self.get_object()
-        success, message = send_receipt_pdf_email(receipt)
-        if success:
-            return Response({'message': message})
-        return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        from django_q.tasks import async_task
+        from .tasks import send_receipt_async
+        
+        async_task(send_receipt_async, receipt.id)
+        
+        return Response({'message': 'Receipt email has been queued for sending.'})
 
 
 class AccountingViewSet(viewsets.ViewSet):
@@ -1873,6 +1892,13 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     def send_email(self, request, pk=None):
         """Send work order email to contractor"""
         work_order = self.get_object()
+        
+        # If resending to a contractor who declined/rejected, reset status to pending 
+        # so they can interact with the portal again.
+        if work_order.status in ['cancelled', 'declined', 'rejected']:
+            work_order.status = 'pending'
+            work_order.save(update_fields=['status', 'updated_at'])
+            
         success, message = send_work_order_email(work_order)
         
         if success:

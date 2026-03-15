@@ -32,9 +32,9 @@ def estimate_status_changed(sender, instance, created, **kwargs):
                 status='draft',
                 created_by=instance.created_by
             )
-            # Generate PDF in background or directly
-            # For now directly, can move to django-q later
-            generate_invoice_pdf(invoice)
+            # Generate PDF in background
+            from .tasks import generate_invoice_pdf_async
+            async_task(generate_invoice_pdf_async, invoice.id)
 
 @receiver(post_save, sender=Invoice)
 def invoice_saved(sender, instance, created, **kwargs):
@@ -44,7 +44,8 @@ def invoice_saved(sender, instance, created, **kwargs):
     if created:
         # Trigger PDF generation if not already done
         if not instance.pdf_file:
-            generate_invoice_pdf(instance)
+            from .tasks import generate_invoice_pdf_async
+            async_task(generate_invoice_pdf_async, instance.id)
             
         # Queue email automation
         if instance.customer and instance.customer.email:
@@ -64,9 +65,8 @@ def payment_receipt_created(sender, instance, created, **kwargs):
             
         # Generate receipt PDF if not already done
         if not instance.pdf_file:
-            # We don't import at top to avoid circular imports if any
-            from .utils import generate_payment_receipt_pdf
-            generate_payment_receipt_pdf(instance)
+            from .tasks import generate_receipt_pdf_async
+            async_task(generate_receipt_pdf_async, instance.id)
             
         # Queue email automation
         customer_email = None
