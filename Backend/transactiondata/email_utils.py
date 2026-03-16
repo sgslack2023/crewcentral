@@ -345,8 +345,9 @@ def render_email_template(template_name, context, default_subject, default_body,
             )
             
             # Support both {tag} and {{tag}} substitution for context-based tags
+            # We check for double braces BEFORE single braces to avoid leaving leftover braces
             for key, value in context.items():
-                placeholders = ["{" + str(key) + "}", "{{" + str(key) + "}}"]
+                placeholders = ["{{" + str(key) + "}}", "{" + str(key) + "}"]
                 for placeholder in placeholders:
                     if placeholder in subject:
                         subject = subject.replace(placeholder, str(value))
@@ -1129,6 +1130,10 @@ def send_booked_email(customer, template=None, tracking_token=None):
     Send an email to a customer when their job is booked.
     """
     try:
+        from .models import Estimate
+        # Find the latest booked or active estimate to get move details
+        estimate = Estimate.objects.filter(customer=customer).order_by('-created_at').first()
+        
         # Build context
         context = {
             'customer_name': customer.full_name,
@@ -1136,6 +1141,13 @@ def send_booked_email(customer, template=None, tracking_token=None):
             'job_number': customer.job_number if customer.job_number else 'N/A',
             'move_date': customer.move_date.strftime('%B %d, %Y') if customer.move_date else 'TBD'
         }
+        
+        # If we found an estimate, add its specific details too
+        if estimate:
+            context.update({
+                'estimate_id': estimate.id,
+                'service_type': estimate.service_type.service_type if estimate.service_type else ''
+            })
         
         # Default content
         default_subject = f"Your Job is Booked! - Baltic Van Lines"
@@ -1153,7 +1165,7 @@ def send_booked_email(customer, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='booked_email', organization=customer.organization,
-            tracking_token=tracking_token, customer=customer
+            tracking_token=tracking_token, customer=customer, estimate=estimate
         )
         
         # Create email

@@ -226,8 +226,10 @@ def process_document_template(html_content, customer=None, estimate=None, signat
         html_content = html_content.replace('{{estimate_total}}', f'${estimate.total_amount:,.2f}')
         html_content = html_content.replace('{{service_type}}', estimate.service_type.service_type if estimate.service_type else '')
         html_content = html_content.replace('{{move_date}}', estimate.customer.move_date.strftime('%B %d, %Y') if estimate.customer.move_date else '')
-        # Handle bracketed version requested by user
-        html_content = html_content.replace('[move_date]', estimate.customer.move_date.strftime('%B %d, %Y') if estimate.customer.move_date else '')
+        # Handle bracketed and single brace versions requested by user
+        formatted_date = estimate.customer.move_date.strftime('%B %d, %Y') if estimate.customer.move_date else ''
+        html_content = html_content.replace('[move_date]', formatted_date)
+        html_content = html_content.replace('{move_date}', formatted_date)
 
         html_content = html_content.replace('{{weight}}', f'{estimate.weight_lbs} lbs' if estimate.weight_lbs else '')
         html_content = html_content.replace('{{labour_hours}}', f'{estimate.labour_hours} hours' if estimate.labour_hours else '')
