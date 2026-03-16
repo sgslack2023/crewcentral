@@ -269,9 +269,50 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
     }
   };
 
+  // Convert blob URLs to base64 before saving
+  const convertBlobUrlsToBase64 = async (htmlString: string): Promise<string> => {
+    const blobUrlRegex = /<img[^>]+src=["'](blob:[^"']+)["']/gi;
+    const matches: RegExpExecArray[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = blobUrlRegex.exec(htmlString)) !== null) {
+      matches.push(match);
+    }
+    
+    if (matches.length === 0) return htmlString;
+    
+    let result = htmlString;
+    for (const m of matches) {
+      const blobUrl = m[1];
+      try {
+        const response = await fetch(blobUrl);
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        result = result.replace(blobUrl, base64);
+      } catch (e) {
+        console.warn('Failed to convert blob URL to base64:', e);
+      }
+    }
+    return result;
+  };
+
   const handleSave = async () => {
     // Get current content from editor
-    const currentContent = editorRef.current ? editorRef.current.getContents() : content;
+    let currentContent = editorRef.current ? editorRef.current.getContents() : content;
+
+    // Debug: Log image info before save
+    const imgMatches = currentContent.match(/<img[^>]+src=["']([^"']+)["']/gi) || [];
+    console.log(`[DocumentEditor] Saving document with ${imgMatches.length} images`);
+    imgMatches.forEach((img: string, i: number) => {
+      const srcMatch = img.match(/src=["']([^"']+)["']/i);
+      if (srcMatch) {
+        const src = srcMatch[1];
+        console.log(`[DocumentEditor] Image ${i + 1}: ${src.substring(0, 50)}... (${src.length} chars)`);
+      }
+    });
 
     if (!title || !currentContent) {
       notification.warning({
@@ -286,6 +327,13 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
     const headers = getAuthToken() as AuthTokenType;
 
     try {
+      // Convert any blob URLs to base64 before saving (prevents image loss)
+      currentContent = await convertBlobUrlsToBase64(currentContent);
+      
+      // Debug: Log after blob conversion
+      const imgMatchesAfter = currentContent.match(/<img[^>]+src=["']([^"']+)["']/gi) || [];
+      console.log(`[DocumentEditor] After blob conversion: ${imgMatchesAfter.length} images`);
+      
       // Create HTML file blob from rich text content
       const htmlContent = `
 <!DOCTYPE html>

@@ -1,4 +1,8 @@
 import secrets
+import re
+import base64
+import uuid
+from email.mime.image import MIMEImage
 from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings
 from django.utils import timezone
@@ -9,6 +13,56 @@ logger = logging.getLogger(__name__)
 def generate_public_token():
     """Generate a secure random token for public access"""
     return secrets.token_urlsafe(32)
+
+
+def convert_base64_images_to_cid(html_content, email):
+    """
+    Convert base64 embedded images to CID attachments for email compatibility.
+    Many email clients (Gmail, Outlook, etc.) block inline base64 images.
+    CID (Content-ID) attachments are properly supported.
+    
+    Args:
+        html_content: HTML string with base64 images
+        email: EmailMultiAlternatives object to attach images to
+        
+    Returns:
+        Modified HTML with cid: references instead of base64
+    """
+    # Find all base64 images
+    base64_pattern = r'(<img[^>]+src=["\'])(data:image/([^;]+);base64,([^"\']+))(["\'][^>]*>)'
+    
+    def replace_with_cid(match):
+        prefix = match.group(1)  # <img ... src="
+        image_type = match.group(3)  # png, jpeg, gif, etc.
+        base64_data = match.group(4)  # The actual base64 data
+        suffix = match.group(5)  # " ... >
+        
+        try:
+            # Generate unique Content-ID
+            cid = f"image_{uuid.uuid4().hex[:8]}"
+            
+            # Decode base64 to bytes
+            image_data = base64.b64decode(base64_data)
+            
+            # Create MIMEImage
+            mime_image = MIMEImage(image_data, _subtype=image_type)
+            mime_image.add_header('Content-ID', f'<{cid}>')
+            mime_image.add_header('Content-Disposition', 'inline', filename=f'{cid}.{image_type}')
+            
+            # Attach to email
+            email.attach(mime_image)
+            
+            print(f"[EMAIL] Converted base64 image to CID: {cid}")
+            
+            # Return with cid: reference
+            return f'{prefix}cid:{cid}{suffix}'
+        except Exception as e:
+            print(f"[EMAIL] Failed to convert base64 image: {e}")
+            # Return original on failure
+            return match.group(0)
+    
+    modified_html = re.sub(base64_pattern, replace_with_cid, html_content)
+    return modified_html
 
 
 def send_signed_documents_email(estimate, signed_docs):
@@ -48,6 +102,12 @@ def send_signed_documents_email(estimate, signed_docs):
             from_email=settings.EMAIL_HOST_USER,
             to=[estimate.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
 
         # Process and attach library documents
@@ -217,6 +277,12 @@ def send_feedback_email(customer, organization, base_url=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach documents
@@ -291,35 +357,35 @@ def render_email_template(template_name, context, default_subject, default_body,
         if template:
             # Fetch attachments
             attachments = list(template.attachments.all())
-            logger.info(f"Found template: {template.title}, attachments count: {len(attachments)}")
+            print(f"[EMAIL] Found template: {template.title} (ID: {template.id}), has_file: {bool(template.file)}")
             subject = template.subject if template.subject else default_subject
             
             # Load HTML body from file if available, otherwise use description
             if template.file:
                 try:
-                    # Read the HTML file content
+                    # Read the HTML file content in binary mode and decode as UTF-8
                     logger.info(f"Reading template file: {template.file.name}")
-                    with template.file.open('r') as f:
+                    with template.file.open('rb') as f:
                         raw_bytes = f.read()
-                    # Handle encoding: if opened as bytes, decode; if string, encode/decode to ensure UTF-8
-                    if isinstance(raw_bytes, bytes):
-                        file_content = raw_bytes.decode('utf-8', errors='replace')
-                    else:
-                        # Re-encode from system default and decode as UTF-8
-                        try:
-                            file_content = raw_bytes.encode('latin-1').decode('utf-8', errors='replace')
-                        except (UnicodeDecodeError, UnicodeEncodeError):
-                            file_content = raw_bytes
-                    logger.info(f"File content length: {len(file_content)}")
-                    # Extract body content from HTML (files saved from DocumentEditor have full HTML structure)
+                    file_content = raw_bytes.decode('utf-8', errors='replace')
+                    print(f"[EMAIL] File content length: {len(file_content)}")
+                    
+                    # Debug: Check if there are any img tags in the file
                     import re
+                    img_count = len(re.findall(r'<img[^>]+>', file_content, flags=re.IGNORECASE))
+                    print(f"[EMAIL] Found {img_count} img tags in raw file content")
+                    
+                    # Extract body content from HTML (files saved from DocumentEditor have full HTML structure)
                     body_match = re.search(r'<body[^>]*>([\s\S]*)</body>', file_content, re.IGNORECASE)
                     if body_match:
                         html_body = body_match.group(1).strip()
-                        logger.info(f"Extracted body content, length: {len(html_body)}")
+                        print(f"[EMAIL] Extracted body content, length: {len(html_body)}")
+                        # Debug: Check img tags after extraction
+                        img_count_after = len(re.findall(r'<img[^>]+>', html_body, flags=re.IGNORECASE))
+                        print(f"[EMAIL] Found {img_count_after} img tags after body extraction")
                     else:
                         html_body = file_content
-                        logger.info(f"No body tag found, using full content")
+                        print(f"[EMAIL] No body tag found, using full content")
                 except Exception as e:
                     logger.warning(f"Failed to read template file: {e}, falling back to description")
                     html_body = template.description if template.description else default_body
@@ -367,8 +433,9 @@ def render_email_template(template_name, context, default_subject, default_body,
                 """
                 html_body = html_body.replace("{{feedback_button}}", button_html)
                 html_body = html_body.replace("{feedback_button}", button_html)
-            else:
-                logger.info(f"No feedback_button tag found in body (length: {len(html_body)})")
+            # Process images to ensure logos and images are preserved (handles relative paths and absolute URLs)
+            from .utils import convert_images_to_base64
+            html_body = convert_images_to_base64(html_body)
                     
     except Exception as e:
         logger.warning(f"Error loading/rendering email template '{template_name}' (purpose: {purpose}): {e}")
@@ -382,6 +449,29 @@ def render_email_template(template_name, context, default_subject, default_body,
         else:
             html_body += pixel_tag
 
+    # Debug: Final check for images in email body
+    import re
+    final_img_count = len(re.findall(r'<img[^>]+>', html_body, flags=re.IGNORECASE))
+    print(f"[EMAIL] Final email body has {final_img_count} img tags, length: {len(html_body)}")
+    
+    # Wrap in proper HTML structure if not already wrapped (needed for custom templates)
+    if '<html' not in html_body.lower():
+        html_body = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        img {{ max-width: 100%; height: auto; }}
+    </style>
+</head>
+<body>
+    {html_body}
+</body>
+</html>"""
+        logger.info(f"Wrapped email body in HTML structure")
+    
     # Text body generation
     from django.utils.html import strip_tags
     text_body = strip_tags(html_body)
@@ -528,6 +618,12 @@ def send_estimate_email(estimate, base_url=None, backend_base_url=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[estimate.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -695,6 +791,12 @@ def send_document_signature_email(estimate, base_url=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[estimate.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -803,6 +905,12 @@ def send_feedback_email(feedback, base_url=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[feedback.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -862,6 +970,12 @@ def send_invoice_pdf_email(invoice, template=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[estimate.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach remaining library documents
@@ -956,6 +1070,12 @@ def send_receipt_pdf_email(receipt, template=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[estimate.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach remaining library documents
@@ -1032,6 +1152,12 @@ def send_estimate_pdf_email(estimate, template=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[estimate.customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -1100,7 +1226,7 @@ def send_new_lead_email(customer, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='new_lead_email', organization=customer.organization,
-            tracking_token=tracking_token, customer=customer
+            template=template, tracking_token=tracking_token, customer=customer
         )
         
         # Create email
@@ -1110,6 +1236,12 @@ def send_new_lead_email(customer, template=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -1117,10 +1249,11 @@ def send_new_lead_email(customer, template=None, tracking_token=None):
         
         email.send(fail_silently=False)
         
-        logger.info(f"New Lead email sent to {customer.email}")
+        print(f"[EMAIL] New Lead email sent successfully to {customer.email}")
         return True, "Welcome email sent successfully"
         
     except Exception as e:
+        print(f"[EMAIL] Failed to send new lead email: {e}")
         logger.error(f"Failed to send new lead email to {customer.email}: {e}")
         return False, str(e)
 
@@ -1165,7 +1298,7 @@ def send_booked_email(customer, template=None, tracking_token=None):
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='booked_email', organization=customer.organization,
-            tracking_token=tracking_token, customer=customer, estimate=estimate
+            template=template, tracking_token=tracking_token, customer=customer, estimate=estimate
         )
         
         # Create email
@@ -1175,6 +1308,12 @@ def send_booked_email(customer, template=None, tracking_token=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -1182,10 +1321,11 @@ def send_booked_email(customer, template=None, tracking_token=None):
         
         email.send(fail_silently=False)
         
-        logger.info(f"Booked email sent to {customer.email}")
+        print(f"[EMAIL] Booked email sent successfully to {customer.email}")
         return True, "Booked email sent successfully"
         
     except Exception as e:
+        print(f"[EMAIL] Failed to send booked email: {e}")
         logger.error(f"Failed to send booked email to {customer.email}: {e}")
         return False, str(e)
 
@@ -1219,7 +1359,7 @@ def send_closed_email(customer, feedback_link, template=None, tracking_token=Non
         subject, html_message, text_message, attachments = render_email_template(
             template_title, context, default_subject, default_html,
             purpose='closed_email', organization=customer.organization,
-            tracking_token=tracking_token, customer=customer
+            template=template, tracking_token=tracking_token, customer=customer
         )
         
         # Create email
@@ -1229,6 +1369,12 @@ def send_closed_email(customer, feedback_link, template=None, tracking_token=Non
             from_email=settings.EMAIL_HOST_USER,
             to=[customer.email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents
@@ -1236,10 +1382,11 @@ def send_closed_email(customer, feedback_link, template=None, tracking_token=Non
         
         email.send(fail_silently=False)
         
-        logger.info(f"Closed Email sent to {customer.email}")
+        print(f"[EMAIL] Closed email sent successfully to {customer.email}")
         return True, "Closed Email sent successfully"
         
     except Exception as e:
+        print(f"[EMAIL] Failed to send closed email: {e}")
         logger.error(f"Failed to send closed email to {customer.email}: {e}")
         return False, str(e)
 
@@ -1298,6 +1445,12 @@ def send_work_order_email(work_order, base_url=None):
             from_email=settings.EMAIL_HOST_USER,
             to=[contractor.admin_email]
         )
+        
+        # Convert base64 images to CID attachments (Gmail/Outlook block base64)
+        html_message = convert_base64_images_to_cid(html_message, email)
+        
+        # Set mixed subtype to support both related images and attachments
+        email.mixed_subtype = 'related'
         email.attach_alternative(html_message, "text/html")
         
         # Process and attach library documents

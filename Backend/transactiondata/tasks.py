@@ -151,8 +151,11 @@ def send_new_lead_welcome_email(customer_id, **kwargs):
         if schedule_kwargs.get('document_id'):
             try:
                 template = DocumentLibrary.objects.get(id=schedule_kwargs.get('document_id'), is_active=True)
+                print(f"[NEW_LEAD] Loaded template: {template.title} (ID: {template.id}), has_file: {bool(template.file)}")
+                if template.file:
+                    print(f"[NEW_LEAD] Template file path: {template.file.name}")
             except DocumentLibrary.DoesNotExist:
-                pass
+                print(f"[NEW_LEAD] Template with ID {schedule_kwargs.get('document_id')} not found or inactive")
         
         # Prepare tracking record
         import uuid

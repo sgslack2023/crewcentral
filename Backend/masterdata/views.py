@@ -603,6 +603,9 @@ class DocumentLibraryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             content_type, encoding = mimetypes.guess_type(file_path)
             if not content_type:
                 content_type = 'application/octet-stream'
+            # Add charset for HTML files to ensure proper UTF-8 handling
+            if content_type == 'text/html':
+                content_type = 'text/html; charset=utf-8'
                 
             # Create response
             response = FileResponse(file_handle, content_type=content_type)
@@ -622,6 +625,79 @@ class DocumentLibraryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
             
             return response
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def list_with_images(self, request):
+        """
+        List all documents and show which ones have images
+        """
+        import re
+        documents = self.get_queryset()[:50]  # Limit to 50
+        result = []
+        for doc in documents:
+            info = {
+                'id': doc.id,
+                'title': doc.title,
+                'category': doc.category,
+                'has_file': bool(doc.file),
+                'image_count': 0
+            }
+            if doc.file:
+                try:
+                    with doc.file.open('rb') as f:
+                        content = f.read().decode('utf-8', errors='replace')
+                    img_tags = re.findall(r'<img[^>]+>', content, flags=re.IGNORECASE)
+                    info['image_count'] = len(img_tags)
+                except:
+                    pass
+            result.append(info)
+        return Response(result)
+
+    @action(detail=True, methods=['get'])
+    def check_images(self, request, pk=None):
+        """
+        Debug endpoint to check if document has images stored correctly
+        """
+        import re
+        document = self.get_object()
+        if not document.file:
+            return Response({'error': 'No file attached', 'has_images': False})
+        
+        try:
+            with document.file.open('rb') as f:
+                content = f.read().decode('utf-8', errors='replace')
+            
+            # Find all img tags
+            img_tags = re.findall(r'<img[^>]+>', content, flags=re.IGNORECASE)
+            
+            image_info = []
+            for tag in img_tags:
+                src_match = re.search(r'src=["\'](.*?)["\']', tag, flags=re.IGNORECASE)
+                if src_match:
+                    src = src_match.group(1)
+                    if src.startswith('data:image'):
+                        image_info.append({
+                            'type': 'base64',
+                            'format': src.split(';')[0].replace('data:', ''),
+                            'size': len(src)
+                        })
+                    elif src.startswith('blob:'):
+                        image_info.append({'type': 'blob_url', 'url': src})
+                    elif src.startswith('http'):
+                        image_info.append({'type': 'external_url', 'url': src})
+                    else:
+                        image_info.append({'type': 'other', 'src': src[:100]})
+            
+            return Response({
+                'document_id': document.id,
+                'title': document.title,
+                'file_size': len(content),
+                'has_images': len(image_info) > 0,
+                'image_count': len(image_info),
+                'images': image_info
+            })
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

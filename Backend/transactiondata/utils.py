@@ -152,16 +152,51 @@ def convert_images_to_base64(html_content):
     import re
     import base64
     import requests
+    from django.conf import settings
+    
+    # Log image tags found in content for debugging
+    img_tags = re.findall(r'<img[^>]+>', html_content, flags=re.IGNORECASE)
+    logger.info(f"convert_images_to_base64: Found {len(img_tags)} img tags in content")
+    for i, tag in enumerate(img_tags[:5]):  # Log first 5
+        logger.info(f"  Image {i+1}: {tag[:200]}...")  # Truncate long base64
     
     def replace_img_src(match):
         full_tag = match.group(0)
         src = match.group(1)
         
+        logger.info(f"Processing image src: {src[:100]}...")  # Log what we're processing
+        
         # Skip if already base64
         if src.startswith('data:image'):
+            logger.info(f"  -> Already base64, keeping as-is")
+            return full_tag
+        
+        # Detect blob URLs (temporary browser URLs that won't work)
+        if src.startswith('blob:'):
+            logger.warning(f"Blob URL found in document image: {src}. This image will not render. Configure SunEditor to use base64.")
             return full_tag
         
         try:
+            # Handle Local paths (starts with /media/ or /static/)
+            if src.startswith('/media/') or src.startswith('/static/'):
+                # Resolve local file path
+                if src.startswith('/media/'):
+                    file_path = os.path.join(settings.MEDIA_ROOT, src.replace('/media/', ''))
+                else:
+                    file_path = os.path.join(settings.STATIC_ROOT, src.replace('/static/', ''))
+                
+                if os.path.exists(file_path):
+                    with open(file_path, "rb") as image_file:
+                        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                        content_type = "image/png" # Default, could be more dynamic
+                        if src.endswith('.jpg') or src.endswith('.jpeg'):
+                            content_type = "image/jpeg"
+                        elif src.endswith('.gif'):
+                            content_type = "image/gif"
+                        elif src.endswith('.svg'):
+                            content_type = "image/svg+xml"
+                        return full_tag.replace(src, f'data:{content_type};base64,{encoded_string}')
+
             # Check if it's a URL
             if src.startswith('http://') or src.startswith('https://'):
                 # Download image
@@ -170,9 +205,19 @@ def convert_images_to_base64(html_content):
                     content_type = response.headers.get('content-type', 'image/png')
                     image_base64 = base64.b64encode(response.content).decode('utf-8')
                     return full_tag.replace(src, f'data:{content_type};base64,{image_base64}')
+            
+            # Handle if it's an absolute path but missing the domain (common in some editors)
+            if not src.startswith('http') and not src.startswith('/'):
+                 # Try to see if it's just a filename in media
+                 file_path = os.path.join(settings.MEDIA_ROOT, src)
+                 if os.path.exists(file_path):
+                    with open(file_path, "rb") as image_file:
+                        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                        return full_tag.replace(src, f'data:image/png;base64,{encoded_string}')
+
             return full_tag
         except Exception as e:
-            print(f"Error converting image {src}: {e}")
+            logger.error(f"Error converting image {src}: {e}")
             return full_tag
     
     # Replace all img src attributes
@@ -434,6 +479,9 @@ def generate_pdf_from_html(html_content):
     """
     Generate a PDF from HTML content using xhtml2pdf
     """
+    # Pre-process HTML to ensure images are base64 encoded for PDF generation
+    html_content = convert_images_to_base64(html_content)
+    
     result = BytesIO()
     pisa_status = pisa.CreatePDF(html_content, dest=result)
     if pisa_status.err:

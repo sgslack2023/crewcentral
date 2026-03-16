@@ -93,6 +93,19 @@
     `<span>{text_value}</span>` 
     So the text flawlessly adopts the font style natively dictating the paragraph.
 
+### 9. Document Editor Logo/Image Preservation
+**File:** `Frontend/crm_front/src/components/DocumentEditor.tsx`  
+**File:** `Backend/transactiondata/email_utils.py`  
+**File:** `Backend/transactiondata/utils.py`  
+**File:** `Backend/masterdata/views.py`  
+- **Issue:** When users paste or add logos in the Document Editor, they are sometimes not preserved when documents are saved or sent via email. This occurs because: (1) SunEditor can create temporary blob URLs instead of converting images to base64, (2) Backend file reading uses wrong encoding on Windows, (3) HTML files served without charset header.
+- **Solution:** Multi-pronged fix: Convert blob URLs to base64 on save, fix backend file encoding, add proper charset headers.
+- **Code Change:**
+  - In `DocumentEditor.tsx`, add `convertBlobUrlsToBase64()` helper function before `handleSave()` to convert any blob URLs to base64 data URIs before saving the document.
+  - In `email_utils.py` `render_email_template()`, change file open from `'r'` to `'rb'` mode with explicit UTF-8 decode to prevent encoding corruption on Windows.
+  - In `utils.py` `convert_images_to_base64()` function, add blob URL detection with warning log.
+  - In `masterdata/views.py` `view_file()`, add `charset=utf-8` to Content-Type header for HTML files.
+
 ---
 
 ## Verification Plan

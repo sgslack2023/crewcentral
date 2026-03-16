@@ -38,7 +38,7 @@ import {
 } from '../utils/functions';
 import {
   EstimatesUrl, EstimateLineItemsUrl, EstimateDocumentsUrl, FrontendUrl,
-  BaseUrl, OrganizationsUrl, WorkOrdersUrl,
+  BaseUrl, OrganizationsUrl, WorkOrdersUrl, CustomersUrl,
   ContractorLineItemsUrl, SiteVisitsUrl, InvoicesUrl,
   PaymentsUrl
 } from '../utils/network';
@@ -46,7 +46,8 @@ import {
   EstimateProps, EstimateLineItemProps, EstimateDocumentProps,
   TimeWindowProps, AuthTokenType, DocumentProps,
   WorkOrderProps, ContractorEstimateLineItemProps,
-  SiteVisitProps, SiteVisitObservationProps, SiteVisitPhotoProps
+  SiteVisitProps, SiteVisitObservationProps, SiteVisitPhotoProps,
+  CustomerProps
 } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
@@ -54,6 +55,7 @@ import CollectDepositModal from '../components/CollectDepositModal';
 
 import AddEstimateLineItemForm from '../components/AddEstimateLineItemForm';
 import AttachDocumentsForm from '../components/AttachDocumentsForm';
+import AddCustomerForm from '../components/AddCustomerForm';
 import { WhiteButton, BlackButton } from '../components';
 
 const TimeWindowsUrl = BaseUrl + 'transactiondata/time-windows';
@@ -258,6 +260,8 @@ const EstimateEditor: React.FC = () => {
   const [editedContractorValues, setEditedContractorValues] = useState<Record<number, any>>({});
   const [isWOModalVisible, setIsWOModalVisible] = useState(false);
   const [siteVisits, setSiteVisits] = useState<SiteVisitProps[]>([]);
+  const [isEditCustomerVisible, setIsEditCustomerVisible] = useState(false);
+  const [customerObject, setCustomerObject] = useState<CustomerProps | null>(null);
 
   const currentUser = getCurrentUser();
 
@@ -331,6 +335,16 @@ const EstimateEditor: React.FC = () => {
       setSiteVisits(response.data);
     } catch (error) {
       console.error('Error fetching site visits:', error);
+    }
+  };
+
+  const fetchCustomerObject = async (customerId: number) => {
+    try {
+      const headers = getAuthToken() as any;
+      const response = await axios.get(`${CustomersUrl}/${customerId}`, headers);
+      setCustomerObject(response.data);
+    } catch (error) {
+      console.error('Failed to fetch customer details', error);
     }
   };
 
@@ -1506,8 +1520,22 @@ const EstimateEditor: React.FC = () => {
                     <div style={{ fontSize: '10px', color: '#5b6cf9', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                       <UserOutlined /> Job Details
                     </div>
-                    <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 600, marginBottom: '2px' }}>
-                      {estimate.customer_name}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                      <div style={{ fontSize: '14px', color: '#1a1a2e', fontWeight: 600 }}>
+                        {estimate.customer_name}
+                      </div>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined style={{ fontSize: '14px', color: '#5b6cf9' }} />}
+                        onClick={() => {
+                          if (estimate.customer) {
+                            fetchCustomerObject(estimate.customer).then(() => {
+                              setIsEditCustomerVisible(true);
+                            });
+                          }
+                        }}
+                      />
                     </div>
                     {estimate.customer_job_number && (
                       <div style={{ fontSize: '11px', color: '#8e8ea8', marginBottom: '8px' }}>
@@ -2641,6 +2669,32 @@ const EstimateEditor: React.FC = () => {
           maxAmount={Number(estimate.balance_due)}
         />
       )}
+
+      {/* Edit Customer Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <UserOutlined />
+            Edit Customer Details
+          </div>
+        }
+        open={isEditCustomerVisible}
+        onCancel={() => setIsEditCustomerVisible(false)}
+        footer={null}
+        width={700}
+      >
+        {customerObject && (
+          <AddCustomerForm
+            editingCustomer={customerObject}
+            isVisible={isEditCustomerVisible}
+            onClose={() => setIsEditCustomerVisible(false)}
+            onSuccessCallBack={() => {
+              setIsEditCustomerVisible(false);
+              fetchEstimate(); // Refresh estimate to show updated customer info
+            }}
+          />
+        )}
+      </Modal>
     </div>
   );
 };
