@@ -2670,31 +2670,18 @@ const EstimateEditor: React.FC = () => {
         />
       )}
 
-      {/* Edit Customer Modal */}
-      <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <UserOutlined />
-            Edit Customer Details
-          </div>
-        }
-        open={isEditCustomerVisible}
-        onCancel={() => setIsEditCustomerVisible(false)}
-        footer={null}
-        width={700}
-      >
-        {customerObject && (
-          <AddCustomerForm
-            editingCustomer={customerObject}
-            isVisible={isEditCustomerVisible}
-            onClose={() => setIsEditCustomerVisible(false)}
-            onSuccessCallBack={() => {
-              setIsEditCustomerVisible(false);
-              fetchEstimate(); // Refresh estimate to show updated customer info
-            }}
-          />
-        )}
-      </Modal>
+      {/* Edit Customer Drawer */}
+      {customerObject && (
+        <AddCustomerForm
+          editingCustomer={customerObject}
+          isVisible={isEditCustomerVisible}
+          onClose={() => setIsEditCustomerVisible(false)}
+          onSuccessCallBack={() => {
+            setIsEditCustomerVisible(false);
+            fetchEstimate(); // Refresh estimate to show updated customer info
+          }}
+        />
+      )}
     </div>
   );
 };

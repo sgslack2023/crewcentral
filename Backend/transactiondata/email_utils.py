@@ -65,6 +65,88 @@ def convert_base64_images_to_cid(html_content, email):
     return modified_html
 
 
+def ensure_inline_styles_for_email(html_content):
+    """
+    Ensure centering and other styles work in email clients by converting
+    to inline styles. Many email clients (Gmail) strip <style> tags.
+    
+    Handles:
+    - SunEditor's text-align: center on paragraphs and divs
+    - Images wrapped in centered containers
+    - Preserves existing inline styles
+    """
+    
+    def add_centering_to_img(img_match):
+        """Add centering inline styles to an image tag"""
+        img_tag = img_match.group(0)
+        
+        # Skip if already has centering
+        if 'margin' in img_tag.lower() and 'auto' in img_tag.lower():
+            return img_tag
+        
+        centering_styles = 'display:block;margin:0 auto;'
+        
+        if 'style=' in img_tag.lower():
+            # Append to existing style
+            def append_style(style_match):
+                existing = style_match.group(1)
+                # Clean up existing style
+                existing = existing.rstrip(';')
+                if existing:
+                    return f'style="{centering_styles}{existing};"'
+                return f'style="{centering_styles}"'
+            
+            return re.sub(r'style=["\']([^"\']*)["\']', append_style, img_tag, flags=re.IGNORECASE)
+        else:
+            # Add new style attribute after <img
+            return img_tag.replace('<img', f'<img style="{centering_styles}"', 1)
+    
+    def fix_images_in_centered_block(match):
+        """Process a centered block and fix images inside"""
+        block = match.group(0)
+        # Fix all images in this centered block
+        return re.sub(r'<img[^>]*>', add_centering_to_img, block, flags=re.IGNORECASE)
+    
+    # Pattern for centered containers (p, div, span, td, etc.) with images inside
+    # Match opening tag with text-align:center, then content, then closing tag
+    centered_patterns = [
+        # Elements with text-align: center in style attribute
+        r'<(p|div|span|td)[^>]*style=["\'][^"\']*text-align:\s*center[^"\']*["\'][^>]*>[\s\S]*?</\1>',
+        # Elements with align="center" attribute
+        r'<(p|div|td)[^>]*align=["\']center["\'][^>]*>[\s\S]*?</\1>',
+        # center tag
+        r'<center[^>]*>[\s\S]*?</center>',
+    ]
+    
+    for pattern in centered_patterns:
+        html_content = re.sub(pattern, fix_images_in_centered_block, html_content, flags=re.IGNORECASE)
+    
+    # Also handle images with align="center" attribute directly
+    def fix_aligned_img(match):
+        img_tag = match.group(0)
+        if 'margin' in img_tag.lower() and 'auto' in img_tag.lower():
+            return img_tag
+        centering_styles = 'display:block;margin:0 auto;'
+        if 'style=' in img_tag.lower():
+            return re.sub(
+                r'style=["\']([^"\']*)["\']',
+                lambda m: f'style="{centering_styles}{m.group(1)}"',
+                img_tag,
+                flags=re.IGNORECASE
+            )
+        return img_tag.replace('<img', f'<img style="{centering_styles}"', 1)
+    
+    html_content = re.sub(
+        r'<img[^>]*align=["\']center["\'][^>]*>',
+        fix_aligned_img,
+        html_content,
+        flags=re.IGNORECASE
+    )
+    
+    print(f"[EMAIL] Processed inline styles for email compatibility")
+    return html_content
+
+
 def send_signed_documents_email(estimate, signed_docs):
     """
     Send all signed documents back to the customer as confirmation attachments
@@ -376,9 +458,20 @@ def render_email_template(template_name, context, default_subject, default_body,
                     print(f"[EMAIL] Found {img_count} img tags in raw file content")
                     
                     # Extract body content from HTML (files saved from DocumentEditor have full HTML structure)
+                    # Also preserve any <style> tags from <head> to maintain centering and other formatting
+                    style_content = ""
+                    style_matches = re.findall(r'<style[^>]*>([\s\S]*?)</style>', file_content, re.IGNORECASE)
+                    if style_matches:
+                        style_content = "\n".join(style_matches)
+                        print(f"[EMAIL] Extracted {len(style_matches)} style blocks from document")
+                    
                     body_match = re.search(r'<body[^>]*>([\s\S]*)</body>', file_content, re.IGNORECASE)
                     if body_match:
                         html_body = body_match.group(1).strip()
+                        # Prepend extracted styles as inline <style> tag in the body
+                        # This ensures centering and other CSS is preserved
+                        if style_content:
+                            html_body = f"<style>{style_content}</style>\n{html_body}"
                         print(f"[EMAIL] Extracted body content, length: {len(html_body)}")
                         # Debug: Check img tags after extraction
                         img_count_after = len(re.findall(r'<img[^>]+>', html_body, flags=re.IGNORECASE))
@@ -471,6 +564,9 @@ def render_email_template(template_name, context, default_subject, default_body,
 </body>
 </html>"""
         logger.info(f"Wrapped email body in HTML structure")
+    
+    # Ensure centering and other styles are inline for email client compatibility
+    html_body = ensure_inline_styles_for_email(html_body)
     
     # Text body generation
     from django.utils.html import strip_tags
