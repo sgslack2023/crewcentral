@@ -41,7 +41,8 @@ def send_manual_estimate_async(estimate_id, base_url, backend_base_url, user_id=
     """
     from .models import Estimate, CustomerActivity
     from .email_utils import send_estimate_email
-    from django.contrib.auth.models import User
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
     
     try:
         estimate = Estimate.objects.get(id=estimate_id)
