@@ -546,10 +546,18 @@ def send_estimate_email(estimate, base_url=None, backend_base_url=None):
             
             # 2. Fallback to estimate settings
             if not pdf_template:
-                pdf_template = getattr(estimate, 'template_used', None) or estimate.email_template
+                # Check if email_template exists on the model (it might be a dynamic attribute or missing)
+                pdf_template = getattr(estimate, 'template_used', None)
+                if not pdf_template and hasattr(estimate, 'email_template'):
+                    pdf_template = estimate.email_template
             
             if pdf_template:
-                 p_html = pdf_template.description if pdf_template.description else pdf_template.subject
+                 # DocumentLibrary has 'subject', EstimateTemplate does not.
+                 # Both have 'description'.
+                 p_html = pdf_template.description
+                 if not p_html and hasattr(pdf_template, 'subject'):
+                     p_html = pdf_template.subject
+                     
                  if p_html:
                      processed_p_html = process_document_template(p_html, estimate.customer, estimate)
                      p_pdf_content = generate_pdf_from_html(processed_p_html)
