@@ -57,7 +57,8 @@ const AddEstimateLineItemForm: FC<AddEstimateLineItemFormProps> = ({
     try {
       const headers = getAuthToken() as AuthTokenType;
       // Include all charges (including estimate-only ones) for the estimate editor
-      const response = await axios.get(`${ChargeDefinitionsUrl}?include_estimate_only=true`, headers);
+      // Add timestamp to prevent caching
+      const response = await axios.get(`${ChargeDefinitionsUrl}?include_estimate_only=true&_t=${Date.now()}`, headers);
       const data = response.data.results ? response.data.results : response.data;
       if (Array.isArray(data)) {
         setChargeDefinitions(data.filter((cd: ChargeDefinitionProps) => cd.is_active));

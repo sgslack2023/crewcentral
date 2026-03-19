@@ -42,7 +42,8 @@ const AddTemplateLineItemForm: FC<AddTemplateLineItemFormProps> = ({
   const fetchChargeDefinitions = async () => {
     try {
       const headers = getAuthToken() as AuthTokenType;
-      const response = await axios.get(ChargeDefinitionsUrl, headers);
+      // Add timestamp to prevent caching
+      const response = await axios.get(`${ChargeDefinitionsUrl}?_t=${Date.now()}`, headers);
       setChargeDefinitions(response.data.filter((cd: ChargeDefinitionProps) => cd.is_active));
     } catch (error) {
       console.error('Error fetching charge definitions:', error);

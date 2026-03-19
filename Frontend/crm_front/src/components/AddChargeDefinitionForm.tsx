@@ -61,7 +61,8 @@ const AddChargeDefinitionForm: FC<AddChargeDefinitionFormProps> = ({
   const fetchCategories = async () => {
     try {
       const headers = getAuthToken() as AuthTokenType;
-      const response = await axios.get(`${ChargeCategoriesUrl}/simple`, headers);
+      // Add timestamp to prevent caching
+      const response = await axios.get(`${ChargeCategoriesUrl}/simple?_t=${Date.now()}`, headers);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);

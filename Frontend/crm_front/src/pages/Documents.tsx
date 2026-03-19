@@ -220,15 +220,52 @@ const Documents: React.FC<DocumentsProps> = ({ hideHeader = false }) => {
     setMappingLoading(true);
     try {
       const headers = getAuthToken() as any;
-      await axios.post(DocumentMappingsUrl, {
-        document: mappingModal.document.id,
-        service_type: values.service_type || null,
-        branch: values.branch || null
-      }, headers);
+      
+      // Handle multi-select: create multiple mappings
+      const serviceTypes = Array.isArray(values.service_type) ? values.service_type : (values.service_type ? [values.service_type] : []);
+      const branches = Array.isArray(values.branch) ? values.branch : (values.branch ? [values.branch] : []);
+      
+      // If both are empty, create one mapping with nulls
+      if (serviceTypes.length === 0 && branches.length === 0) {
+        await axios.post(DocumentMappingsUrl, {
+          document: mappingModal.document.id,
+          service_type: null,
+          branch: null
+        }, headers);
+      } else if (serviceTypes.length === 0) {
+        // Only branches selected
+        for (const branchId of branches) {
+          await axios.post(DocumentMappingsUrl, {
+            document: mappingModal.document.id,
+            service_type: null,
+            branch: branchId
+          }, headers);
+        }
+      } else if (branches.length === 0) {
+        // Only service types selected
+        for (const serviceTypeId of serviceTypes) {
+          await axios.post(DocumentMappingsUrl, {
+            document: mappingModal.document.id,
+            service_type: serviceTypeId,
+            branch: null
+          }, headers);
+        }
+      } else {
+        // Both selected: create cartesian product (all combinations)
+        for (const serviceTypeId of serviceTypes) {
+          for (const branchId of branches) {
+            await axios.post(DocumentMappingsUrl, {
+              document: mappingModal.document.id,
+              service_type: serviceTypeId,
+              branch: branchId
+            }, headers);
+          }
+        }
+      }
 
       notification.success({
-        message: 'Mapping Created',
-        description: 'Document mapping has been created successfully',
+        message: 'Mappings Created',
+        description: `${serviceTypes.length || 1} x ${branches.length || 1} mapping(s) created successfully`,
         title: 'Success'
       });
 
@@ -425,9 +462,14 @@ const Documents: React.FC<DocumentsProps> = ({ hideHeader = false }) => {
           <Form.Item
             label="Service Type"
             name="service_type"
-            rules={[{ required: true, message: 'Please select a service type!' }]}
+            help="Select one or multiple service types (optional)"
           >
-            <Select placeholder="Select Service Type" allowClear>
+            <Select 
+              mode="multiple"
+              placeholder="Select Service Type(s)" 
+              allowClear
+              maxTagCount="responsive"
+            >
               {serviceTypes.filter(st => st.enabled).map(st => (
                 <Option key={st.id} value={st.id}>
                   {st.service_type}
@@ -439,9 +481,14 @@ const Documents: React.FC<DocumentsProps> = ({ hideHeader = false }) => {
           <Form.Item
             label="Branch"
             name="branch"
-            rules={[{ required: true, message: 'Please select a branch!' }]}
+            help="Select one or multiple branches (optional)"
           >
-            <Select placeholder="Select Branch" allowClear>
+            <Select 
+              mode="multiple"
+              placeholder="Select Branch(es)" 
+              allowClear
+              maxTagCount="responsive"
+            >
               {branches.filter(b => b.is_active).map(b => (
                 <Option key={b.id} value={b.id}>
                   {b.name}

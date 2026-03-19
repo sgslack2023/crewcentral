@@ -61,6 +61,24 @@ class CustomerSerializer(serializers.ModelSerializer):
         if obj.branch:
             return obj.branch.name
         return None
+    
+    def validate_email(self, value):
+        """
+        Validate email uniqueness, excluding current instance during updates.
+        """
+        # During update, if email hasn't changed, allow it
+        if self.instance and self.instance.email.lower() == value.lower():
+            return value
+        
+        # Check if email exists (case-insensitive), excluding current instance
+        existing = Customer.objects.filter(email__iexact=value)
+        if self.instance:
+            existing = existing.exclude(id=self.instance.id)
+        
+        if existing.exists():
+            raise serializers.ValidationError("Customer with this email already exists.")
+        
+        return value
 
 
 class CustomerStatsSerializer(serializers.Serializer):

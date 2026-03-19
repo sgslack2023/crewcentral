@@ -536,12 +536,15 @@ const EstimateEditor: React.FC = () => {
     try {
       const headers = getAuthToken() as AuthTokenType;
       const response = await axios.post(`${WorkOrdersUrl}/${externalWorkOrder.id}/send_email`, {}, headers);
+      
+      // Refresh work order to get updated status (backend resets cancelled->pending)
+      await fetchWorkOrder();
+      
       notification.success({
         message: 'Email Sent',
         description: response.data.message || 'Work order has been emailed to the contractor.',
         title: 'Success'
       });
-      fetchWorkOrder();
     } catch (error: any) {
       notification.error({
         message: 'Error',

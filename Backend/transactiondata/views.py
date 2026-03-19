@@ -122,6 +122,18 @@ class ChargeDefinitionViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         # Start with all charges and apply context-aware filtering
         queryset = ChargeDefinition.objects.all()
         
+        # Debug logging
+        print(f"[CHARGES DEBUG] User: {self.request.user.email if self.request.user else 'None'}")
+        print(f"[CHARGES DEBUG] Is superuser: {self.request.user.is_superuser if self.request.user else 'N/A'}")
+        print(f"[CHARGES DEBUG] Has organization attr: {hasattr(self.request, 'organization')}")
+        org = getattr(self.request, 'organization', None)
+        print(f"[CHARGES DEBUG] Organization: {org} (ID: {org.id if org else 'None'})")
+        print(f"[CHARGES DEBUG] Query params: {dict(self.request.query_params)}")
+        print(f"[CHARGES DEBUG] Total charges in DB: {queryset.count()}")
+        # Show what org IDs charges have
+        charge_orgs = list(queryset.values_list('organization_id', 'name', 'is_active')[:10])
+        print(f"[CHARGES DEBUG] Sample charges (org_id, name, is_active): {charge_orgs}")
+        
         # Apply organization context if user is not superuser
         if not self.request.user.is_superuser and hasattr(self.request, 'organization') and self.request.organization:
             from masterdata.models import Organization
@@ -134,18 +146,22 @@ class ChargeDefinitionViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 ancestor_ids.append(current.id)
                 current = current.parent_organization
                 
-            # Find all descendants (franchisees)
-            descendants = Organization.objects.filter(parent_organization=active_org).values_list('id', flat=True)
+            # Find all descendants (franchisees) - convert to list to avoid query issues
+            descendants = list(Organization.objects.filter(parent_organization=active_org).values_list('id', flat=True))
+            
+            print(f"[CHARGES DEBUG] Active org ID: {active_org.id}, Ancestors: {ancestor_ids}, Descendants: {descendants}")
             
             # Filter: own org + parents + children + global (null)
             queryset = queryset.filter(
-                Q(organization=active_org) | 
+                Q(organization_id=active_org.id) | 
                 Q(organization_id__in=descendants) |
                 Q(organization_id__in=ancestor_ids) |
                 Q(organization__isnull=True)
             ).distinct()
+            print(f"[CHARGES DEBUG] After org filter: {queryset.count()}")
         elif not self.request.user.is_superuser:
             # If no org and not superuser, return none for safety
+            print(f"[CHARGES DEBUG] No org context for non-superuser, returning empty!")
             return ChargeDefinition.objects.none()
 
         # Handle is_estimate_only flag
@@ -183,6 +199,7 @@ class ChargeDefinitionViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 Q(category__name__icontains=search)
             )
         
+        print(f"[CHARGES DEBUG] Final count returned: {queryset.count()}")
         return queryset
     
     def perform_create(self, serializer):
