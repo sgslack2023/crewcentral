@@ -138,26 +138,33 @@ class ChargeDefinitionViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         if not self.request.user.is_superuser and hasattr(self.request, 'organization') and self.request.organization:
             from masterdata.models import Organization
             active_org = self.request.organization
+            active_org_id = active_org.id
             
-            # Find all ancestors (parents) to include their charges (e.g., franchisor charges)
-            ancestor_ids = []
-            current = active_org.parent_organization
-            while current:
-                ancestor_ids.append(current.id)
-                current = current.parent_organization
-                
-            # Find all descendants (franchisees) - convert to list to avoid query issues
-            descendants = list(Organization.objects.filter(parent_organization=active_org).values_list('id', flat=True))
+            # Build list of allowed org IDs
+            allowed_org_ids = [active_org_id]
             
-            print(f"[CHARGES DEBUG] Active org ID: {active_org.id}, Ancestors: {ancestor_ids}, Descendants: {descendants}")
+            # Add ancestors (parents)
+            try:
+                current = active_org.parent_organization
+                while current:
+                    allowed_org_ids.append(current.id)
+                    current = current.parent_organization
+            except Exception as e:
+                print(f"[CHARGES DEBUG] Error getting ancestors: {e}")
             
-            # Filter: own org + parents + children + global (null)
+            # Add descendants (franchisees)
+            try:
+                descendant_ids = list(Organization.objects.filter(parent_organization_id=active_org_id).values_list('id', flat=True))
+                allowed_org_ids.extend(descendant_ids)
+            except Exception as e:
+                print(f"[CHARGES DEBUG] Error getting descendants: {e}")
+            
+            print(f"[CHARGES DEBUG] Allowed org IDs: {allowed_org_ids}")
+            
+            # Simple filter: charges belonging to allowed orgs OR global (null org)
             queryset = queryset.filter(
-                Q(organization_id=active_org.id) | 
-                Q(organization_id__in=descendants) |
-                Q(organization_id__in=ancestor_ids) |
-                Q(organization__isnull=True)
-            ).distinct()
+                Q(organization_id__in=allowed_org_ids) | Q(organization_id__isnull=True)
+            )
             print(f"[CHARGES DEBUG] After org filter: {queryset.count()}")
         elif not self.request.user.is_superuser:
             # If no org and not superuser, return none for safety
