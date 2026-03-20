@@ -5,6 +5,8 @@ import GoogleChartsWrapper from './GoogleChartsWrapper';
 import ActivityList from './ActivityList';
 import CalendarWidget from './CalendarWidget';
 import GoogleCalendarChart from './GoogleCalendarChart';
+import RechartsFunnel from './RechartsFunnel';
+import FunnelChart from './FunnelChart';
 
 export type WidgetType = 'kpi' | 'trend' | 'breakdown' | 'funnel' | 'table' | 'activity' | 'kpi_card' | 'chart' | 'list' | 'Calendar';
 
@@ -42,7 +44,13 @@ const WidgetRegistry: React.FC<WidgetProps> = (props) => {
             return <GoogleChartsWrapper {...props} />;
 
         case 'funnel':
-            return <GoogleChartsWrapper {...props} />;
+            // Use Recharts funnel or custom funnel based on library setting
+            const funnelLibrary = (props as any).chart_library || config.library;
+            if (funnelLibrary === 'recharts') {
+                return <RechartsFunnel {...props} />;
+            }
+            // Default to custom funnel chart (works without external dependencies)
+            return <FunnelChart {...props} />;
 
         case 'activity':
         case 'list':

@@ -579,26 +579,64 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                 },
                 {
                   key: 'payment',
-                  label: 'Payment Fields',
+                  label: 'Payment / Deposit Fields',
                   icon: <DollarOutlined />,
                   children: [
-                    { key: 'payment_amount', label: 'Payment Amount', onClick: () => insertTag('{{payment_amount}}') },
-                    { key: 'payment_date', label: 'Payment Date', onClick: () => insertTag('{{payment_date}}') },
-                    { key: 'payment_type', label: 'Payment Type', onClick: () => insertTag('{{payment_type}}') },
-                    { key: 'payment_method', label: 'Payment Method', onClick: () => insertTag('{{payment_method}}') }
+                    { key: 'payment_amount', label: 'Last Payment Amount', onClick: () => insertTag('{{payment_amount}}') },
+                    { key: 'payment_date', label: 'Last Payment Date', onClick: () => insertTag('{{payment_date}}') },
+                    { key: 'payment_type', label: 'Last Payment Type', onClick: () => insertTag('{{payment_type}}') },
+                    { key: 'total_deposits', label: 'Total Deposits', onClick: () => insertTag('{{total_deposits}}') },
+                    { key: 'balance_due', label: 'Balance Due', onClick: () => insertTag('{{balance_due}}') },
+                    { type: 'divider' },
+                    {
+                      key: 'deposits_table',
+                      label: (
+                        <span>
+                          <strong>Deposits Table</strong>
+                          <div style={{ fontSize: '11px', color: '#999' }}>Shows all deposits with date, type, method & amount</div>
+                        </span>
+                      ),
+                      onClick: () => insertTag('{{deposits_table}}')
+                    }
+                  ]
+                },
+                {
+                  key: 'invoice',
+                  label: 'Invoice Fields',
+                  icon: <DollarOutlined />,
+                  children: [
+                    { key: 'invoice_number', label: 'Invoice Number', onClick: () => insertTag('{{invoice_number}}') },
+                    { key: 'invoice_date', label: 'Invoice Date', onClick: () => insertTag('{{invoice_date}}') },
+                    { key: 'invoice_due_date', label: 'Invoice Due Date', onClick: () => insertTag('{{invoice_due_date}}') },
+                    { key: 'invoice_subtotal', label: 'Invoice Subtotal', onClick: () => insertTag('{{invoice_subtotal}}') },
+                    { key: 'invoice_tax', label: 'Invoice Tax', onClick: () => insertTag('{{invoice_tax}}') },
+                    { key: 'invoice_total', label: 'Invoice Total', onClick: () => insertTag('{{invoice_total}}') },
+                    { key: 'invoice_balance_due', label: 'Invoice Balance Due', onClick: () => insertTag('{{invoice_balance_due}}') },
+                    { key: 'invoice_notes', label: 'Invoice Notes', onClick: () => insertTag('{{invoice_notes}}') },
+                    { type: 'divider' },
+                    {
+                      key: 'invoice_line_items_table',
+                      label: (
+                        <span>
+                          <strong>Invoice Line Items Table</strong>
+                          <div style={{ fontSize: '11px', color: '#999' }}>Shows invoice items with description, details & amount</div>
+                        </span>
+                      ),
+                      onClick: () => insertTag('{{invoice_line_items_table}}')
+                    }
                   ]
                 },
                 {
                   key: 'table',
-                  label: 'Line Items Table',
+                  label: 'Estimate Line Items',
                   icon: <TableOutlined />,
                   children: [
                     {
                       key: 'line_items_table',
                       label: (
                         <span>
-                          <strong>Full Line Items Table</strong>
-                          <div style={{ fontSize: '11px', color: '#999' }}>Auto-generates complete table</div>
+                          <strong>Estimate Line Items Table</strong>
+                          <div style={{ fontSize: '11px', color: '#999' }}>Auto-generates estimate charges table</div>
                         </span>
                       ),
                       onClick: () => insertTag('{{estimate_line_items_table}}')

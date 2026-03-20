@@ -84,9 +84,9 @@ const CollectDepositModal: React.FC<CollectDepositModalProps> = ({
                     >
                         <Select>
                             <Option value="credit_card">Credit Card</Option>
-                            <Option value="bank_transfer">Bank Transfer</Option>
+                            <Option value="e_transfer">E-Transfer</Option>
                             <Option value="cash">Cash</Option>
-                            <Option value="check">Check</Option>
+                            <Option value="certified_cheque">Certified Cheque</Option>
                             <Option value="other">Other</Option>
                         </Select>
                     </Form.Item>

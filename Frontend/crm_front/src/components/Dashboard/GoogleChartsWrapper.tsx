@@ -90,7 +90,6 @@ const GoogleChartsWrapper: React.FC<GoogleChartsWrapperProps> = ({
         if (lower === 'bar') return 'ColumnChart'; // Vertical bars
         if (lower === 'line') return 'LineChart';
         if (lower === 'area') return 'AreaChart';
-        if (lower === 'funnel') return 'Sankey'; // Or SteppedAreaChart, but usually separate
         if (lower === 'geo') return 'GeoChart';
         return type || 'PieChart'; // Default fallback
     };

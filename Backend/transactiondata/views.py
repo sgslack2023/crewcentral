@@ -488,7 +488,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             organization=estimate.organization,
             estimate=estimate,
             work_order_type='internal',
-            status='pending',
+            status='not_booked',  # Internal work orders start as Not Booked
             
             # Snapshots
             service_type=estimate.service_type,
@@ -512,7 +512,9 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 estimate_item=item,
                 description=item.charge_name or (item.charge.name if item.charge else "Unknown Charge"),
                 quantity=item.quantity,
-                contractor_rate=0,
+                contractor_rate=item.rate or 0,  # Copy rate from estimate line item
+                charge_type=item.charge_type,
+                percentage=item.percentage,
                 is_active=True
             )
             
@@ -1070,9 +1072,35 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             defaults={
                 'organization': estimate.organization,
                 'created_by': request.user,
-                'status': 'pending'
+                'status': 'pending',
+                'work_order_type': 'external',
+                # Snapshot fields from estimate
+                'service_type': estimate.service_type,
+                'weight_lbs': estimate.weight_lbs,
+                'labour_hours': estimate.labour_hours,
+                'pickup_date_from': estimate.pickup_date_from,
+                'pickup_date_to': estimate.pickup_date_to,
+                'pickup_time_window': estimate.pickup_time_window,
+                'delivery_date_from': estimate.delivery_date_from,
+                'delivery_date_to': estimate.delivery_date_to,
+                'delivery_time_window': estimate.delivery_time_window,
+                'notes': estimate.notes,
             }
         )
+        
+        # If work order already existed, update snapshot fields
+        if not created:
+            work_order.service_type = estimate.service_type
+            work_order.weight_lbs = estimate.weight_lbs
+            work_order.labour_hours = estimate.labour_hours
+            work_order.pickup_date_from = estimate.pickup_date_from
+            work_order.pickup_date_to = estimate.pickup_date_to
+            work_order.pickup_time_window = estimate.pickup_time_window
+            work_order.delivery_date_from = estimate.delivery_date_from
+            work_order.delivery_date_to = estimate.delivery_date_to
+            work_order.delivery_time_window = estimate.delivery_time_window
+            work_order.notes = estimate.notes
+            work_order.save()
         
         # Sync line items (update existing or create new)
         for item in estimate.items.all():
@@ -1082,7 +1110,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 defaults={
                     'description': item.charge_name,
                     'quantity': item.quantity,
-                    'contractor_rate': 0,
+                    'contractor_rate': item.rate or 0,  # Copy rate from estimate line item
                     'charge_type': item.charge_type,
                     'percentage': item.percentage
                 }
@@ -1620,6 +1648,58 @@ class InvoiceViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         
         return Response({'message': 'Invoice email has been queued for sending.'})
 
+    @action(detail=True, methods=['post'])
+    def delete_and_reset(self, request, pk=None):
+        """
+        Delete an invoice and reset the estimate status back to approved
+        Also resets work order's invoiced status and unlinks deposits
+        """
+        invoice = self.get_object()
+        estimate = invoice.estimate
+        work_order = invoice.work_order
+        customer = invoice.customer
+        invoice_number = invoice.invoice_number
+        
+        # Unlink deposits - move them back to estimate only
+        for payment in invoice.payments.all():
+            payment.invoice = None
+            payment.save(update_fields=['invoice'])
+        
+        # Delete PDF file if exists
+        if invoice.pdf_file:
+            try:
+                invoice.pdf_file.delete(save=False)
+            except Exception:
+                pass
+        
+        # Delete invoice line items (cascade will handle this, but being explicit)
+        invoice.items.all().delete()
+        
+        # Delete the invoice
+        invoice.delete()
+        
+        # Reset estimate status back to work_order (since it had a work order before invoicing)
+        if estimate:
+            estimate.status = 'work_order'
+            estimate.save(update_fields=['status', 'updated_at'])
+
+            # Recalculate estimate balance
+            estimate.calculate_balance()
+        
+        # Create activity record
+        if customer:
+            CustomerActivity.objects.create(
+                customer=customer,
+                estimate=estimate,
+                activity_type='invoice_deleted',
+                title='Invoice Deleted',
+                description=f'Invoice #{invoice_number} was deleted. Estimate status reset to Work Order.',
+                created_by=request.user,
+                organization=request.organization if hasattr(request, 'organization') else None
+            )
+        
+        return Response({'message': f'Invoice #{invoice_number} deleted and estimate status reset.'})
+
 
 class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
@@ -1947,16 +2027,296 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         return Response({'message': f'Status updated to {new_status}'})
     
     @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
+    def preview_invoice(self, request, pk=None):
+        """
+        Preview invoice data for the modal - returns estimate line items formatted for invoice
+        """
+        work_order = self.get_object()
+        estimate = work_order.estimate
+        
+        # Check if invoice already exists
+        existing_invoice = Invoice.objects.filter(work_order=work_order).first()
+        if existing_invoice:
+            return Response({
+                'error': 'Invoice already exists for this work order',
+                'invoice_id': existing_invoice.id,
+                'invoice_number': existing_invoice.invoice_number
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Build line items from estimate
+        # Convert estimate line items to invoice line items
+        # Each charge type is handled to ensure qty * rate = amount
+        line_items = []
+        for item in estimate.items.all().order_by('display_order', 'id'):
+            amount = float(item.amount) if item.amount else 0
+            
+            # Different charge types have different interpretations:
+            # - per_lb: rate is per pound, quantity is weight
+            # - hourly: rate is per hour, quantity is hours
+            # - flat: rate is the fixed price, quantity from line item
+            # - percent: calculated from base amount, show as lump sum
+            
+            if item.charge_type == 'per_lb' and estimate.weight_lbs and item.rate:
+                # Show as weight * rate_per_lb
+                quantity = float(estimate.weight_lbs)
+                rate = float(item.rate)
+            elif item.charge_type == 'hourly' and estimate.labour_hours and item.rate:
+                # Show as hours * rate_per_hour
+                quantity = float(estimate.labour_hours)
+                rate = float(item.rate)
+            elif item.charge_type == 'flat' and item.rate:
+                # Show as quantity * flat_rate
+                quantity = float(item.quantity) if item.quantity else 1
+                rate = float(item.rate)
+            else:
+                # For percent or if missing data, show as lump sum (qty=1, rate=amount)
+                quantity = 1
+                rate = amount
+            
+            # Verify qty * rate matches amount (with small tolerance for rounding)
+            calculated = round(quantity * rate, 2)
+            if abs(calculated - round(amount, 2)) > 0.01:
+                # If there's a mismatch, default to lump sum to preserve accuracy
+                quantity = 1
+                rate = amount
+            
+            line_items.append({
+                'description': item.charge_name,
+                'quantity': round(quantity, 2),
+                'rate': round(rate, 2),
+                'amount': round(amount, 2),
+                'charge_type': item.charge_type,
+            })
+        
+        # Get deposits/payments for this estimate
+        deposits = []
+        total_deposits = 0
+        for payment in estimate.payments.all().order_by('payment_date'):
+            deposits.append({
+                'id': payment.id,
+                'amount': float(payment.amount),
+                'payment_date': payment.payment_date.isoformat() if payment.payment_date else None,
+                'payment_method': payment.payment_method,
+                'payment_method_display': dict(PaymentReceipt.PAYMENT_METHODS).get(payment.payment_method, payment.payment_method),
+                'payment_type': payment.payment_type,
+                'transaction_id': payment.transaction_id or '',
+                'notes': payment.notes or '',
+            })
+            total_deposits += float(payment.amount)
+        
+        total_amount = float(estimate.total_amount)
+        balance_due = total_amount - total_deposits
+        
+        return Response({
+            'work_order_id': work_order.id,
+            'estimate_id': estimate.id,
+            'customer': {
+                'id': estimate.customer.id,
+                'name': estimate.customer.full_name,
+                'email': estimate.customer.email,
+            },
+            'line_items': line_items,
+            'subtotal': float(estimate.subtotal),
+            'tax_percentage': float(estimate.tax_percentage) if estimate.tax_percentage else 0,
+            'tax_amount': float(estimate.tax_amount),
+            'total_amount': total_amount,
+            'deposits': deposits,
+            'total_deposits': total_deposits,
+            'balance_due': balance_due,
+            'issue_date': date.today().isoformat(),
+            'due_date': date.today().isoformat(),
+            'notes': estimate.notes or '',
+        })
+
+    @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
+    def preview_invoice_pdf(self, request, pk=None):
+        """
+        Generate a temporary invoice PDF preview without saving to database.
+        Returns the PDF file directly.
+        """
+        from django.http import HttpResponse
+        from .utils import process_document_template, generate_pdf_from_html, generate_invoice_line_items_table
+        from masterdata.models import DocumentLibrary
+        from decimal import Decimal
+        
+        work_order = self.get_object()
+        estimate = work_order.estimate
+        
+        # Get custom data from request
+        custom_line_items = request.data.get('line_items', None)
+        issue_date_str = request.data.get('issue_date', date.today().isoformat())
+        due_date_str = request.data.get('due_date', date.today().isoformat())
+        notes = request.data.get('notes', '')
+        tax_percentage = request.data.get('tax_percentage', estimate.tax_percentage or 0)
+        
+        # Parse dates
+        issue_date = date.fromisoformat(issue_date_str) if isinstance(issue_date_str, str) else issue_date_str
+        due_date = date.fromisoformat(due_date_str) if isinstance(due_date_str, str) else due_date_str
+        
+        # Calculate totals
+        if custom_line_items:
+            subtotal = Decimal('0')
+            for item in custom_line_items:
+                qty = Decimal(str(item.get('quantity', 1)))
+                rate = Decimal(str(item.get('rate', 0)))
+                subtotal += qty * rate
+        else:
+            subtotal = estimate.subtotal
+        
+        tax_amount = subtotal * (Decimal(str(tax_percentage)) / Decimal('100'))
+        total_amount = subtotal + tax_amount
+        
+        # Create a temporary invoice-like object for template processing
+        class TempPayments:
+            """Empty payments queryset-like object for preview"""
+            def all(self):
+                return []
+        
+        class TempInvoice:
+            def __init__(self):
+                self.invoice_number = 'PREVIEW'
+                self.issue_date = issue_date
+                self.due_date = due_date
+                self.subtotal = subtotal
+                self.tax_amount = tax_amount
+                self.total_amount = total_amount
+                self.balance_due = total_amount
+                self.notes = notes
+                self.estimate = estimate
+                self.items = TempItems(custom_line_items if custom_line_items else estimate)
+                self.payments = TempPayments()  # Empty payments for preview
+        
+        class TempItems:
+            def __init__(self, data):
+                self._data = data
+                self._is_custom = isinstance(data, list)
+            
+            def all(self):
+                return self
+            
+            def order_by(self, *args):
+                return self
+            
+            def __iter__(self):
+                if self._is_custom:
+                    for idx, item in enumerate(self._data):
+                        yield TempLineItem(item, idx)
+                else:
+                    for item in self._data.items.all().order_by('display_order', 'id'):
+                        yield TempLineItem({
+                            'description': item.charge_name,
+                            'quantity': float(item.quantity),
+                            'rate': float(item.rate) if item.rate else 0,
+                        }, item.display_order or 0)
+        
+        class TempLineItem:
+            def __init__(self, data, order):
+                self.description = data.get('description', '')
+                self.quantity = Decimal(str(data.get('quantity', 1)))
+                self.rate = Decimal(str(data.get('rate', 0)))
+                self.amount = self.quantity * self.rate
+                self.display_order = order
+        
+        temp_invoice = TempInvoice()
+        
+        # Find invoice template
+        template = DocumentLibrary.objects.filter(
+            organization=work_order.organization,
+            category='Invoice',
+            is_active=True
+        ).first()
+        
+        if not template:
+            template = DocumentLibrary.objects.filter(
+                organization=work_order.organization,
+                document_purpose='invoice_pdf',
+                is_active=True
+            ).first()
+        
+        if not template:
+            return Response({'error': 'No invoice template found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Read template content
+        html_content = ""
+        if template.file and (template.document_type == 'HTML Document' or str(template.file).endswith('.html')):
+            try:
+                with template.file.open('rb') as f:
+                    html_content = f.read().decode('utf-8')
+            except Exception as e:
+                return Response({'error': f'Error reading template: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            html_content = template.description if template.description else template.subject
+        
+        if not html_content:
+            return Response({'error': 'Template has no content'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Process template
+        processed_html = process_document_template(
+            html_content,
+            customer=estimate.customer,
+            estimate=estimate,
+            invoice=temp_invoice
+        )
+        
+        # Generate PDF
+        pdf_content = generate_pdf_from_html(processed_html)
+        if not pdf_content:
+            return Response({'error': 'Failed to generate PDF'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Return PDF as response
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = 'inline; filename="invoice_preview.pdf"'
+        return response
+
+    @action(detail=True, methods=['post'], permission_classes=[isAuthenticatedCustom])
     def generate_invoice(self, request, pk=None):
         """
-        Generate an invoice from a work order
+        Generate an invoice from a work order with optional custom line items
+        
+        Request body (all optional - defaults to estimate values):
+        {
+            "line_items": [{"description": "...", "quantity": 1, "rate": 100}],
+            "issue_date": "2024-01-01",
+            "due_date": "2024-01-15",
+            "notes": "Custom notes",
+            "tax_percentage": 13.0
+        }
         """
+        from .models import InvoiceLineItem
+        from decimal import Decimal
+        
         work_order = self.get_object()
         estimate = work_order.estimate
         
         # Check if invoice already exists for this work order
         if Invoice.objects.filter(work_order=work_order).exists():
             return Response({'error': 'Invoice already exists for this work order'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get custom data from request or use defaults
+        custom_line_items = request.data.get('line_items', None)
+        issue_date = request.data.get('issue_date', date.today())
+        due_date = request.data.get('due_date', date.today())
+        notes = request.data.get('notes', '')
+        tax_percentage = request.data.get('tax_percentage', estimate.tax_percentage or 0)
+        
+        # Parse dates if they are strings
+        if isinstance(issue_date, str):
+            issue_date = date.fromisoformat(issue_date)
+        if isinstance(due_date, str):
+            due_date = date.fromisoformat(due_date)
+        
+        # Calculate totals based on line items
+        if custom_line_items:
+            subtotal = Decimal('0')
+            for item in custom_line_items:
+                qty = Decimal(str(item.get('quantity', 1)))
+                rate = Decimal(str(item.get('rate', 0)))
+                subtotal += qty * rate
+        else:
+            subtotal = estimate.subtotal
+        
+        tax_amount = subtotal * (Decimal(str(tax_percentage)) / Decimal('100'))
+        total_amount = subtotal + tax_amount
              
         # Create invoice
         invoice_number = f"INV-{''.join(random.choices(string.digits, k=6))}"
@@ -1966,15 +2326,41 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             work_order=work_order,
             customer=estimate.customer,
             invoice_number=invoice_number,
-            issue_date=date.today(),
-            due_date=date.today(),
-            subtotal=estimate.subtotal,
-            tax_amount=estimate.tax_amount,
-            total_amount=estimate.total_amount,
-            balance_due=estimate.total_amount,
+            issue_date=issue_date,
+            due_date=due_date,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+            balance_due=total_amount,
             status='draft',
+            notes=notes,
             created_by=request.user
         )
+        
+        # Create InvoiceLineItem records
+        if custom_line_items:
+            for idx, item in enumerate(custom_line_items):
+                qty = Decimal(str(item.get('quantity', 1)))
+                rate = Decimal(str(item.get('rate', 0)))
+                InvoiceLineItem.objects.create(
+                    invoice=invoice,
+                    description=item.get('description', ''),
+                    quantity=qty,
+                    rate=rate,
+                    amount=qty * rate,
+                    display_order=idx
+                )
+        else:
+            # Create line items from estimate
+            for idx, est_item in enumerate(estimate.items.all().order_by('display_order', 'id')):
+                InvoiceLineItem.objects.create(
+                    invoice=invoice,
+                    description=est_item.charge_name,
+                    quantity=est_item.quantity,
+                    rate=est_item.rate or Decimal('0'),
+                    amount=est_item.amount,
+                    display_order=idx
+                )
         
         # Link existing deposits from Estimate to this Invoice
         deposits = estimate.payments.all()
@@ -1984,10 +2370,11 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         
         # Recalculate invoice balance (will incorporate the deposits)
         invoice.calculate_balance()
-
         
-        # Generate PDF
-        generate_invoice_pdf(invoice)
+        # Queue PDF generation via Django Q (async)
+        from django_q.tasks import async_task
+        from .tasks import generate_invoice_pdf_async
+        async_task(generate_invoice_pdf_async, invoice.id)
         
         # Update estimate status to invoiced
         estimate.status = 'invoiced'

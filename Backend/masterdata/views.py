@@ -235,12 +235,22 @@ class CustomerViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             # Don't fail the request if activity logging or email fails
             print(f"Failed to log activity or trigger lead email task: {e}")
     
+    def update(self, request, *args, **kwargs):
+        """Override update to add debug logging"""
+        print(f"[CUSTOMER UPDATE DEBUG] Request data: {request.data}")
+        print(f"[CUSTOMER UPDATE DEBUG] Request method: {request.method}")
+        return super().update(request, *args, **kwargs)
+    
     def perform_update(self, serializer):
         """Track stage changes when customer is updated"""
+        # Debug logging
+        print(f"[CUSTOMER UPDATE DEBUG] Validated data: {serializer.validated_data}")
+        print(f"[CUSTOMER UPDATE DEBUG] Instance: {serializer.instance}")
+        
         # Get the old stage before update
         customer = self.get_object()
         old_stage = customer.stage
-        
+
         # Save the updated customer
         updated_customer = serializer.save()
         

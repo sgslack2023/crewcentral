@@ -461,6 +461,17 @@ export interface RoleProps {
     is_default_admin?: boolean;
 }
 
+// Invoice Line Item Types
+export interface InvoiceLineItemProps {
+    id?: number;
+    invoice?: number;
+    description: string;
+    quantity: number;
+    rate: number;
+    amount?: number;
+    display_order?: number;
+}
+
 // Invoice Types
 export interface InvoiceProps {
     id?: number;
@@ -470,6 +481,7 @@ export interface InvoiceProps {
     customer: number;
     customer_name?: string;
     estimate?: number;
+    estimate_id?: number;
     subtotal: number;
     tax_amount: number;
     total_amount: number;
@@ -479,6 +491,7 @@ export interface InvoiceProps {
     created_at?: string;
     created_by_name?: string;
     payments?: PaymentReceiptProps[];
+    items?: InvoiceLineItemProps[];
     pdf_file?: string;
     estimate_public_token?: string;
 }
@@ -571,7 +584,9 @@ export interface WorkOrderProps {
     contractor_name?: string;
     work_order_type?: 'internal' | 'external';
     work_order_template?: number;
-    status: 'pending' | 'accepted' | 'completed' | 'disputed' | 'cancelled';
+    // External work order statuses
+    // Internal work order statuses: 'not_booked' | 'booked' | 'in_progress' | 'completed' | 'cancelled'
+    status: 'pending' | 'accepted' | 'completed' | 'disputed' | 'cancelled' | 'not_booked' | 'booked' | 'in_progress';
     external_id?: string;
     total_contractor_amount: number;
     pdf_file?: string;
@@ -581,6 +596,7 @@ export interface WorkOrderProps {
     created_by?: number;
     created_by_name?: string;
     items?: ContractorEstimateLineItemProps[];
+    available_statuses?: { value: string; label: string }[];
 
     // Snapshots
     service_type?: number;
@@ -593,6 +609,7 @@ export interface WorkOrderProps {
     pickup_time_window_display?: string;
     delivery_time_window_display?: string;
     notes?: string;
+    invoice?: number | null;  // Invoice ID if this work order has been invoiced
 }
 
 export interface ContractorEstimateLineItemProps {

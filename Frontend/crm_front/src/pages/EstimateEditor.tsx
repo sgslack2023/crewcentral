@@ -52,6 +52,7 @@ import {
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import CollectDepositModal from '../components/CollectDepositModal';
+import GenerateInvoiceModal from '../components/GenerateInvoiceModal';
 
 import AddEstimateLineItemForm from '../components/AddEstimateLineItemForm';
 import AttachDocumentsForm from '../components/AttachDocumentsForm';
@@ -247,6 +248,8 @@ const EstimateEditor: React.FC = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [invoicing, setInvoicing] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceWorkOrderId, setInvoiceWorkOrderId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('customer');
   const [workOrders, setWorkOrders] = useState<WorkOrderProps[]>([]);
   const internalWorkOrder = workOrders.find(wo => String(wo.work_order_type).toLowerCase() === 'internal');
@@ -688,28 +691,15 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
-  const handleGenerateInvoiceFromWO = async (woId: number) => {
-    setInvoicing(true);
-    try {
-      const headers = getAuthToken() as any;
-      await axios.post(`${WorkOrdersUrl}/${woId}/generate_invoice`, {}, headers);
-      notification.success({
-        message: 'Invoiced',
-        description: 'Invoice generated successfully',
-        title: 'Success'
-      });
-      await fetchEstimate();
-      await fetchWorkOrder();
-      await fetchInvoices();
-    } catch (error: any) {
-      notification.error({
-        message: 'Error',
-        description: error.response?.data?.error || 'Failed to generate invoice',
-        title: 'Error'
-      });
-    } finally {
-      setInvoicing(false);
-    }
+  const handleGenerateInvoiceFromWO = (woId: number) => {
+    setInvoiceWorkOrderId(woId);
+    setShowInvoiceModal(true);
+  };
+
+  const handleInvoiceModalSuccess = async () => {
+    await fetchEstimate();
+    await fetchWorkOrder();
+    await fetchInvoices();
   };
 
   const handleUpdateTaxPercentage = async () => {
@@ -2312,24 +2302,26 @@ const EstimateEditor: React.FC = () => {
                                 size="small"
                                 value={internalWorkOrder.status}
                                 onChange={(value) => handleUpdateWorkOrderStatus(internalWorkOrder.id!, value)}
-                                style={{ width: '130px' }}
+                                style={{ width: '150px' }}
                               >
-                                <Option value="pending">PENDING</Option>
-                                <Option value="accepted">ACCEPTED</Option>
-                                <Option value="completed">COMPLETED</Option>
-                                <Option value="disputed">DISPUTED</Option>
-                                <Option value="cancelled">CANCELLED</Option>
+                                {internalWorkOrder.work_order_type === 'internal' ? (
+                                  <>
+                                    <Option value="not_booked">NOT BOOKED</Option>
+                                    <Option value="booked">BOOKED</Option>
+                                    <Option value="in_progress">MOVE IN PROGRESS</Option>
+                                    <Option value="completed">COMPLETED</Option>
+                                    <Option value="cancelled">CANCELLED</Option>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Option value="pending">PENDING</Option>
+                                    <Option value="accepted">ACCEPTED</Option>
+                                    <Option value="completed">COMPLETED</Option>
+                                    <Option value="disputed">DISPUTED</Option>
+                                    <Option value="cancelled">CANCELLED</Option>
+                                  </>
+                                )}
                               </Select>
-                              {estimate?.status === 'work_order' && internalWorkOrder.status === 'completed' && (
-                                <BlackButton
-                                  size="small"
-                                  icon={<DollarOutlined />}
-                                  onClick={() => handleGenerateInvoiceFromWO(internalWorkOrder.id!)}
-                                  loading={invoicing}
-                                >
-                                  Invoice Order
-                                </BlackButton>
-                              )}
                             </Space>
                           </div>
 
@@ -2683,6 +2675,20 @@ const EstimateEditor: React.FC = () => {
             setIsEditCustomerVisible(false);
             fetchEstimate(); // Refresh estimate to show updated customer info
           }}
+        />
+      )}
+
+      {/* Generate Invoice Modal */}
+      {invoiceWorkOrderId && estimate && (
+        <GenerateInvoiceModal
+          isVisible={showInvoiceModal}
+          onClose={() => {
+            setShowInvoiceModal(false);
+            setInvoiceWorkOrderId(null);
+          }}
+          onSuccess={handleInvoiceModalSuccess}
+          workOrderId={invoiceWorkOrderId}
+          estimateId={Number(estimateId)}
         />
       )}
     </div>

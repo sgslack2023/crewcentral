@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     ChargeCategory, ChargeDefinition, EstimateTemplate, TemplateLineItem, 
     Estimate, EstimateLineItem, CustomerActivity, EstimateDocument, DocumentSigningBatch, TimeWindow,
-    Invoice, PaymentReceipt, Feedback, WorkOrder, ContractorEstimateLineItem,
+    Invoice, InvoiceLineItem, PaymentReceipt, Feedback, WorkOrder, ContractorEstimateLineItem,
     TransactionCategory, Expense, Purchase
 )
 from users.models import CustomUser
@@ -466,11 +466,20 @@ class DocumentSigningBatchSerializer(serializers.ModelSerializer):
 
 
 
+class InvoiceLineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InvoiceLineItem
+        fields = ['id', 'invoice', 'description', 'quantity', 'rate', 'amount', 'display_order']
+        read_only_fields = ['amount']
+
+
 class InvoiceSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
     estimate_public_token = serializers.SerializerMethodField()
+    estimate_id = serializers.SerializerMethodField()
     payments = PaymentReceiptSerializer(many=True, read_only=True)
+    items = InvoiceLineItemSerializer(many=True, read_only=True)
     
     class Meta:
         model = Invoice
@@ -485,6 +494,9 @@ class InvoiceSerializer(serializers.ModelSerializer):
         
     def get_estimate_public_token(self, obj):
         return obj.estimate.public_token if obj.estimate else None
+
+    def get_estimate_id(self, obj):
+        return obj.estimate.id if obj.estimate else None
 
 
 class FeedbackSerializer(serializers.ModelSerializer):
@@ -519,7 +531,9 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     items = ContractorEstimateLineItemSerializer(many=True, read_only=True)
     pickup_time_window_display = serializers.SerializerMethodField()
     delivery_time_window_display = serializers.SerializerMethodField()
-    
+    available_statuses = serializers.SerializerMethodField()
+    invoice = serializers.SerializerMethodField()
+
     class Meta:
         model = WorkOrder
         fields = '__all__'
@@ -540,6 +554,18 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         if obj.delivery_time_window:
             return str(obj.delivery_time_window)
         return None
+
+    def get_available_statuses(self, obj):
+        """Return available status choices based on work order type"""
+        if obj.work_order_type == 'internal':
+            return [{'value': k, 'label': v} for k, v in WorkOrder.INTERNAL_STATUS_CHOICES]
+        return [{'value': k, 'label': v} for k, v in WorkOrder.EXTERNAL_STATUS_CHOICES]
+
+    def get_invoice(self, obj):
+        """Return invoice ID if this work order has been invoiced"""
+        from .models import Invoice
+        invoice = Invoice.objects.filter(work_order=obj).first()
+        return invoice.id if invoice else None
 
 
 class TransactionCategorySerializer(serializers.ModelSerializer):

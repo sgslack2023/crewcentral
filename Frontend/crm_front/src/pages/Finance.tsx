@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, notification, Modal, Form, InputNumber, Select, DatePicker, Button, Input, Tabs, Avatar, Space } from 'antd';
+import { Card, notification, Modal, Form, InputNumber, Select, DatePicker, Button, Input, Tabs, Avatar, Space, Popconfirm } from 'antd';
 import {
     FileTextOutlined,
     DollarOutlined,
@@ -9,17 +9,20 @@ import {
     PlusOutlined,
     ShoppingOutlined,
     TagOutlined,
-    SendOutlined
+    SendOutlined,
+    DeleteOutlined,
+    SearchOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
-import { InvoiceProps, PaymentReceiptProps, ExpenseProps, PurchaseProps, TransactionCategoryProps } from '../utils/types';
+import { InvoiceProps, PaymentReceiptProps, ExpenseProps, PurchaseProps, TransactionCategoryProps, EstimateProps, WorkOrderProps } from '../utils/types';
 import { getInvoices, getPayments, getAuthToken, getExpenses, getPurchases, getTransactionCategories } from '../utils/functions';
-import { InvoicesUrl, PaymentsUrl } from '../utils/network';
+import { InvoicesUrl, PaymentsUrl, EstimatesUrl, WorkOrdersUrl } from '../utils/network';
 import { VerticalTabs, InfoCard, BlackButton, WhiteButton, FixedTable } from '../components';
 import AddCategoryForm from '../components/AddCategoryForm';
 import AddExpenseForm from '../components/AddExpenseForm';
 import AddPurchaseForm from '../components/AddPurchaseForm';
+import GenerateInvoiceModal from '../components/GenerateInvoiceModal';
 
 const Finance: React.FC = () => {
     const [invoices, setInvoices] = useState<InvoiceProps[]>([]);
@@ -39,7 +42,17 @@ const Finance: React.FC = () => {
     const [savingPayment, setSavingPayment] = useState(false);
     const [sendingInvoice, setSendingInvoice] = useState<number | null>(null);
     const [sendingReceipt, setSendingReceipt] = useState<number | null>(null);
+    const [deletingInvoice, setDeletingInvoice] = useState<number | null>(null);
     const [form] = Form.useForm();
+
+    // Invoice Order modal states
+    const [isInvoiceOrderModalVisible, setIsInvoiceOrderModalVisible] = useState(false);
+    const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+    const [jobOptions, setJobOptions] = useState<{ value: number; label: string; customer: string; status: string }[]>([]);
+    const [loadingJobs, setLoadingJobs] = useState(false);
+    const [showGenerateInvoiceModal, setShowGenerateInvoiceModal] = useState(false);
+    const [invoiceModalWorkOrderId, setInvoiceModalWorkOrderId] = useState<number | null>(null);
+    const [invoiceModalEstimateId, setInvoiceModalEstimateId] = useState<number | null>(null);
 
 
     useEffect(() => {
@@ -174,6 +187,117 @@ const Finance: React.FC = () => {
         }
     };
 
+    const handleDeleteInvoice = async (invoiceId: number) => {
+        setDeletingInvoice(invoiceId);
+        try {
+            const headers = getAuthToken();
+            await axios.post(`${InvoicesUrl}/${invoiceId}/delete_and_reset`, {}, headers as any);
+            notification.success({
+                message: 'Success',
+                description: 'Invoice deleted and estimate status reset',
+                title: 'Success'
+            });
+            fetchData();
+        } catch (error: any) {
+            notification.error({
+                message: 'Error',
+                description: error.response?.data?.error || 'Failed to delete invoice',
+                title: 'Error'
+            });
+        } finally {
+            setDeletingInvoice(null);
+        }
+    };
+
+    const fetchAvailableJobs = async () => {
+        setLoadingJobs(true);
+        try {
+            const headers = getAuthToken();
+            // Fetch estimates that have work orders and are not yet invoiced
+            const response = await axios.get(`${EstimatesUrl}?status=work_order&status=approved`, headers as any);
+            const estimates: EstimateProps[] = response.data.results || response.data;
+            
+            const options = estimates
+                .filter(est => est.status !== 'invoiced')
+                .map(est => ({
+                    value: est.id!,
+                    label: `Job #${est.id} - ${est.customer_name}`,
+                    customer: est.customer_name || 'Unknown',
+                    status: est.status || 'unknown'
+                }));
+            
+            setJobOptions(options);
+        } catch (error) {
+            console.error('Failed to fetch jobs:', error);
+        } finally {
+            setLoadingJobs(false);
+        }
+    };
+
+    const handleSelectJob = async (jobId: number) => {
+        setSelectedJobId(jobId);
+        
+        try {
+            const headers = getAuthToken();
+            
+            // Find work order for this estimate
+            const workOrderResponse = await axios.get(`${WorkOrdersUrl}?estimate=${jobId}`, headers as any);
+            const workOrders: WorkOrderProps[] = workOrderResponse.data.results || workOrderResponse.data;
+            
+            if (!workOrders || workOrders.length === 0) {
+                notification.warning({
+                    message: 'No Work Order',
+                    description: `Job #${jobId} does not have a work order yet.`,
+                    title: 'Warning'
+                });
+                return;
+            }
+
+            // Find a work order that doesn't already have an invoice
+            // Prefer completed work orders, then any without invoice
+            const completedStatuses = ['completed', 'accepted'];
+            
+            // First try to find a completed work order without an invoice
+            let workOrder = workOrders.find(wo => 
+                completedStatuses.includes(wo.status || '') && !wo.invoice
+            );
+            
+            // If not found, try any work order without an invoice
+            if (!workOrder) {
+                workOrder = workOrders.find(wo => !wo.invoice);
+            }
+            
+            // If all work orders have invoices, show error
+            if (!workOrder) {
+                notification.warning({
+                    message: 'Already Invoiced',
+                    description: `All work orders for Job #${jobId} already have invoices.`,
+                    title: 'Warning'
+                });
+                return;
+            }
+            
+            setInvoiceModalWorkOrderId(workOrder.id!);
+            setInvoiceModalEstimateId(jobId);
+            setIsInvoiceOrderModalVisible(false);
+            setShowGenerateInvoiceModal(true);
+            setSelectedJobId(null);
+        } catch (error: any) {
+            notification.error({
+                message: 'Error',
+                description: error.response?.data?.error || 'Failed to fetch work order',
+                title: 'Error'
+            });
+        }
+    };
+
+    const handleInvoiceModalSuccess = () => {
+        setShowGenerateInvoiceModal(false);
+        setInvoiceModalWorkOrderId(null);
+        setInvoiceModalEstimateId(null);
+        fetchData();
+    };
+
 
     // Columns for Invoices Table
     const invoiceColumns = [
@@ -201,8 +325,8 @@ const Finance: React.FC = () => {
             }
         },
         {
-            id: 'actions', label: 'Actions', width: 150, render: (_: any, row: InvoiceProps) => (
-                <div style={{ display: 'flex', gap: '8px' }}>
+            id: 'actions', label: 'Actions', width: 200, render: (_: any, row: InvoiceProps) => (
+                <div style={{ display: 'flex', gap: '4px' }}>
                     {row.balance_due && row.balance_due > 0 && (
                         <Button
                             size="small"
@@ -237,6 +361,31 @@ const Finance: React.FC = () => {
                     >
                         Send
                     </Button>
+                    {row.status !== 'paid' && (
+                        <Popconfirm
+                            title="Delete Invoice"
+                            description="Are you sure? This will reset the estimate status."
+                            onConfirm={(e) => {
+                                e?.stopPropagation();
+                                if (row.id) handleDeleteInvoice(row.id);
+                            }}
+                            onCancel={(e) => e?.stopPropagation()}
+                            okText="Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                        >
+                            <Button
+                                size="small"
+                                type="text"
+                                danger
+                                icon={<DeleteOutlined />}
+                                loading={deletingInvoice === row.id}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                Delete
+                            </Button>
+                        </Popconfirm>
+                    )}
                 </div>
             )
         }
@@ -342,6 +491,9 @@ const Finance: React.FC = () => {
                 <Space size="middle">
                     <WhiteButton onClick={() => setIsCategoryModalVisible(true)} icon={<TagOutlined />}>
                         Add Category
+                    </WhiteButton>
+                    <WhiteButton onClick={() => setIsInvoiceOrderModalVisible(true)} icon={<FileTextOutlined />}>
+                        Invoice Order
                     </WhiteButton>
                     <BlackButton onClick={() => setIsExpenseModalVisible(true)} icon={<PlusOutlined />}>
                         Record Expense
@@ -509,9 +661,9 @@ const Finance: React.FC = () => {
                     >
                         <Select>
                             <Select.Option value="credit_card">Credit Card</Select.Option>
-                            <Select.Option value="bank_transfer">Bank Transfer</Select.Option>
+                            <Select.Option value="e_transfer">E-Transfer</Select.Option>
                             <Select.Option value="cash">Cash</Select.Option>
-                            <Select.Option value="check">Check</Select.Option>
+                            <Select.Option value="certified_cheque">Certified Cheque</Select.Option>
                             <Select.Option value="other">Other</Select.Option>
                         </Select>
                     </Form.Item>
@@ -536,6 +688,91 @@ const Finance: React.FC = () => {
                     </div>
                 </Form>
             </Modal>
+
+            {/* Invoice Order Modal - Select Job */}
+            <Modal
+                title={
+                    <Space>
+                        <FileTextOutlined style={{ color: '#5b6cf9' }} />
+                        <span>Invoice Order</span>
+                    </Space>
+                }
+                open={isInvoiceOrderModalVisible}
+                onCancel={() => {
+                    setIsInvoiceOrderModalVisible(false);
+                    setSelectedJobId(null);
+                }}
+                footer={null}
+                width={500}
+                centered
+                afterOpenChange={(open) => {
+                    if (open) fetchAvailableJobs();
+                }}
+            >
+                <div style={{ padding: '20px 0' }}>
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                            Select Job
+                        </label>
+                        <Select
+                            showSearch
+                            placeholder="Search by Job ID or Customer Name"
+                            value={selectedJobId}
+                            onChange={(value) => handleSelectJob(value)}
+                            loading={loadingJobs}
+                            style={{ width: '100%' }}
+                            size="large"
+                            filterOption={(input, option) =>
+                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                            }
+                            options={jobOptions.map(opt => ({
+                                value: opt.value,
+                                label: opt.label,
+                            }))}
+                            optionRender={(option) => {
+                                const job = jobOptions.find(j => j.value === option.value);
+                                return (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>Job #{option.value} - {job?.customer}</span>
+                                        <span style={{ 
+                                            fontSize: '11px', 
+                                            padding: '2px 6px', 
+                                            borderRadius: '4px',
+                                            backgroundColor: job?.status === 'work_order' ? '#e6f7ff' : '#f6ffed',
+                                            color: job?.status === 'work_order' ? '#1890ff' : '#52c41a'
+                                        }}>
+                                            {job?.status?.replace('_', ' ').toUpperCase()}
+                                        </span>
+                                    </div>
+                                );
+                            }}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <WhiteButton onClick={() => {
+                            setIsInvoiceOrderModalVisible(false);
+                            setSelectedJobId(null);
+                        }}>
+                            Cancel
+                        </WhiteButton>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Generate Invoice Modal */}
+            {invoiceModalWorkOrderId && invoiceModalEstimateId && (
+                <GenerateInvoiceModal
+                    isVisible={showGenerateInvoiceModal}
+                    onClose={() => {
+                        setShowGenerateInvoiceModal(false);
+                        setInvoiceModalWorkOrderId(null);
+                        setInvoiceModalEstimateId(null);
+                    }}
+                    onSuccess={handleInvoiceModalSuccess}
+                    workOrderId={invoiceModalWorkOrderId}
+                    estimateId={invoiceModalEstimateId}
+                />
+            )}
         </div>
     );
 };

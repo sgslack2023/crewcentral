@@ -226,11 +226,13 @@ def convert_images_to_base64(html_content):
     return html_content
 
 
-def process_document_template(html_content, customer=None, estimate=None, signatures=None, text_inputs=None):
+def process_document_template(html_content, customer=None, estimate=None, signatures=None, text_inputs=None, invoice=None, payment=None):
     """
     Replace template tags with actual customer and estimate data
     signatures: dict like {'0': 'base64_signature_data', '1': '...'}
     text_inputs: dict like {'0': 'text value', '1': 'another value'}
+    invoice: optional Invoice object for invoice-specific tags
+    payment: optional PaymentReceipt object for payment-specific tags
     """
     if not html_content:
         return html_content
@@ -297,17 +299,6 @@ def process_document_template(html_content, customer=None, estimate=None, signat
             delivery_range_str = estimate.delivery_date_from.strftime('%B %d, %Y')
         html_content = html_content.replace('{{delivery_date_range}}', delivery_range_str)
 
-        # Payment tags (Change #6)
-        payment = PaymentReceipt.objects.filter(estimate=estimate).last() or PaymentReceipt.objects.filter(invoice__estimate=estimate).last()
-        if payment:
-            html_content = html_content.replace('{{payment_amount}}', f"${payment.amount:.2f}")
-            html_content = html_content.replace('{{payment_date}}', payment.payment_date.strftime('%B %d, %Y') if payment.payment_date else '')
-            html_content = html_content.replace('{{payment_type}}', payment.get_payment_method_display())
-        else:
-            html_content = html_content.replace('{{payment_amount}}', '')
-            html_content = html_content.replace('{{payment_date}}', '')
-            html_content = html_content.replace('{{payment_type}}', '')
-        
         # Generate line items table (tolerate whitespace + escaped braces)
         import re
         # NOTE: braces must be escaped once for regex (NOT double-escaped)
@@ -316,6 +307,71 @@ def process_document_template(html_content, customer=None, estimate=None, signat
             table_html = generate_line_items_table(estimate)
             html_content = re.sub(table_pattern, table_html, html_content, flags=re.IGNORECASE)
     
+    # Generate deposits table - works for both estimate and invoice (moved outside estimate block)
+    import re
+    deposits_table_pattern = r'(\{\{|&#123;&#123;)(?:\s|&nbsp;|&#160;)*deposits_table(?:\s|&nbsp;|&#160;)*(\}\}|&#125;&#125;)'
+    if re.search(deposits_table_pattern, html_content, flags=re.IGNORECASE):
+        deposits_html = generate_combined_deposits_table(estimate, invoice)
+        html_content = re.sub(deposits_table_pattern, deposits_html, html_content, flags=re.IGNORECASE)
+    
+    # Payment tags - process when payment object is passed OR when we have estimate/invoice
+    # Use the passed payment object if available, otherwise query for the last payment
+    if payment:
+        payment_obj = payment
+    elif estimate:
+        payment_obj = (
+            PaymentReceipt.objects.filter(estimate=estimate).last() or 
+            PaymentReceipt.objects.filter(invoice__estimate=estimate).last()
+        )
+    elif invoice:
+        payment_obj = invoice.payments.last()
+    else:
+        payment_obj = None
+    
+    if payment_obj:
+        html_content = html_content.replace('{{payment_amount}}', f"${payment_obj.amount:.2f}")
+        html_content = html_content.replace('{{payment_date}}', payment_obj.payment_date.strftime('%B %d, %Y') if payment_obj.payment_date else '')
+        html_content = html_content.replace('{{payment_type}}', payment_obj.get_payment_method_display())
+    else:
+        html_content = html_content.replace('{{payment_amount}}', '')
+        html_content = html_content.replace('{{payment_date}}', '')
+        html_content = html_content.replace('{{payment_type}}', '')
+    
+    # Individual deposit summary tags (total deposits and balance due)
+    # Combine deposits from both estimate and invoice (avoiding duplicates)
+    if estimate or invoice:
+        total_deposits = calculate_total_deposits(estimate, invoice)
+        if invoice:
+            balance_due = invoice.total_amount - total_deposits
+        elif estimate:
+            balance_due = estimate.total_amount - total_deposits
+        else:
+            balance_due = 0
+        html_content = html_content.replace('{{total_deposits}}', f'${total_deposits:,.2f}')
+        html_content = html_content.replace('{{balance_due}}', f'${balance_due:,.2f}')
+    
+    # Invoice tags
+    if invoice:
+        import re
+        html_content = html_content.replace('{{invoice_number}}', invoice.invoice_number or '')
+        html_content = html_content.replace('{{invoice_date}}', invoice.issue_date.strftime('%B %d, %Y') if invoice.issue_date else '')
+        html_content = html_content.replace('{{invoice_due_date}}', invoice.due_date.strftime('%B %d, %Y') if invoice.due_date else '')
+        html_content = html_content.replace('{{invoice_subtotal}}', f'${invoice.subtotal:,.2f}')
+        html_content = html_content.replace('{{invoice_tax}}', f'${invoice.tax_amount:,.2f}')
+        html_content = html_content.replace('{{invoice_total}}', f'${invoice.total_amount:,.2f}')
+        
+        # Calculate invoice balance due including deposits from both estimate and invoice
+        invoice_total_deposits = calculate_total_deposits(invoice.estimate, invoice) if invoice.estimate else calculate_total_deposits(None, invoice)
+        invoice_balance = invoice.total_amount - invoice_total_deposits
+        html_content = html_content.replace('{{invoice_balance_due}}', f'${invoice_balance:,.2f}')
+        html_content = html_content.replace('{{invoice_notes}}', invoice.notes or '')
+        
+        # Generate invoice line items table
+        invoice_table_pattern = r'(\{\{|&#123;&#123;)(?:\s|&nbsp;|&#160;)*invoice_line_items_table(?:\s|&nbsp;|&#160;)*(\}\}|&#125;&#125;)'
+        if re.search(invoice_table_pattern, html_content, flags=re.IGNORECASE):
+            table_html = generate_invoice_line_items_table(invoice)
+            html_content = re.sub(invoice_table_pattern, table_html, html_content, flags=re.IGNORECASE)
+
     # Signature fields - handle multiple signatures with unique IDs
     import re
     import json
@@ -475,6 +531,235 @@ def generate_line_items_table(estimate):
     return table_html
 
 
+def generate_invoice_line_items_table(invoice):
+    """
+    Generate a compact HTML table with all invoice line items
+    """
+    rows_html = ''
+
+    for item in invoice.items.all().order_by('display_order', 'id'):
+        details = f'${item.rate:,.2f} × {item.quantity}'
+        
+        rows_html += f'''
+        <tr>
+            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{item.description}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{details}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${item.amount:,.2f}</td>
+        </tr>
+        '''
+    
+    # Build tax row conditionally
+    tax_row = ''
+    if invoice.tax_amount and invoice.tax_amount > 0:
+        # Try to get tax percentage from estimate if available
+        tax_pct = invoice.estimate.tax_percentage if invoice.estimate and invoice.estimate.tax_percentage else 0
+        tax_label = f'Sales Tax ({tax_pct:.2f}%):' if tax_pct else 'Sales Tax:'
+        tax_row = f'''
+            <tr style="background-color: #fff7e6;">
+                <td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>{tax_label}</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>${invoice.tax_amount:,.2f}</strong>
+                </td>
+            </tr>
+        '''
+    
+    table_html = f'''
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
+        <thead>
+            <tr style="background-color: #e8e8e8;">
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Description</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Details</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #f0f9ff;">
+                <td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>Subtotal:</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>${invoice.subtotal:,.2f}</strong>
+                </td>
+            </tr>
+            {tax_row}
+            <tr style="background-color: #e6ffe6;">
+                <td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
+                    <strong>TOTAL:</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
+                    <strong>${invoice.total_amount:,.2f}</strong>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    '''
+    
+    return table_html
+
+
+def generate_deposits_table(estimate):
+    """
+    Generate an HTML table showing all deposits/payments for an estimate
+    """
+    from .models import PaymentReceipt
+    
+    payments = PaymentReceipt.objects.filter(estimate=estimate).order_by('payment_date')
+    
+    if not payments.exists():
+        return '<p style="font-size: 9pt; color: #666;">No deposits recorded.</p>'
+    
+    rows_html = ''
+    total_deposits = 0
+    
+    for payment in payments:
+        payment_date = payment.payment_date.strftime('%B %d, %Y') if payment.payment_date else '-'
+        payment_method = dict(PaymentReceipt.PAYMENT_METHODS).get(payment.payment_method, payment.payment_method)
+        payment_type = 'Deposit' if payment.payment_type == 'deposit' else 'Payment'
+        
+        rows_html += f'''
+        <tr>
+            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{payment_date}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_type}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_method}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${payment.amount:,.2f}</td>
+        </tr>
+        '''
+        total_deposits += payment.amount
+    
+    table_html = f'''
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
+        <thead>
+            <tr style="background-color: #e8f5e9;">
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Date</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Payment Method</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #c8e6c9;">
+                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>Total Deposits:</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>${total_deposits:,.2f}</strong>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    '''
+    
+    return table_html
+
+
+def calculate_total_deposits(estimate, invoice=None):
+    """
+    Calculate total deposits from both estimate and invoice payments (avoiding duplicates)
+    """
+    from .models import PaymentReceipt
+    from django.db import models as db_models
+    
+    # Get all unique payment IDs from both estimate and invoice
+    payment_ids = set()
+    
+    if estimate:
+        for p in estimate.payments.all():
+            payment_ids.add(p.id)
+    
+    if invoice:
+        for p in invoice.payments.all():
+            payment_ids.add(p.id)
+    
+    if not payment_ids:
+        return 0
+    
+    # Sum up all unique payments
+    total = PaymentReceipt.objects.filter(id__in=payment_ids).aggregate(
+        total=db_models.Sum('amount')
+    )['total'] or 0
+    
+    return total
+
+
+def generate_combined_deposits_table(estimate, invoice=None):
+    """
+    Generate an HTML table showing all deposits/payments from both estimate and invoice
+    (avoiding duplicates - a deposit might be linked to both)
+    """
+    from .models import PaymentReceipt
+    
+    # Get all unique payment IDs from both estimate and invoice
+    payment_ids = set()
+    
+    if estimate:
+        for p in estimate.payments.all():
+            payment_ids.add(p.id)
+    
+    if invoice:
+        for p in invoice.payments.all():
+            payment_ids.add(p.id)
+    
+    if not payment_ids:
+        return '<p style="font-size: 9pt; color: #666;">No deposits recorded.</p>'
+    
+    # Fetch unique payments ordered by date
+    payments = PaymentReceipt.objects.filter(id__in=payment_ids).order_by('payment_date')
+    
+    rows_html = ''
+    total_deposits = 0
+    
+    for payment in payments:
+        payment_date = payment.payment_date.strftime('%B %d, %Y') if payment.payment_date else '-'
+        payment_method = dict(PaymentReceipt.PAYMENT_METHODS).get(payment.payment_method, payment.payment_method)
+        payment_type = 'Deposit' if payment.payment_type == 'deposit' else 'Payment'
+        
+        rows_html += f'''
+        <tr>
+            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{payment_date}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_type}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_method}</td>
+            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${payment.amount:,.2f}</td>
+        </tr>
+        '''
+        total_deposits += payment.amount
+    
+    table_html = f'''
+    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
+        <thead>
+            <tr style="background-color: #e8f5e9;">
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Date</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Payment Method</th>
+                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+        <tfoot>
+            <tr style="background-color: #c8e6c9;">
+                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>Total Deposits:</strong>
+                </td>
+                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
+                    <strong>${total_deposits:,.2f}</strong>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    '''
+    
+    return table_html
+
+
 def generate_pdf_from_html(html_content):
     """
     Generate a PDF from HTML content using xhtml2pdf
@@ -496,7 +781,7 @@ def generate_invoice_pdf(invoice):
     """
     estimate = invoice.estimate
     from masterdata.models import DocumentLibrary
-    
+
     # 1. Try to find by category (Main)
     template = DocumentLibrary.objects.filter(
         organization=invoice.organization,
@@ -515,9 +800,9 @@ def generate_invoice_pdf(invoice):
     if not template:
         logger.warning(f"No invoice template found for Invoice {invoice.id}")
         return False
-    
+
     html_content = ""
-    
+
     if template.file and (template.document_type == 'HTML Document' or str(template.file).endswith('.html')):
         try:
             with template.file.open('rb') as f:
@@ -527,17 +812,18 @@ def generate_invoice_pdf(invoice):
             return False
     else:
         html_content = template.description if template.description else template.subject
-    
+
     if not html_content:
         logger.warning(f"No content found for invoice template {template.id}")
         return False
 
     processed_html = process_document_template(
-        html_content, 
-        customer=invoice.customer, 
-        estimate=estimate
+        html_content,
+        customer=invoice.customer,
+        estimate=estimate,
+        invoice=invoice
     )
-    
+
     pdf_content = generate_pdf_from_html(processed_html)
     if pdf_content:
         filename = f"Invoice_{invoice.invoice_number}.pdf"
@@ -594,14 +880,13 @@ def generate_payment_receipt_pdf(payment):
         return False
 
     processed_html = process_document_template(
-        html_content, 
-        customer=customer, 
-        estimate=estimate
+        html_content,
+        customer=customer,
+        estimate=estimate,
+        payment=payment  # Pass the actual payment being processed
     )
-    
-    # Add payment specific info
-    processed_html = processed_html.replace('{{payment_amount}}', f'${payment.amount:,.2f}')
-    processed_html = processed_html.replace('{{payment_date}}', payment.payment_date.strftime('%B %d, %Y'))
+
+    # Add payment specific info (also replace here for payment_method which uses different tag name)
     processed_html = processed_html.replace('{{payment_method}}', payment.get_payment_method_display())
     
     pdf_content = generate_pdf_from_html(processed_html)

@@ -135,6 +135,11 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
       submitData.move_date = submitData.move_date.format('YYYY-MM-DD');
     }
 
+    // Debug logging
+    console.log('[CUSTOMER FORM DEBUG] Form values:', values);
+    console.log('[CUSTOMER FORM DEBUG] Submit data:', submitData);
+    console.log('[CUSTOMER FORM DEBUG] Editing customer:', editingCustomer);
+
     try {
       let response: AxiosResponse;
 
@@ -190,6 +195,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         >
           <Collapse.Panel
             key="basic"
+            forceRender={true}
             header={
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
                 <UserOutlined />
@@ -249,6 +255,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         >
           <Collapse.Panel
             key="1"
+            forceRender={true}
             header={
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
                 <HomeOutlined />
@@ -311,6 +318,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         >
           <Collapse.Panel
             key="move"
+            forceRender={true}
             header={
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
                 <CarOutlined />
@@ -399,6 +407,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         >
           <Collapse.Panel
             key="crm"
+            forceRender={true}
             header={
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
                 <TagsOutlined />
@@ -469,6 +478,7 @@ const AddCustomerForm: FC<AddCustomerFormProps> = ({
         >
           <Collapse.Panel
             key="notes"
+            forceRender={true}
             header={
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5b6cf9', fontWeight: 600 }}>
                 <FileTextOutlined />

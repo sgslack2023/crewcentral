@@ -478,9 +478,34 @@ class Invoice(models.Model):
         ordering = ('-issue_date', '-created_at')
 
     def calculate_balance(self):
-        """Recalculate balance_due and update status based on payments"""
+        """Recalculate balance_due and update status based on payments
+        
+        Considers payments linked to both the invoice AND the estimate
+        to capture deposits made before invoice creation.
+        """
         from django.db.models import Sum
-        total_paid = self.payments.aggregate(total=Sum('amount'))['total'] or 0
+        from .models import PaymentReceipt
+        
+        # Get unique payment IDs from both invoice and estimate
+        payment_ids = set()
+        
+        # Payments directly linked to this invoice
+        for p in self.payments.all():
+            payment_ids.add(p.id)
+        
+        # Payments linked to the estimate (deposits made before invoice)
+        if self.estimate:
+            for p in self.estimate.payments.all():
+                payment_ids.add(p.id)
+        
+        # Sum all unique payments
+        if payment_ids:
+            total_paid = PaymentReceipt.objects.filter(id__in=payment_ids).aggregate(
+                total=Sum('amount')
+            )['total'] or 0
+        else:
+            total_paid = 0
+            
         self.balance_due = self.total_amount - total_paid
         
         if self.balance_due <= 0:
@@ -502,12 +527,34 @@ class Invoice(models.Model):
         return f"Invoice {self.invoice_number} - {self.customer.full_name}"
 
 
+class InvoiceLineItem(models.Model):
+    """
+    Individual line item in an invoice
+    """
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    description = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    display_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['display_order']
+
+    def save(self, *args, **kwargs):
+        self.amount = self.quantity * self.rate
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.description} - {self.amount}"
+
+
 class PaymentReceipt(models.Model):
     PAYMENT_METHODS = (
         ('credit_card', 'Credit Card'),
-        ('bank_transfer', 'Bank Transfer'),
+        ('e_transfer', 'E-Transfer'),
         ('cash', 'Cash'),
-        ('check', 'Check'),
+        ('certified_cheque', 'Certified Cheque'),
         ('other', 'Other'),
     )
     
@@ -583,12 +630,34 @@ class WorkOrder(models.Model):
     """
     Internal order for a contractor based on an estimate
     """
+    # Status choices for external work orders (contractor workflow)
+    EXTERNAL_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted by Contractor'),
+        ('completed', 'Completed'),
+        ('disputed', 'Disputed'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    # Status choices for internal work orders
+    INTERNAL_STATUS_CHOICES = (
+        ('not_booked', 'Not Booked'),
+        ('booked', 'Booked'),
+        ('in_progress', 'Move in Progress'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    # Combined for database field (allows all values)
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted by Contractor'),
         ('completed', 'Completed'),
         ('disputed', 'Disputed'),
         ('cancelled', 'Cancelled'),
+        ('not_booked', 'Not Booked'),
+        ('booked', 'Booked'),
+        ('in_progress', 'Move in Progress'),
     )
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='work_orders', null=True, blank=True)
