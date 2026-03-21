@@ -15,7 +15,7 @@ import {
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
-import { getAuthToken, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getCurrentUser, copyToClipboard as copyText } from '../utils/functions';
 import Header from '../components/Header';
 import { BlackButton, WhiteButton, SearchBar, SettingsCard, AddEndpointForm } from '../components';
 import { EndpointsUrl, RawEndpointLeadsUrl, LeadIngestionUrl } from '../utils/network';
@@ -83,7 +83,7 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
     const handleUpdateMapping = async (values: any) => {
         try {
             const headers = getAuthToken() as any;
-            await axios.patch(`${EndpointsUrl}/${selectedConfig.id}/`, { mapping_config: values }, headers);
+            await axios.patch(`${EndpointsUrl}/${selectedConfig.id}`, { mapping_config: values }, headers);
             notification.success({ message: 'Success', title: 'Mapping updated' });
             setIsMappingModalVisible(false);
             fetchData();
@@ -103,9 +103,28 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
         }
     };
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        notification.info({ message: 'Info', title: 'Copied to clipboard' });
+    const copyToClipboard = async (text: string) => {
+        const success = await copyText(text);
+        if (success) {
+            notification.success({ message: 'Copied', title: 'Copied to clipboard' });
+        } else {
+            notification.error({ 
+                message: 'Copy Failed', 
+                title: 'Please copy manually',
+                description: text 
+            });
+        }
+    };
+
+    const handleReprocessLead = async (leadId: number) => {
+        try {
+            const headers = getAuthToken() as any;
+            await axios.post(`${RawEndpointLeadsUrl}/${leadId}/reprocess`, {}, headers);
+            notification.success({ message: 'Success', title: 'Lead reset for reprocessing' });
+            fetchData();
+        } catch (error) {
+            notification.error({ message: 'Error', title: 'Failed to reset lead' });
+        }
     };
 
     const leadColumns = [
@@ -124,15 +143,30 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
             title: 'Status',
             dataIndex: 'processed',
             key: 'processed',
-            render: (val: boolean) => val ? <Tag color="green">Processed</Tag> : <Tag color="blue">Pending</Tag>
+            render: (val: boolean, record: any) => {
+                if (!val) return <Tag color="blue">Pending</Tag>;
+                if (record.error_message) return <Tag color="red">Error</Tag>;
+                return <Tag color="green">Processed</Tag>;
+            }
         },
         {
             title: 'Actions',
             key: 'actions',
             render: (_: any, record: any) => (
-                <WhiteButton size="small" icon={<EyeOutlined />} onClick={() => {
-                    setSelectedLead(record);
-                }}>View JSON</WhiteButton>
+                <Space size="small">
+                    <WhiteButton size="small" icon={<EyeOutlined />} onClick={() => {
+                        setSelectedLead(record);
+                    }}>View</WhiteButton>
+                    {record.processed && record.error_message && (
+                        <WhiteButton 
+                            size="small" 
+                            icon={<SyncOutlined />} 
+                            onClick={() => handleReprocessLead(record.id)}
+                        >
+                            Retry
+                        </WhiteButton>
+                    )}
+                </Space>
             )
         }
     ];
@@ -190,24 +224,16 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                                     icon: <LockOutlined />
                                 },
                                 {
-                                    label: 'Easy Ingestion URL',
+                                    label: 'Ingestion URL',
                                     value: (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <code style={{ fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{`${ingestionUrl}/${config.id}`}</code>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                            <Tooltip title={`${ingestionUrl}/${config.id}`}>
+                                                <code style={{ fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px', display: 'block' }}>{`${ingestionUrl}/${config.id}`}</code>
+                                            </Tooltip>
                                             <Button size="small" type="text" icon={<CopyOutlined />} onClick={() => copyToClipboard(`${ingestionUrl}/${config.id}`)} />
                                         </div>
                                     ),
                                     icon: <ApiOutlined />
-                                },
-                                {
-                                    label: 'Secret Auth URL',
-                                    value: (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <code style={{ fontSize: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{ingestionUrl}</code>
-                                            <Button size="small" type="text" icon={<CopyOutlined />} onClick={() => copyToClipboard(ingestionUrl)} />
-                                        </div>
-                                    ),
-                                    icon: <LockOutlined />
                                 }
                             ]}
                             fieldColumns={1}
@@ -271,8 +297,8 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                                 key={lead.id}
                                 title={lead.endpoint_name || "Unknown Endpoint"}
                                 statusTag={{
-                                    label: lead.processed ? 'PROCESSED' : 'PENDING',
-                                    color: lead.processed ? 'green' : 'blue'
+                                    label: lead.error_message ? 'ERROR' : (lead.processed ? 'PROCESSED' : 'PENDING'),
+                                    color: lead.error_message ? 'red' : (lead.processed ? 'green' : 'blue')
                                 }}
                                 fields={[
                                     {
@@ -291,7 +317,12 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                                         icon: <EyeOutlined />,
                                         tooltip: 'View JSON',
                                         onClick: () => setSelectedLead(lead)
-                                    }
+                                    },
+                                    ...(lead.processed && lead.error_message ? [{
+                                        icon: <SyncOutlined />,
+                                        tooltip: 'Retry Processing',
+                                        onClick: () => handleReprocessLead(lead.id)
+                                    }] : [])
                                 ]}
                                 fieldColumns={1}
                             />

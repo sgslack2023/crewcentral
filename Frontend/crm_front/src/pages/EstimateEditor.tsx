@@ -34,7 +34,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   getAuthToken, getEstimateById, recalculateEstimate,
-  getEstimateDocuments, getCurrentUser
+  getEstimateDocuments, getCurrentUser, copyToClipboard
 } from '../utils/functions';
 import {
   EstimatesUrl, EstimateLineItemsUrl, EstimateDocumentsUrl, FrontendUrl,
@@ -918,15 +918,23 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
-  const handleCopyPublicLink = () => {
+  const handleCopyPublicLink = async () => {
     if (estimate?.public_token) {
       const publicLink = `${window.location.origin}/public-estimate/${estimate.public_token}`;
-      navigator.clipboard.writeText(publicLink);
-      notification.success({
-        message: 'Link Copied',
-        description: 'Public estimate link copied to clipboard',
-        title: 'Success'
-      });
+      const success = await copyToClipboard(publicLink);
+      if (success) {
+        notification.success({
+          message: 'Link Copied',
+          description: 'Public estimate link copied to clipboard',
+          title: 'Success'
+        });
+      } else {
+        notification.error({
+          message: 'Copy Failed',
+          description: 'Please copy manually: ' + publicLink,
+          title: 'Error'
+        });
+      }
     }
   };
 
@@ -1006,15 +1014,23 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
-  const handleCopyDocumentLink = () => {
+  const handleCopyDocumentLink = async () => {
     if (estimate?.document_signing_token) {
       const docLink = `${window.location.origin}/sign-documents/${estimate.document_signing_token}`;
-      navigator.clipboard.writeText(docLink);
-      notification.success({
-        message: 'Link Copied',
-        description: 'Document signing link copied to clipboard',
-        title: 'Success'
-      });
+      const success = await copyToClipboard(docLink);
+      if (success) {
+        notification.success({
+          message: 'Link Copied',
+          description: 'Document signing link copied to clipboard',
+          title: 'Success'
+        });
+      } else {
+        notification.error({
+          message: 'Copy Failed',
+          description: 'Please copy manually: ' + docLink,
+          title: 'Error'
+        });
+      }
     } else {
       notification.warning({
         message: 'No Link Available',

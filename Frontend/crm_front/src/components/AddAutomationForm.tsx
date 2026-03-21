@@ -70,10 +70,22 @@ const AddAutomationForm: FC<AddAutomationFormProps> = ({
                 }
             }
 
+            // Map backend short codes to frontend display names
+            const scheduleTypeMap: { [key: string]: string } = {
+                'H': 'HOURLY',
+                'D': 'DAILY',
+                'W': 'WEEKLY',
+                'M': 'MONTHLY',
+                'I': 'MINUTES',
+                'O': 'ONCE'
+            };
+
+            const mappedScheduleType = scheduleTypeMap[editingSchedule.schedule_type] || editingSchedule.schedule_type;
+
             form.setFieldsValue({
                 name: editingSchedule.name,
                 task_type: editingSchedule.task_type,
-                schedule_type: editingSchedule.schedule_type,
+                schedule_type: mappedScheduleType,
                 minutes: editingSchedule.minutes,
                 repeats: editingSchedule.repeats,
                 document_id: document_id

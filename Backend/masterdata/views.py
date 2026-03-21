@@ -84,7 +84,22 @@ class RawEndpointLeadViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     queryset = RawEndpointLead.objects.all()
     serializer_class = RawEndpointLeadSerializer
     permission_classes = (isAuthenticatedCustom,)
-    http_method_names = ['get', 'delete'] # Only allow viewing and deleting
+    http_method_names = ['get', 'delete', 'patch', 'post']
+    
+    @action(detail=True, methods=['post'])
+    def reprocess(self, request, pk=None):
+        """
+        Reset a lead to be reprocessed
+        """
+        lead = self.get_object()
+        lead.processed = False
+        lead.error_message = None
+        lead.save()
+        
+        return Response({
+            'success': True,
+            'message': f'Lead {lead.id} reset for reprocessing'
+        }, status=status.HTTP_200_OK)
 
 
 
@@ -1016,6 +1031,52 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(schedule)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
+    def update(self, request, *args, **kwargs):
+        """
+        Override update to handle schedule_type conversion
+        """
+        # Map frontend display names to Django Q short codes
+        type_map = {
+            'HOURLY': 'H',
+            'DAILY': 'D',
+            'WEEKLY': 'W',
+            'MONTHLY': 'M',
+            'QUARTERLY': 'Q',
+            'YEARLY': 'Y',
+            'ONCE': 'O',
+            'MINUTES': 'I',
+        }
+        
+        if 'schedule_type' in request.data:
+            schedule_type = request.data.get('schedule_type')
+            if schedule_type in type_map:
+                request.data['schedule_type'] = type_map[schedule_type]
+        
+        return super().update(request, *args, **kwargs)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Override partial_update to handle schedule_type conversion
+        """
+        # Map frontend display names to Django Q short codes
+        type_map = {
+            'HOURLY': 'H',
+            'DAILY': 'D',
+            'WEEKLY': 'W',
+            'MONTHLY': 'M',
+            'QUARTERLY': 'Q',
+            'YEARLY': 'Y',
+            'ONCE': 'O',
+            'MINUTES': 'I',
+        }
+        
+        if 'schedule_type' in request.data:
+            schedule_type = request.data.get('schedule_type')
+            if schedule_type in type_map:
+                request.data['schedule_type'] = type_map[schedule_type]
+        
+        return super().partial_update(request, *args, **kwargs)
+
     @action(detail=True, methods=['post'])
     def run_now(self, request, pk=None):
         """
@@ -1024,9 +1085,9 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         from rest_framework.response import Response
         from rest_framework import status
         import importlib
-        
+
         schedule = self.get_object()
-        
+
         try:
             # Parse function path
             module_path, func_name = schedule.func.rsplit('.', 1)
