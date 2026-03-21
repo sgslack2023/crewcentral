@@ -7,15 +7,16 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import { PurchasesUrl } from '../utils/network';
 import { getAuthToken, getTransactionCategories } from '../utils/functions';
-import { TransactionCategoryProps } from '../utils/types';
+import { TransactionCategoryProps, PurchaseProps } from '../utils/types';
 
 interface AddPurchaseFormProps {
     visible: boolean;
     onCancel: () => void;
     onSuccess: () => void;
+    editingPurchase?: PurchaseProps | null;
 }
 
-const AddPurchaseForm: React.FC<AddPurchaseFormProps> = ({ visible, onCancel, onSuccess }) => {
+const AddPurchaseForm: React.FC<AddPurchaseFormProps> = ({ visible, onCancel, onSuccess, editingPurchase }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [categories, setCategories] = useState<TransactionCategoryProps[]>([]);
@@ -24,8 +25,23 @@ const AddPurchaseForm: React.FC<AddPurchaseFormProps> = ({ visible, onCancel, on
     useEffect(() => {
         if (visible) {
             fetchData();
+            if (editingPurchase) {
+                form.setFieldsValue({
+                    item_name: editingPurchase.item_name,
+                    quantity: editingPurchase.quantity,
+                    unit_price: editingPurchase.unit_price,
+                    purchase_date: editingPurchase.purchase_date ? dayjs(editingPurchase.purchase_date) : dayjs(),
+                    category: editingPurchase.category,
+                    vendor: editingPurchase.vendor,
+                    description: editingPurchase.description,
+                });
+                setTotal(Number(editingPurchase.quantity || 0) * Number(editingPurchase.unit_price || 0));
+            } else {
+                form.resetFields();
+                setTotal(0);
+            }
         }
-    }, [visible]);
+    }, [visible, editingPurchase]);
 
     const fetchData = async () => {
         getTransactionCategories((data) => {
@@ -67,19 +83,29 @@ const AddPurchaseForm: React.FC<AddPurchaseFormProps> = ({ visible, onCancel, on
         }
 
         try {
-            await axios.post(PurchasesUrl, formData, {
-                headers: {
-                    ...headers.headers,
-                    'Content-Type': 'multipart/form-data',
-                }
-            });
-            message.success('Purchase recorded successfully');
+            if (editingPurchase?.id) {
+                await axios.patch(`${PurchasesUrl}/${editingPurchase.id}`, formData, {
+                    headers: {
+                        ...headers.headers,
+                        'Content-Type': 'multipart/form-data',
+                    }
+                });
+                message.success('Purchase updated successfully');
+            } else {
+                await axios.post(PurchasesUrl, formData, {
+                    headers: {
+                        ...headers.headers,
+                        'Content-Type': 'multipart/form-data',
+                    }
+                });
+                message.success('Purchase recorded successfully');
+            }
             form.resetFields();
             setTotal(0);
             onSuccess();
         } catch (error: any) {
             console.error(error);
-            message.error(error.response?.data?.error || 'Failed to record purchase');
+            message.error(error.response?.data?.error || 'Failed to save purchase');
         } finally {
             setLoading(false);
         }
@@ -87,7 +113,7 @@ const AddPurchaseForm: React.FC<AddPurchaseFormProps> = ({ visible, onCancel, on
 
     return (
         <Modal
-            title="Record New Purchase"
+            title={editingPurchase ? "Edit Purchase" : "Record New Purchase"}
             open={visible}
             onCancel={onCancel}
             footer={null}
@@ -200,7 +226,7 @@ const AddPurchaseForm: React.FC<AddPurchaseFormProps> = ({ visible, onCancel, on
                         Cancel
                     </WhiteButton>
                     <BlackButton htmlType="submit" loading={loading} size="small">
-                        Record Purchase
+                        {editingPurchase ? 'Update Purchase' : 'Record Purchase'}
                     </BlackButton>
                 </div>
             </Form>

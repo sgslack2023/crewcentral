@@ -270,11 +270,11 @@ const PublicEstimateView: React.FC = () => {
           </Card>
         )}
 
-        {/* External Notes for Customer */}
-        {estimate.external_notes && (
+        {/* Customer Notes */}
+        {estimate.customer_notes && (
           <Card
             style={{ borderRadius: '12px', marginBottom: '24px', backgroundColor: '#fffbe6', border: '1px solid #ffe58f' }}
-            title={<span style={{ fontWeight: 600 }}>External Notes & Special Instructions</span>}
+            title={<span style={{ fontWeight: 600 }}>Notes & Special Instructions</span>}
           >
             <div
               style={{
@@ -284,7 +284,7 @@ const PublicEstimateView: React.FC = () => {
                 whiteSpace: 'pre-wrap'
               }}
             >
-              {estimate.external_notes}
+              {estimate.customer_notes}
             </div>
           </Card>
         )}

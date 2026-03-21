@@ -7,26 +7,38 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import { ExpensesUrl } from '../utils/network';
 import { getAuthToken, getTransactionCategories, getCustomers } from '../utils/functions';
-import { TransactionCategoryProps, CustomerProps } from '../utils/types';
+import { TransactionCategoryProps, CustomerProps, ExpenseProps } from '../utils/types';
 
 interface AddExpenseFormProps {
     visible: boolean;
     onCancel: () => void;
     onSuccess: () => void;
+    editingExpense?: ExpenseProps | null;
 }
 
-const AddExpenseForm: React.FC<AddExpenseFormProps> = ({ visible, onCancel, onSuccess }) => {
+const AddExpenseForm: React.FC<AddExpenseFormProps> = ({ visible, onCancel, onSuccess, editingExpense }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [categories, setCategories] = useState<TransactionCategoryProps[]>([]);
     const [customers, setCustomers] = useState<CustomerProps[]>([]);
-    // const [workOrders, setWorkOrders] = useState<WorkOrderProps[]>([]); // To be implemented if needed
 
     useEffect(() => {
         if (visible) {
             fetchData();
+            if (editingExpense) {
+                form.setFieldsValue({
+                    title: editingExpense.title,
+                    amount: editingExpense.amount,
+                    expense_date: editingExpense.expense_date ? dayjs(editingExpense.expense_date) : dayjs(),
+                    category: editingExpense.category,
+                    customer: editingExpense.customer,
+                    description: editingExpense.description,
+                });
+            } else {
+                form.resetFields();
+            }
         }
-    }, [visible]);
+    }, [visible, editingExpense]);
 
     const fetchData = async () => {
         getTransactionCategories((data) => {
@@ -63,18 +75,28 @@ const AddExpenseForm: React.FC<AddExpenseFormProps> = ({ visible, onCancel, onSu
         }
 
         try {
-            await axios.post(ExpensesUrl, formData, {
-                headers: {
-                    ...headers.headers,
-                    'Content-Type': 'multipart/form-data',
-                }
-            });
-            message.success('Expense recorded successfully');
+            if (editingExpense?.id) {
+                await axios.patch(`${ExpensesUrl}/${editingExpense.id}`, formData, {
+                    headers: {
+                        ...headers.headers,
+                        'Content-Type': 'multipart/form-data',
+                    }
+                });
+                message.success('Expense updated successfully');
+            } else {
+                await axios.post(ExpensesUrl, formData, {
+                    headers: {
+                        ...headers.headers,
+                        'Content-Type': 'multipart/form-data',
+                    }
+                });
+                message.success('Expense recorded successfully');
+            }
             form.resetFields();
             onSuccess();
         } catch (error: any) {
             console.error(error);
-            message.error(error.response?.data?.error || 'Failed to record expense');
+            message.error(error.response?.data?.error || 'Failed to save expense');
         } finally {
             setLoading(false);
         }
@@ -82,7 +104,7 @@ const AddExpenseForm: React.FC<AddExpenseFormProps> = ({ visible, onCancel, onSu
 
     return (
         <Modal
-            title="Record New Expense"
+            title={editingExpense ? "Edit Expense" : "Record New Expense"}
             open={visible}
             onCancel={onCancel}
             footer={null}
@@ -190,7 +212,7 @@ const AddExpenseForm: React.FC<AddExpenseFormProps> = ({ visible, onCancel, onSu
                         Cancel
                     </WhiteButton>
                     <BlackButton htmlType="submit" loading={loading} size="small">
-                        Record Expense
+                        {editingExpense ? 'Update Expense' : 'Record Expense'}
                     </BlackButton>
                 </div>
             </Form>

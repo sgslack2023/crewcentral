@@ -601,6 +601,16 @@ const DocumentEditor: FC<DocumentEditorProps> = ({
                   ]
                 },
                 {
+                  key: 'notes',
+                  label: 'Notes Fields',
+                  icon: <FileTextOutlined />,
+                  children: [
+                    { key: 'customer_notes', label: 'Customer Notes', onClick: () => insertTag('{{customer_notes}}') },
+                    { key: 'internal_notes', label: 'Internal Notes', onClick: () => insertTag('{{internal_notes}}') },
+                    { key: 'contractor_notes', label: 'Contractor Notes', onClick: () => insertTag('{{contractor_notes}}') }
+                  ]
+                },
+                {
                   key: 'invoice',
                   label: 'Invoice Fields',
                   icon: <DollarOutlined />,

@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 from users.models import CustomUser, Organization
 from masterdata.models import Customer, ServiceType
 
@@ -247,7 +248,9 @@ class Estimate(models.Model):
         choices=[('unpaid', 'Unpaid'), ('partial', 'Partial'), ('paid', 'Paid')],
         default='unpaid'
     )
-    external_notes = models.TextField(blank=True, help_text="Notes visible on the contract/invoice for the customer")
+    customer_notes = models.TextField(blank=True, help_text="Notes visible on the contract/invoice for the customer")
+    internal_notes = models.TextField(blank=True, help_text="Internal notes not visible to customer or contractor")
+    contractor_notes = models.TextField(blank=True, help_text="Notes visible to contractors in the work order portal")
     
     assigned_contractor = models.ForeignKey(
         Organization, 
@@ -711,15 +714,10 @@ class WorkOrder(models.Model):
 
     def update_total(self):
         """Recalculate total_contractor_amount based on line items"""
-        # Recalculate percentage-base items if any exist
+        # Recalculate percentage-based items - each item calculates its own base
         percent_items = self.items.filter(charge_type='percent', is_active=True)
-        if percent_items.exists():
-            base_sum = self.items.filter(is_active=True).exclude(charge_type='percent').aggregate(
-                total=models.Sum('total_amount')
-            )['total'] or 0
-            
-            for item in percent_items:
-                item.recalculate_amount(base_sum)
+        for item in percent_items:
+            item.recalculate_amount()  # Let each item determine its own base
 
         total = self.items.filter(is_active=True).aggregate(
             total=models.Sum('total_amount')
@@ -767,11 +765,29 @@ class ContractorEstimateLineItem(models.Model):
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
 
-    def recalculate_amount(self, base_sum):
+    def recalculate_amount(self, base_sum=None):
         """Update amount for percentage items without triggering full save cycle"""
         if self.charge_type == ChargeType.PERCENT:
+            # If base_sum not provided, calculate it based on linked charge
+            if base_sum is None:
+                if self.estimate_item and self.estimate_item.charge and self.estimate_item.charge.percent_applied_on_id:
+                    base_charge_id = self.estimate_item.charge.percent_applied_on_id
+                    base_items = self.work_order.items.filter(
+                        is_active=True,
+                        estimate_item__charge_id=base_charge_id
+                    ).exclude(id=self.id)
+                    base_sum = base_items.aggregate(total=models.Sum('total_amount'))['total'] or Decimal(0)
+                else:
+                    base_sum = self.work_order.items.filter(
+                        is_active=True
+                    ).exclude(
+                        id=self.id
+                    ).exclude(
+                        charge_type=ChargeType.PERCENT
+                    ).aggregate(total=models.Sum('total_amount'))['total'] or Decimal(0)
+            
             percentage = self.percentage or 0
-            self.total_amount = (percentage / 100) * base_sum
+            self.total_amount = (Decimal(percentage) / Decimal(100)) * Decimal(base_sum)
             super(ContractorEstimateLineItem, self).save(update_fields=['total_amount'])
 
     def save(self, *args, **kwargs):
@@ -779,22 +795,36 @@ class ContractorEstimateLineItem(models.Model):
         if self.charge_type == ChargeType.PER_LB:
             weight = self.work_order.weight_lbs or 0
             self.total_amount = self.contractor_rate * weight
+        elif self.charge_type == ChargeType.HOURLY:
+            labour_hours = self.work_order.labour_hours or 0
+            self.total_amount = self.contractor_rate * labour_hours
         elif self.charge_type == ChargeType.PERCENT:
-            # For percentage, we sum up other non-percentage active items in the work order
-            # Note: This might cause issues if multiple percentage items depend on each other,
-            # but for a basic Fuel Surcharge it works on the sum of base charges.
-            other_items_sum = self.work_order.items.filter(
-                is_active=True
-            ).exclude(
-                id=self.id
-            ).exclude(
-                charge_type=ChargeType.PERCENT
-            ).aggregate(total=models.Sum('total_amount'))['total'] or 0
+            # For percentage, check if we have a linked estimate_item with percent_applied_on
+            base_amount = Decimal(0)
+            
+            if self.estimate_item and self.estimate_item.charge and self.estimate_item.charge.percent_applied_on_id:
+                # Find the contractor line item linked to the base charge
+                base_charge_id = self.estimate_item.charge.percent_applied_on_id
+                base_items = self.work_order.items.filter(
+                    is_active=True,
+                    estimate_item__charge_id=base_charge_id
+                ).exclude(id=self.id)
+                
+                base_amount = base_items.aggregate(total=models.Sum('total_amount'))['total'] or Decimal(0)
+            else:
+                # Fallback: sum all non-percentage active items
+                base_amount = self.work_order.items.filter(
+                    is_active=True
+                ).exclude(
+                    id=self.id
+                ).exclude(
+                    charge_type=ChargeType.PERCENT
+                ).aggregate(total=models.Sum('total_amount'))['total'] or Decimal(0)
             
             percentage = self.percentage or 0
-            self.total_amount = (percentage / 100) * other_items_sum
+            self.total_amount = (Decimal(percentage) / Decimal(100)) * base_amount
         else:
-            # Default to quantity * rate
+            # Default to quantity * rate (FLAT)
             self.total_amount = self.quantity * self.contractor_rate
             
         super().save(*args, **kwargs)

@@ -372,7 +372,9 @@ export interface EstimateProps {
     customer_responded_at?: string;
     link_active?: boolean;
     document_signing_token?: string;
-    external_notes?: string;
+    customer_notes?: string;
+    internal_notes?: string;
+    contractor_notes?: string;
     assigned_contractor?: number;
     assigned_contractor_name?: string;
     amount_paid?: number;
@@ -649,6 +651,9 @@ export interface SiteVisitProps {
     id?: number;
     customer: number;
     customer_name?: string;
+    customer_email?: string;
+    customer_phone?: string;
+    customer_address?: string;
     surveyor?: number;
     surveyor_name?: string;
     organization?: number;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, notification, Modal, Form, InputNumber, Select, DatePicker, Button, Input, Tabs, Avatar, Space, Popconfirm } from 'antd';
+import { Card, notification, Modal, Form, InputNumber, Select, DatePicker, Button, Input, Tabs, Avatar, Space, Popconfirm, Tooltip } from 'antd';
 import {
     FileTextOutlined,
     DollarOutlined,
@@ -11,13 +11,14 @@ import {
     TagOutlined,
     SendOutlined,
     DeleteOutlined,
-    SearchOutlined
+    SearchOutlined,
+    EditOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import { InvoiceProps, PaymentReceiptProps, ExpenseProps, PurchaseProps, TransactionCategoryProps, EstimateProps, WorkOrderProps } from '../utils/types';
 import { getInvoices, getPayments, getAuthToken, getExpenses, getPurchases, getTransactionCategories } from '../utils/functions';
-import { InvoicesUrl, PaymentsUrl, EstimatesUrl, WorkOrdersUrl } from '../utils/network';
+import { InvoicesUrl, PaymentsUrl, EstimatesUrl, WorkOrdersUrl, ExpensesUrl, PurchasesUrl } from '../utils/network';
 import { VerticalTabs, InfoCard, BlackButton, WhiteButton, FixedTable } from '../components';
 import AddCategoryForm from '../components/AddCategoryForm';
 import AddExpenseForm from '../components/AddExpenseForm';
@@ -39,6 +40,9 @@ const Finance: React.FC = () => {
     const [isPurchaseModalVisible, setIsPurchaseModalVisible] = useState(false);
 
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceProps | null>(null);
+    const [editingPayment, setEditingPayment] = useState<PaymentReceiptProps | null>(null);
+    const [editingExpense, setEditingExpense] = useState<ExpenseProps | null>(null);
+    const [editingPurchase, setEditingPurchase] = useState<PurchaseProps | null>(null);
     const [savingPayment, setSavingPayment] = useState(false);
     const [sendingInvoice, setSendingInvoice] = useState<number | null>(null);
     const [sendingReceipt, setSendingReceipt] = useState<number | null>(null);
@@ -102,6 +106,7 @@ const Finance: React.FC = () => {
 
     const handleRecordPayment = (invoice: InvoiceProps) => {
         setSelectedInvoice(invoice);
+        setEditingPayment(null);
         form.setFieldsValue({
             amount: invoice.balance_due,
             payment_date: dayjs(),
@@ -110,32 +115,75 @@ const Finance: React.FC = () => {
         setIsPaymentModalVisible(true);
     };
 
-    const handleSavePayment = async (values: any) => {
-        if (!selectedInvoice) return;
+    const handleEditPayment = (payment: PaymentReceiptProps) => {
+        setEditingPayment(payment);
+        setSelectedInvoice(null);
+        form.setFieldsValue({
+            amount: payment.amount,
+            payment_date: dayjs(payment.payment_date),
+            payment_method: payment.payment_method,
+            payment_type: payment.payment_type,
+            transaction_id: payment.transaction_id,
+            notes: payment.notes,
+        });
+        setIsPaymentModalVisible(true);
+    };
 
+    const handleDeletePayment = async (paymentId: number) => {
+        try {
+            const headers = getAuthToken();
+            await axios.delete(`${PaymentsUrl}/${paymentId}`, headers as any);
+            notification.success({
+                message: 'Success',
+                description: 'Payment deleted and balance recalculated',
+                title: 'Success'
+            });
+            fetchData();
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to delete payment',
+                title: 'Error'
+            });
+        }
+    };
+
+    const handleSavePayment = async (values: any) => {
         setSavingPayment(true);
         try {
             const headers = getAuthToken();
             const payload = {
                 ...values,
-                invoice: selectedInvoice.id,
                 payment_date: values.payment_date.format('YYYY-MM-DD'),
             };
 
-            await axios.post(PaymentsUrl, payload, headers as any);
-
-            notification.success({
-                message: 'Success',
-                description: 'Payment recorded successfully',
-                title: 'Success'
-            });
+            if (editingPayment) {
+                // Edit existing payment
+                await axios.patch(`${PaymentsUrl}/${editingPayment.id}`, payload, headers as any);
+                notification.success({
+                    message: 'Success',
+                    description: 'Payment updated and balance recalculated',
+                    title: 'Success'
+                });
+            } else {
+                // Create new payment
+                if (!selectedInvoice) return;
+                payload.invoice = selectedInvoice.id;
+                await axios.post(PaymentsUrl, payload, headers as any);
+                notification.success({
+                    message: 'Success',
+                    description: 'Payment recorded successfully',
+                    title: 'Success'
+                });
+            }
 
             setIsPaymentModalVisible(false);
+            setEditingPayment(null);
             fetchData();
         } catch (error) {
             notification.error({
                 message: 'Error',
-                description: 'Failed to record payment',
+                description: editingPayment ? 'Failed to update payment' : 'Failed to record payment',
                 title: 'Error'
             });
         } finally {
@@ -206,6 +254,54 @@ const Finance: React.FC = () => {
             });
         } finally {
             setDeletingInvoice(null);
+        }
+    };
+
+    const handleEditExpense = (expense: ExpenseProps) => {
+        setEditingExpense(expense);
+        setIsExpenseModalVisible(true);
+    };
+
+    const handleDeleteExpense = async (expenseId: number) => {
+        try {
+            const headers = getAuthToken();
+            await axios.delete(`${ExpensesUrl}/${expenseId}`, headers as any);
+            notification.success({
+                message: 'Success',
+                description: 'Expense deleted successfully',
+                title: 'Success'
+            });
+            fetchData();
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to delete expense',
+                title: 'Error'
+            });
+        }
+    };
+
+    const handleEditPurchase = (purchase: PurchaseProps) => {
+        setEditingPurchase(purchase);
+        setIsPurchaseModalVisible(true);
+    };
+
+    const handleDeletePurchase = async (purchaseId: number) => {
+        try {
+            const headers = getAuthToken();
+            await axios.delete(`${PurchasesUrl}/${purchaseId}`, headers as any);
+            notification.success({
+                message: 'Success',
+                description: 'Purchase deleted successfully',
+                title: 'Success'
+            });
+            fetchData();
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to delete purchase',
+                title: 'Error'
+            });
         }
     };
 
@@ -428,31 +524,64 @@ const Finance: React.FC = () => {
         { id: 'transaction_id', label: 'Reference', width: 120 },
 
         {
-            id: 'actions', label: 'Actions', width: 150, render: (_: any, row: PaymentReceiptProps) => (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <Button
-                        size="small"
-                        type="text"
-                        icon={<EyeOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(`${PaymentsUrl}/${row.id}/download_pdf${row.estimate_public_token ? `?token=${row.estimate_public_token}` : ''}`, '_blank');
+            id: 'actions', label: 'Actions', width: 200, render: (_: any, row: PaymentReceiptProps) => (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Tooltip title="View Receipt">
+                        <Button
+                            size="small"
+                            type="text"
+                            icon={<EyeOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`${PaymentsUrl}/${row.id}/download_pdf${row.estimate_public_token ? `?token=${row.estimate_public_token}` : ''}`, '_blank');
+                            }}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Send Receipt">
+                        <Button
+                            size="small"
+                            type="text"
+                            icon={<SendOutlined />}
+                            loading={sendingReceipt === row.id}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (row.id) handleSendReceipt(row.id);
+                            }}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Edit Payment">
+                        <Button
+                            size="small"
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditPayment(row);
+                            }}
+                            style={{ color: '#fa8c16' }}
+                        />
+                    </Tooltip>
+                    <Popconfirm
+                        title="Delete Payment"
+                        description="Are you sure? This will recalculate the balance."
+                        onConfirm={(e) => {
+                            e?.stopPropagation();
+                            if (row.id) handleDeletePayment(row.id);
                         }}
+                        okText="Delete"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
                     >
-                        View
-                    </Button>
-                    <Button
-                        size="small"
-                        type="text"
-                        icon={<SendOutlined />}
-                        loading={sendingReceipt === row.id}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (row.id) handleSendReceipt(row.id);
-                        }}
-                    >
-                        Send
-                    </Button>
+                        <Tooltip title="Delete Payment">
+                            <Button
+                                size="small"
+                                type="text"
+                                icon={<DeleteOutlined />}
+                                danger
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </Tooltip>
+                    </Popconfirm>
                 </div>
             )
 
@@ -465,20 +594,98 @@ const Finance: React.FC = () => {
         { id: 'amount', label: 'Amount', width: 120, render: (val: any) => `$${Number(val).toFixed(2)}` },
         { id: 'expense_date', label: 'Date', width: 120 },
         { id: 'category_name', label: 'Category', width: 150 },
-        { id: 'customer_name', label: 'Customer', width: 200 },
-        { id: 'created_by_name', label: 'Recorded By', width: 150 },
+        { id: 'customer_name', label: 'Customer', width: 180 },
+        { id: 'created_by_name', label: 'Recorded By', width: 130 },
+        {
+            id: 'actions', label: 'Actions', width: 100, render: (_: any, row: ExpenseProps) => (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Tooltip title="Edit Expense">
+                        <Button
+                            size="small"
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditExpense(row);
+                            }}
+                            style={{ color: '#fa8c16' }}
+                        />
+                    </Tooltip>
+                    <Popconfirm
+                        title="Delete Expense"
+                        description="Are you sure you want to delete this expense?"
+                        onConfirm={(e) => {
+                            e?.stopPropagation();
+                            if (row.id) handleDeleteExpense(row.id);
+                        }}
+                        okText="Delete"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <Tooltip title="Delete Expense">
+                            <Button
+                                size="small"
+                                type="text"
+                                icon={<DeleteOutlined />}
+                                danger
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </Tooltip>
+                    </Popconfirm>
+                </div>
+            )
+        }
     ];
 
     // Columns for Purchases Table
     const purchaseColumns = [
-        { id: 'item_name', label: 'Item Name', width: 200 },
-        { id: 'vendor', label: 'Vendor', width: 150 },
-        { id: 'quantity', label: 'Quantity', width: 100 },
-        { id: 'unit_price', label: 'Unit Price', width: 120, render: (val: any) => `$${Number(val).toFixed(2)}` },
-        { id: 'total_amount', label: 'Total', width: 120, render: (val: any) => `$${Number(val).toFixed(2)}` },
-        { id: 'purchase_date', label: 'Date', width: 120 },
-        { id: 'category_name', label: 'Category', width: 150 },
-        { id: 'created_by_name', label: 'Recorded By', width: 150 },
+        { id: 'item_name', label: 'Item Name', width: 180 },
+        { id: 'vendor', label: 'Vendor', width: 130 },
+        { id: 'quantity', label: 'Qty', width: 70 },
+        { id: 'unit_price', label: 'Unit Price', width: 100, render: (val: any) => `$${Number(val).toFixed(2)}` },
+        { id: 'total_amount', label: 'Total', width: 100, render: (val: any) => `$${Number(val).toFixed(2)}` },
+        { id: 'purchase_date', label: 'Date', width: 110 },
+        { id: 'category_name', label: 'Category', width: 130 },
+        { id: 'created_by_name', label: 'Recorded By', width: 120 },
+        {
+            id: 'actions', label: 'Actions', width: 100, render: (_: any, row: PurchaseProps) => (
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <Tooltip title="Edit Purchase">
+                        <Button
+                            size="small"
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditPurchase(row);
+                            }}
+                            style={{ color: '#fa8c16' }}
+                        />
+                    </Tooltip>
+                    <Popconfirm
+                        title="Delete Purchase"
+                        description="Are you sure you want to delete this purchase?"
+                        onConfirm={(e) => {
+                            e?.stopPropagation();
+                            if (row.id) handleDeletePurchase(row.id);
+                        }}
+                        okText="Delete"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <Tooltip title="Delete Purchase">
+                            <Button
+                                size="small"
+                                type="text"
+                                icon={<DeleteOutlined />}
+                                danger
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </Tooltip>
+                    </Popconfirm>
+                </div>
+            )
+        }
     ];
 
     return (
@@ -495,10 +702,10 @@ const Finance: React.FC = () => {
                     <WhiteButton onClick={() => setIsInvoiceOrderModalVisible(true)} icon={<FileTextOutlined />}>
                         Invoice Order
                     </WhiteButton>
-                    <BlackButton onClick={() => setIsExpenseModalVisible(true)} icon={<PlusOutlined />}>
+                    <BlackButton onClick={() => { setEditingExpense(null); setIsExpenseModalVisible(true); }} icon={<PlusOutlined />}>
                         Record Expense
                     </BlackButton>
-                    <BlackButton onClick={() => setIsPurchaseModalVisible(true)} icon={<ShoppingOutlined />}>
+                    <BlackButton onClick={() => { setEditingPurchase(null); setIsPurchaseModalVisible(true); }} icon={<ShoppingOutlined />}>
                         Record Purchase
                     </BlackButton>
                 </Space>
@@ -601,27 +808,40 @@ const Finance: React.FC = () => {
 
             <AddExpenseForm
                 visible={isExpenseModalVisible}
-                onCancel={() => setIsExpenseModalVisible(false)}
+                onCancel={() => {
+                    setIsExpenseModalVisible(false);
+                    setEditingExpense(null);
+                }}
                 onSuccess={() => {
                     setIsExpenseModalVisible(false);
+                    setEditingExpense(null);
                     fetchData();
                 }}
+                editingExpense={editingExpense}
             />
 
             <AddPurchaseForm
                 visible={isPurchaseModalVisible}
-                onCancel={() => setIsPurchaseModalVisible(false)}
+                onCancel={() => {
+                    setIsPurchaseModalVisible(false);
+                    setEditingPurchase(null);
+                }}
                 onSuccess={() => {
                     setIsPurchaseModalVisible(false);
+                    setEditingPurchase(null);
                     fetchData();
                 }}
+                editingPurchase={editingPurchase}
             />
 
             {/* Record Payment Modal */}
             <Modal
-                title={`Record Payment for ${selectedInvoice?.invoice_number}`}
+                title={editingPayment ? 'Edit Payment' : `Record Payment for ${selectedInvoice?.invoice_number}`}
                 open={isPaymentModalVisible}
-                onCancel={() => setIsPaymentModalVisible(false)}
+                onCancel={() => {
+                    setIsPaymentModalVisible(false);
+                    setEditingPayment(null);
+                }}
                 footer={null}
                 width={400}
             >

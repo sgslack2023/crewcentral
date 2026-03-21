@@ -1,6 +1,6 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from .models import Estimate, Invoice, PaymentReceipt
+from .models import Estimate, Invoice, PaymentReceipt, WorkOrder
 from .utils import generate_invoice_pdf, generate_payment_receipt_pdf
 from .tasks import send_invoice_async, send_receipt_async
 from django_q.tasks import async_task
@@ -77,3 +77,41 @@ def payment_receipt_created(sender, instance, created, **kwargs):
             
         if customer_email:
             async_task(send_receipt_async, instance.id)
+
+
+@receiver(post_save, sender=Estimate)
+def sync_weight_labor_to_work_orders(sender, instance, created, **kwargs):
+    """
+    When estimate weight_lbs or labour_hours changes, sync to all linked work orders
+    and recalculate contractor line items
+    """
+    if created:
+        return
+    
+    # Get all work orders linked to this estimate
+    work_orders = WorkOrder.objects.filter(estimate=instance)
+    
+    if not work_orders.exists():
+        return
+    
+    # Update weight and labor for all work orders
+    for work_order in work_orders:
+        work_order.weight_lbs = instance.weight_lbs
+        work_order.labour_hours = instance.labour_hours
+        work_order.save(update_fields=['weight_lbs', 'labour_hours', 'updated_at'])
+        
+        # Also sync contractor_notes to work order notes
+        if instance.contractor_notes:
+            work_order.notes = instance.contractor_notes
+            work_order.save(update_fields=['notes', 'updated_at'])
+        
+        # Recalculate all non-percentage line items first
+        for line_item in work_order.items.filter(is_active=True).exclude(charge_type='percent'):
+            line_item.save()  # This triggers recalculation in the model's save method
+        
+        # Then recalculate percentage items (they depend on other items)
+        for line_item in work_order.items.filter(is_active=True, charge_type='percent'):
+            line_item.save()  # This triggers recalculation with correct base amounts
+        
+        # Update the work order total
+        work_order.update_total()

@@ -57,18 +57,44 @@ def process_raw_endpoint_leads(endpoint_config_id=None, **kwargs):
         raw_data = lead.raw_data
         
         try:
+            # Helper function to extract value(s) from mapping
+            def extract_mapped_value(mapping_value):
+                """
+                Extract value from raw_data based on mapping configuration.
+                Supports:
+                - Simple string path: "name" or "lead.name"
+                - Array of paths for field combination: ["notes", "description", "comments"]
+                """
+                if not mapping_value:
+                    return None
+                
+                # If it's a list, combine all non-empty values
+                if isinstance(mapping_value, list):
+                    values = []
+                    for path in mapping_value:
+                        val = get_value_by_path(raw_data, path)
+                        if val:
+                            values.append(str(val))
+                    return '\n\n'.join(values) if values else None
+                
+                # Otherwise, treat as single path
+                return get_value_by_path(raw_data, mapping_value)
+            
             # Extract basic info
             customer_data = {
                 'organization': lead.organization,
-                'full_name': get_value_by_path(raw_data, mapping.get('full_name')),
-                'email': get_value_by_path(raw_data, mapping.get('email')),
-                'phone': get_value_by_path(raw_data, mapping.get('phone')),
-                'company': get_value_by_path(raw_data, mapping.get('company')),
-                'address': get_value_by_path(raw_data, mapping.get('address')),
-                'city': get_value_by_path(raw_data, mapping.get('city')),
-                'state': get_value_by_path(raw_data, mapping.get('state')),
-                'postal_code': get_value_by_path(raw_data, mapping.get('zip')),
-                'notes': get_value_by_path(raw_data, mapping.get('notes')),
+                'full_name': extract_mapped_value(mapping.get('full_name')),
+                'email': extract_mapped_value(mapping.get('email')),
+                'phone': extract_mapped_value(mapping.get('phone')),
+                'company': extract_mapped_value(mapping.get('company')),
+                'address': extract_mapped_value(mapping.get('address')),
+                'city': extract_mapped_value(mapping.get('city')),
+                'state': extract_mapped_value(mapping.get('state')),
+                'country': extract_mapped_value(mapping.get('country')),
+                'postal_code': extract_mapped_value(mapping.get('zip')),
+                'origin_address': extract_mapped_value(mapping.get('origin_address')),
+                'destination_address': extract_mapped_value(mapping.get('destination_address')),
+                'notes': extract_mapped_value(mapping.get('notes')),
                 'source': lead.endpoint_config.name.lower().replace(' ', '_'), # Auto-assign source from endpoint name
             }
             

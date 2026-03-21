@@ -331,10 +331,10 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         if customer_id:
             queryset = queryset.filter(customer__id=customer_id)
         
-        # Filter by status
-        status_filter = self.request.query_params.get('status', None)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
+        # Filter by status (supports multiple values)
+        status_filters = self.request.query_params.getlist('status')
+        if status_filters:
+            queryset = queryset.filter(status__in=status_filters)
         
         # Filter by move type
         move_type_id = self.request.query_params.get('move_type', None)
@@ -489,7 +489,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             estimate=estimate,
             work_order_type='internal',
             status='not_booked',  # Internal work orders start as Not Booked
-            
+
             # Snapshots
             service_type=estimate.service_type,
             weight_lbs=estimate.weight_lbs,
@@ -500,8 +500,8 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             delivery_date_from=estimate.delivery_date_from,
             delivery_date_to=estimate.delivery_date_to,
             delivery_time_window=estimate.delivery_time_window,
-            notes=estimate.notes,
-            
+            notes=estimate.contractor_notes,
+
             created_by=request.user
         )
         
@@ -1084,7 +1084,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
                 'delivery_date_from': estimate.delivery_date_from,
                 'delivery_date_to': estimate.delivery_date_to,
                 'delivery_time_window': estimate.delivery_time_window,
-                'notes': estimate.notes,
+                'notes': estimate.contractor_notes,
             }
         )
         
@@ -1099,7 +1099,7 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             work_order.delivery_date_from = estimate.delivery_date_from
             work_order.delivery_date_to = estimate.delivery_date_to
             work_order.delivery_time_window = estimate.delivery_time_window
-            work_order.notes = estimate.notes
+            work_order.notes = estimate.contractor_notes
             work_order.save()
         
         # Sync line items (update existing or create new)
@@ -1708,22 +1708,63 @@ class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     queryset = PaymentReceipt.objects.all()
     serializer_class = PaymentReceiptSerializer
     permission_classes = (isAuthenticatedCustom,)
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
-        
+
         # Filter by invoice
         invoice_id = self.request.query_params.get('invoice', None)
         if invoice_id:
             queryset = queryset.filter(invoice__id=invoice_id)
-            
+
         return queryset
-    
+
     def perform_create(self, serializer):
         kwargs = {'created_by': self.request.user}
         if hasattr(self.request, 'organization') and self.request.organization:
             kwargs['organization'] = self.request.organization
         serializer.save(**kwargs)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update payment and recalculate balance
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        # Recalculate balance
+        if instance.invoice:
+            instance.invoice.calculate_balance()
+        elif instance.estimate:
+            instance.estimate.calculate_balance()
+
+        # Regenerate receipt PDF with updated amount
+        from .utils import generate_payment_receipt_pdf
+        generate_payment_receipt_pdf(instance)
+
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete payment and recalculate balance
+        """
+        instance = self.get_object()
+        invoice = instance.invoice
+        estimate = instance.estimate
+        
+        # Delete the payment
+        self.perform_destroy(instance)
+        
+        # Recalculate balance
+        if invoice:
+            invoice.calculate_balance()
+        elif estimate:
+            estimate.calculate_balance()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'], permission_classes=[AllowAny])
     def download_pdf(self, request, pk=None):
@@ -2458,6 +2499,30 @@ class ContractorEstimateLineItemViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(work_order_id=work_order_id)
             
         return queryset
+
+    def perform_update(self, serializer):
+        """After updating a line item, recalculate all percentage items in the work order"""
+        instance = serializer.save()
+        work_order = instance.work_order
+        
+        # Recalculate percentage items that depend on this item
+        for pct_item in work_order.items.filter(is_active=True, charge_type='percent').exclude(id=instance.id):
+            pct_item.save()
+        
+        # Update work order total
+        work_order.update_total()
+
+    def perform_create(self, serializer):
+        """After creating a line item, recalculate all percentage items in the work order"""
+        instance = serializer.save()
+        work_order = instance.work_order
+        
+        # Recalculate percentage items
+        for pct_item in work_order.items.filter(is_active=True, charge_type='percent').exclude(id=instance.id):
+            pct_item.save()
+        
+        # Update work order total
+        work_order.update_total()
 
 
 class TransactionCategoryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):

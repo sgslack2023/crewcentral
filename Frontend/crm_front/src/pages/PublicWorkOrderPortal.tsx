@@ -232,12 +232,24 @@ const PublicWorkOrderPortal: React.FC = () => {
                                     <Paragraph style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
                                         {workOrder.estimate_details.pickup_date ? dayjs(workOrder.estimate_details.pickup_date).format('MMM D, YYYY') : 'TBD'}
                                     </Paragraph>
+                                    {workOrder.estimate_details.pickup_time_window_display && (
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                            <ClockCircleOutlined style={{ marginRight: '4px' }} />
+                                            {workOrder.estimate_details.pickup_time_window_display}
+                                        </Text>
+                                    )}
                                 </Col>
                                 <Col span={12}>
                                     <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>Delivery Date</Text>
                                     <Paragraph style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
                                         {workOrder.estimate_details.delivery_date ? dayjs(workOrder.estimate_details.delivery_date).format('MMM D, YYYY') : 'TBD'}
                                     </Paragraph>
+                                    {workOrder.estimate_details.delivery_time_window_display && (
+                                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                                            <ClockCircleOutlined style={{ marginRight: '4px' }} />
+                                            {workOrder.estimate_details.delivery_time_window_display}
+                                        </Text>
+                                    )}
                                 </Col>
                             </Row>
 
@@ -289,6 +301,18 @@ const PublicWorkOrderPortal: React.FC = () => {
                         )}
                     />
                 </Card>
+
+                {/* Contractor Notes */}
+                {workOrder.notes && (
+                    <Card
+                        title={<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FileTextOutlined style={{ color: '#fa8c16' }} /> Special Instructions</div>}
+                        style={{ borderRadius: '12px', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', backgroundColor: '#fffbf0' }}
+                    >
+                        <Paragraph style={{ fontSize: '14px', margin: 0, whiteSpace: 'pre-wrap' }}>
+                            {workOrder.notes}
+                        </Paragraph>
+                    </Card>
+                )}
 
                 {/* Decision Area */}
                 <div style={{ marginTop: '40px' }}>

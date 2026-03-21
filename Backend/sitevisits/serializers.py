@@ -29,6 +29,9 @@ class SiteVisitPhotoSerializer(serializers.ModelSerializer):
 
 class SiteVisitSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
+    customer_email = serializers.SerializerMethodField()
+    customer_phone = serializers.SerializerMethodField()
+    customer_address = serializers.SerializerMethodField()
     surveyor_name = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     observations = SiteVisitObservationSerializer(many=True, read_only=True)
@@ -37,9 +40,10 @@ class SiteVisitSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteVisit
         fields = [
-            'id', 'customer', 'customer_name', 'surveyor', 'surveyor_name', 
-            'organization', 'scheduled_at', 'started_at', 'completed_at', 
-            'status', 'notes', 'appointment_confirmed_by', 'appointment_phone', 
+            'id', 'customer', 'customer_name', 'customer_email', 'customer_phone', 
+            'customer_address', 'surveyor', 'surveyor_name',
+            'organization', 'scheduled_at', 'started_at', 'completed_at',
+            'status', 'notes', 'appointment_confirmed_by', 'appointment_phone',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
             'observations', 'photos'
         ]
@@ -47,6 +51,15 @@ class SiteVisitSerializer(serializers.ModelSerializer):
 
     def get_customer_name(self, obj):
         return obj.customer.full_name if obj.customer else None
+
+    def get_customer_email(self, obj):
+        return obj.customer.email if obj.customer else None
+
+    def get_customer_phone(self, obj):
+        return obj.customer.phone if obj.customer else None
+
+    def get_customer_address(self, obj):
+        return obj.customer.origin_address if obj.customer else None
 
     def get_surveyor_name(self, obj):
         return obj.surveyor.fullname if obj.surveyor else None

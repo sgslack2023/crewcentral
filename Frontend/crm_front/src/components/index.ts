@@ -14,6 +14,7 @@ export { default as AddEndpointForm } from './AddEndpointForm';
 export { default as AddOrganizationForm } from './AddOrganizationForm';
 export { default as AddAutomationForm } from './AddAutomationForm';
 export { default as AddUserForm } from './AddUserForm';
+export { default as AddCustomerForm } from './AddCustomerForm';
 export { default as ScheduleSiteVisitForm } from './ScheduleSiteVisitForm';
 export { default as AccountRequests } from './AccountRequests';
 export { default as FixedTable } from './FixedTable';

@@ -82,8 +82,19 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
 
     const handleUpdateMapping = async (values: any) => {
         try {
+            // Process mapping values: convert comma-separated strings to arrays
+            const processedMapping: any = {};
+            for (const [key, value] of Object.entries(values)) {
+                if (typeof value === 'string' && value.includes(',')) {
+                    // Split by comma and trim whitespace
+                    processedMapping[key] = value.split(',').map((v: string) => v.trim()).filter((v: string) => v);
+                } else {
+                    processedMapping[key] = value;
+                }
+            }
+            
             const headers = getAuthToken() as any;
-            await axios.patch(`${EndpointsUrl}/${selectedConfig.id}`, { mapping_config: values }, headers);
+            await axios.patch(`${EndpointsUrl}/${selectedConfig.id}`, { mapping_config: processedMapping }, headers);
             notification.success({ message: 'Success', title: 'Mapping updated' });
             setIsMappingModalVisible(false);
             fetchData();
@@ -243,7 +254,12 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                                     tooltip: 'Configure Mapping',
                                     onClick: () => {
                                         setSelectedConfig(config);
-                                        mappingForm.setFieldsValue(config.mapping_config || {});
+                                        // Convert arrays to comma-separated strings for display
+                                        const displayMapping: any = {};
+                                        for (const [key, value] of Object.entries(config.mapping_config || {})) {
+                                            displayMapping[key] = Array.isArray(value) ? value.join(', ') : value;
+                                        }
+                                        mappingForm.setFieldsValue(displayMapping);
                                         setIsMappingModalVisible(true);
                                     }
                                 },
@@ -388,8 +404,11 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                 bodyStyle={{ maxHeight: '70vh', overflowY: 'auto', padding: '16px' }}
             >
                 <div style={{ marginBottom: '16px', padding: '12px', background: '#eef2ff', borderRadius: '8px', border: '1px solid #c7d2fe' }}>
-                    <Text type="secondary" style={{ fontSize: '13px', color: '#4338ca' }}>
+                    <Text type="secondary" style={{ fontSize: '13px', color: '#4338ca', display: 'block', marginBottom: '8px' }}>
                         <InfoCircleOutlined /> Enter the JSON path for each field. Use dots for nested fields (e.g. <code>lead.contact.name</code>).
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: '12px', color: '#6366f1' }}>
+                        <strong>Field Combination:</strong> For Notes, you can combine multiple source fields by separating them with commas (e.g. <code>notes, description, comments</code>). They will be joined with line breaks.
                     </Text>
                 </div>
                 <Form form={mappingForm} layout="vertical" onFinish={handleUpdateMapping}>
@@ -415,14 +434,23 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                         <Form.Item name="state" label="State Path">
                             <Input placeholder="e.g. state" />
                         </Form.Item>
+                        <Form.Item name="country" label="Country Path">
+                            <Input placeholder="e.g. country" />
+                        </Form.Item>
                         <Form.Item name="zip" label="Zip Code Path">
                             <Input placeholder="e.g. zip_code" />
+                        </Form.Item>
+                        <Form.Item name="origin_address" label="Origin Address Path">
+                            <Input placeholder="e.g. origin_address, from_address" />
+                        </Form.Item>
+                        <Form.Item name="destination_address" label="Destination Address Path">
+                            <Input placeholder="e.g. destination_address, to_address" />
                         </Form.Item>
                         <Form.Item name="move_date" label="Move Date Path">
                             <Input placeholder="e.g. move_date" />
                         </Form.Item>
-                        <Form.Item name="notes" label="Notes/Description Path">
-                            <Input placeholder="e.g. description" />
+                        <Form.Item name="notes" label="Notes/Description Path" style={{ gridColumn: 'span 2' }}>
+                            <Input placeholder="e.g. description, notes, comments (comma-separated to combine)" />
                         </Form.Item>
                     </div>
                 </Form>

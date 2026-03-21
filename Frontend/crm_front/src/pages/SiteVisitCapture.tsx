@@ -21,14 +21,18 @@ import {
     EnvironmentOutlined,
     UserOutlined,
     InfoCircleOutlined,
-    DeleteOutlined
+    DeleteOutlined,
+    EditOutlined,
+    PhoneOutlined,
+    MailOutlined,
+    HomeOutlined
 } from '@ant-design/icons';
 import { PropagateLoader } from 'react-spinners';
 import axios from 'axios';
-import { SiteVisitsUrl, SiteVisitObservationsUrl, SiteVisitPhotosUrl } from '../utils/network';
-import { SiteVisitProps, SiteVisitObservationProps, SiteVisitPhotoProps } from '../utils/types';
+import { SiteVisitsUrl, SiteVisitObservationsUrl, SiteVisitPhotosUrl, CustomersUrl } from '../utils/network';
+import { SiteVisitProps, SiteVisitObservationProps, SiteVisitPhotoProps, CustomerProps } from '../utils/types';
 import { getAuthToken } from '../utils/functions';
-import { BlackButton, WhiteButton, PageLoader } from '../components';
+import { BlackButton, WhiteButton, PageLoader, AddCustomerForm } from '../components';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -40,6 +44,8 @@ const SiteVisitCapture: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [obsForm] = Form.useForm();
+    const [selectedCustomer, setSelectedCustomer] = useState<CustomerProps | null>(null);
+    const [customerModalVisible, setCustomerModalVisible] = useState(false);
 
     useEffect(() => {
         fetchVisitDetails();
@@ -60,6 +66,27 @@ const SiteVisitCapture: React.FC = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchCustomerAndEdit = async (customerId: number) => {
+        try {
+            const headers = getAuthToken() as any;
+            const response = await axios.get(`${CustomersUrl}/${customerId}`, headers);
+            setSelectedCustomer(response.data);
+            setCustomerModalVisible(true);
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to fetch customer details',
+                title: 'Error'
+            });
+        }
+    };
+
+    const handleCustomerUpdateSuccess = () => {
+        setCustomerModalVisible(false);
+        setSelectedCustomer(null);
+        fetchVisitDetails();
     };
 
     const handleAction = async (action: 'start_visit' | 'complete_visit') => {
@@ -165,6 +192,53 @@ const SiteVisitCapture: React.FC = () => {
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px 24px' }}>
                 <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+
+                    {/* Customer Information Card */}
+                    <Card 
+                        style={{ marginBottom: '16px', borderRadius: '12px' }} 
+                        size="small"
+                        title={
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <UserOutlined style={{ color: '#5b6cf9' }} />
+                                <span style={{ fontSize: '14px' }}>Customer Information</span>
+                            </div>
+                        }
+                        extra={
+                            <Button 
+                                type="link" 
+                                icon={<EditOutlined />} 
+                                onClick={() => visit.customer && fetchCustomerAndEdit(visit.customer)}
+                                style={{ padding: 0, color: '#5b6cf9' }}
+                            >
+                                Edit
+                            </Button>
+                        }
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <UserOutlined style={{ color: '#8c8c8c' }} />
+                                <Text strong>{visit.customer_name}</Text>
+                            </div>
+                            {visit.customer_email && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <MailOutlined style={{ color: '#1890ff' }} />
+                                    <Text>{visit.customer_email}</Text>
+                                </div>
+                            )}
+                            {visit.customer_phone && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <PhoneOutlined style={{ color: '#52c41a' }} />
+                                    <Text>{visit.customer_phone}</Text>
+                                </div>
+                            )}
+                            {visit.customer_address && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <HomeOutlined style={{ color: '#fa8c16' }} />
+                                    <Text>{visit.customer_address}</Text>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
 
                     {/* Visit Controls */}
                     <Card style={{ marginBottom: '16px', borderRadius: '12px' }} size="small">
@@ -288,6 +362,17 @@ const SiteVisitCapture: React.FC = () => {
                     </Card>
                 </div>
             </div>
+
+            {/* Edit Customer Modal */}
+            <AddCustomerForm
+                isVisible={customerModalVisible}
+                onClose={() => {
+                    setCustomerModalVisible(false);
+                    setSelectedCustomer(null);
+                }}
+                onSuccessCallBack={handleCustomerUpdateSuccess}
+                editingCustomer={selectedCustomer}
+            />
         </div>
     );
 };

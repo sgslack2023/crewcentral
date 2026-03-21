@@ -148,18 +148,19 @@ def calculate_estimate(estimate):
 def convert_images_to_base64(html_content):
     """
     Convert all image URLs in HTML to base64 for PDF generation
+    Also fix image centering by wrapping centered images in proper div containers
     """
     import re
     import base64
     import requests
     from django.conf import settings
-    
+
     # Log image tags found in content for debugging
     img_tags = re.findall(r'<img[^>]+>', html_content, flags=re.IGNORECASE)
     logger.info(f"convert_images_to_base64: Found {len(img_tags)} img tags in content")
     for i, tag in enumerate(img_tags[:5]):  # Log first 5
         logger.info(f"  Image {i+1}: {tag[:200]}...")  # Truncate long base64
-    
+
     def replace_img_src(match):
         full_tag = match.group(0)
         src = match.group(1)
@@ -222,6 +223,88 @@ def convert_images_to_base64(html_content):
     
     # Replace all img src attributes
     html_content = re.sub(r'<img[^>]+src=["\']([^"\']+)["\']', replace_img_src, html_content, flags=re.IGNORECASE)
+    
+    # Fix image centering: Find images in centered containers and add centering styles
+    # Pattern: <p/div with text-align:center> ... <img> ... </p/div>
+    def fix_centered_image(match):
+        container_open = match.group(1)
+        img_tag = match.group(2)
+        container_close = match.group(3)
+        
+        # Add centering styles to img tag
+        if 'style=' in img_tag:
+            # Append to existing style
+            img_tag = re.sub(r'style="([^"]*)"', r'style="\1; display: block; margin: 0 auto;"', img_tag)
+        else:
+            # Add new style attribute
+            img_tag = re.sub(r'<img', '<img style="display: block; margin: 0 auto;"', img_tag)
+        
+        return container_open + img_tag + container_close
+    
+    html_content = re.sub(
+        r'(<(?:p|div)[^>]*text-align:\s*center[^>]*>)(<img[^>]+>)(</(?:p|div)>)',
+        fix_centered_image,
+        html_content,
+        flags=re.IGNORECASE
+    )
+    
+    return html_content
+
+
+def cleanup_html_whitespace(html_content):
+    """
+    Remove empty paragraphs, excessive whitespace, and clean up HTML for PDF generation.
+    This fixes spacing issues caused by WYSIWYG editors adding empty <p> tags.
+    """
+    import re
+    
+    if not html_content:
+        return html_content
+    
+    # Remove zero-width spaces and other invisible characters that might be in tags
+    html_content = html_content.replace('\u200b', '').replace('\u200c', '').replace('\u200d', '').replace('\ufeff', '')
+    
+    # Remove empty paragraphs (with optional whitespace, &nbsp;, <br>, or zero-width spaces inside)
+    html_content = re.sub(r'<p[^>]*>(\s|&nbsp;|&#160;|\u00a0|<br\s*/?>)*</p>', '', html_content, flags=re.IGNORECASE)
+    
+    # Remove paragraphs that only contain a single <br>
+    html_content = re.sub(r'<p[^>]*>\s*<br\s*/?>\s*</p>', '', html_content, flags=re.IGNORECASE)
+    
+    # Remove empty divs (with optional whitespace inside)
+    html_content = re.sub(r'<div[^>]*>(\s|&nbsp;|&#160;|\u00a0|<br\s*/?>)*</div>', '', html_content, flags=re.IGNORECASE)
+    
+    # Remove ALL <br> tags inside table cells (td, th) - these cause extra lines
+    def remove_br_in_cells(match):
+        cell_content = match.group(0)
+        # Remove <br> tags from cell content
+        cell_content = re.sub(r'<br\s*/?>', '', cell_content, flags=re.IGNORECASE)
+        return cell_content
+    
+    html_content = re.sub(r'<td[^>]*>.*?</td>', remove_br_in_cells, html_content, flags=re.IGNORECASE | re.DOTALL)
+    html_content = re.sub(r'<th[^>]*>.*?</th>', remove_br_in_cells, html_content, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Remove multiple consecutive <br> tags (keep just one)
+    html_content = re.sub(r'(<br\s*/?>\s*){2,}', '<br/>', html_content, flags=re.IGNORECASE)
+    
+    # Remove <br> tags at the start of paragraphs
+    html_content = re.sub(r'(<p[^>]*>)\s*<br\s*/?>', r'\1', html_content, flags=re.IGNORECASE)
+    
+    # Remove <br> tags at the end of paragraphs
+    html_content = re.sub(r'<br\s*/?>\s*(</p>)', r'\1', html_content, flags=re.IGNORECASE)
+    
+    # Remove <br> tags that are immediately before or after block elements
+    html_content = re.sub(r'<br\s*/?>\s*(<(?:table|div|p|h[1-6])[^>]*>)', r'\1', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'(</(?:table|div|p|h[1-6])>)\s*<br\s*/?>', r'\1', html_content, flags=re.IGNORECASE)
+    
+    # Remove consecutive empty/whitespace-only lines between closing and opening paragraph tags
+    html_content = re.sub(r'</p>\s*<p[^>]*>(\s|&nbsp;)*</p>\s*<p', '</p><p', html_content, flags=re.IGNORECASE)
+    
+    # Remove empty paragraphs inside table cells
+    html_content = re.sub(r'(<td[^>]*>)\s*<p[^>]*>\s*</p>', r'\1', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'<p[^>]*>\s*</p>\s*(</td>)', r'\1', html_content, flags=re.IGNORECASE)
+    
+    # Collapse multiple whitespace/newlines between tags into nothing
+    html_content = re.sub(r'>\s+<', '><', html_content)
     
     return html_content
 
@@ -299,6 +382,11 @@ def process_document_template(html_content, customer=None, estimate=None, signat
             delivery_range_str = estimate.delivery_date_from.strftime('%B %d, %Y')
         html_content = html_content.replace('{{delivery_date_range}}', delivery_range_str)
 
+        # Note tags
+        html_content = html_content.replace('{{customer_notes}}', estimate.customer_notes or '')
+        html_content = html_content.replace('{{internal_notes}}', estimate.internal_notes or '')
+        html_content = html_content.replace('{{contractor_notes}}', estimate.contractor_notes or '')
+        
         # Generate line items table (tolerate whitespace + escaped braces)
         import re
         # NOTE: braces must be escaped once for regex (NOT double-escaped)
@@ -449,6 +537,9 @@ def process_document_template(html_content, customer=None, estimate=None, signat
     # Convert any remaining images to base64 for better PDF rendering
     html_content = convert_images_to_base64(html_content)
     
+    # Clean up empty paragraphs and excessive whitespace for cleaner PDF output
+    html_content = cleanup_html_whitespace(html_content)
+    
     return html_content
 
 
@@ -470,63 +561,14 @@ def generate_line_items_table(estimate):
         elif item.charge_type == ChargeType.PERCENT:
             details = f'{item.percentage:.2f}%'
         
-        rows_html += f'''
-        <tr>
-            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{item.charge_name}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{item.get_charge_type_display()}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{details}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${item.amount:,.2f}</td>
-        </tr>
-        '''
+        rows_html += f'<tr><td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{item.charge_name}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{item.get_charge_type_display()}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{details}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${item.amount:,.2f}</td></tr>'
     
     # Build tax row conditionally
     tax_row = ''
     if estimate.tax_percentage and estimate.tax_percentage > 0:
-        tax_row = f'''
-            <tr style="background-color: #fff7e6;">
-                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>Sales Tax ({estimate.tax_percentage:.2f}%):</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>${estimate.tax_amount:,.2f}</strong>
-                </td>
-            </tr>
-        '''
+        tax_row = f'<tr style="background-color: #fff7e6;"><td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>Sales Tax ({estimate.tax_percentage:.2f}%):</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>${estimate.tax_amount:,.2f}</strong></td></tr>'
     
-    table_html = f'''
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
-        <thead>
-            <tr style="background-color: #e8e8e8;">
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Description</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Details</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-        <tfoot>
-            <tr style="background-color: #f0f9ff;">
-                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>Subtotal:</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>${estimate.subtotal:,.2f}</strong>
-                </td>
-            </tr>
-            {tax_row}
-            <tr style="background-color: #e6ffe6;">
-                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
-                    <strong>TOTAL:</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
-                    <strong>${estimate.total_amount:,.2f}</strong>
-                </td>
-            </tr>
-        </tfoot>
-    </table>
-    '''
+    table_html = f'<table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;"><thead><tr style="background-color: #e8e8e8;"><th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Description</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Details</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th></tr></thead><tbody>{rows_html}</tbody><tfoot><tr style="background-color: #f0f9ff;"><td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>Subtotal:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>${estimate.subtotal:,.2f}</strong></td></tr>{tax_row}<tr style="background-color: #e6ffe6;"><td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;"><strong>TOTAL:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;"><strong>${estimate.total_amount:,.2f}</strong></td></tr></tfoot></table>'
     
     return table_html
 
@@ -540,13 +582,7 @@ def generate_invoice_line_items_table(invoice):
     for item in invoice.items.all().order_by('display_order', 'id'):
         details = f'${item.rate:,.2f} × {item.quantity}'
         
-        rows_html += f'''
-        <tr>
-            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{item.description}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{details}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${item.amount:,.2f}</td>
-        </tr>
-        '''
+        rows_html += f'<tr><td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{item.description}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{details}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${item.amount:,.2f}</td></tr>'
     
     # Build tax row conditionally
     tax_row = ''
@@ -554,50 +590,9 @@ def generate_invoice_line_items_table(invoice):
         # Try to get tax percentage from estimate if available
         tax_pct = invoice.estimate.tax_percentage if invoice.estimate and invoice.estimate.tax_percentage else 0
         tax_label = f'Sales Tax ({tax_pct:.2f}%):' if tax_pct else 'Sales Tax:'
-        tax_row = f'''
-            <tr style="background-color: #fff7e6;">
-                <td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>{tax_label}</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>${invoice.tax_amount:,.2f}</strong>
-                </td>
-            </tr>
-        '''
+        tax_row = f'<tr style="background-color: #fff7e6;"><td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>{tax_label}</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>${invoice.tax_amount:,.2f}</strong></td></tr>'
     
-    table_html = f'''
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
-        <thead>
-            <tr style="background-color: #e8e8e8;">
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Description</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Details</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-        <tfoot>
-            <tr style="background-color: #f0f9ff;">
-                <td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>Subtotal:</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>${invoice.subtotal:,.2f}</strong>
-                </td>
-            </tr>
-            {tax_row}
-            <tr style="background-color: #e6ffe6;">
-                <td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
-                    <strong>TOTAL:</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;">
-                    <strong>${invoice.total_amount:,.2f}</strong>
-                </td>
-            </tr>
-        </tfoot>
-    </table>
-    '''
+    table_html = f'<table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;"><thead><tr style="background-color: #e8e8e8;"><th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Description</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Details</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th></tr></thead><tbody>{rows_html}</tbody><tfoot><tr style="background-color: #f0f9ff;"><td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>Subtotal:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>${invoice.subtotal:,.2f}</strong></td></tr>{tax_row}<tr style="background-color: #e6ffe6;"><td colspan="2" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;"><strong>TOTAL:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 10pt;"><strong>${invoice.total_amount:,.2f}</strong></td></tr></tfoot></table>'
     
     return table_html
 
@@ -621,41 +616,10 @@ def generate_deposits_table(estimate):
         payment_method = dict(PaymentReceipt.PAYMENT_METHODS).get(payment.payment_method, payment.payment_method)
         payment_type = 'Deposit' if payment.payment_type == 'deposit' else 'Payment'
         
-        rows_html += f'''
-        <tr>
-            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{payment_date}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_type}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_method}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${payment.amount:,.2f}</td>
-        </tr>
-        '''
+        rows_html += f'<tr><td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{payment_date}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_type}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_method}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${payment.amount:,.2f}</td></tr>'
         total_deposits += payment.amount
     
-    table_html = f'''
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
-        <thead>
-            <tr style="background-color: #e8f5e9;">
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Date</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Payment Method</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-        <tfoot>
-            <tr style="background-color: #c8e6c9;">
-                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>Total Deposits:</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>${total_deposits:,.2f}</strong>
-                </td>
-            </tr>
-        </tfoot>
-    </table>
-    '''
+    table_html = f'<table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;"><thead><tr style="background-color: #e8f5e9;"><th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Date</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Payment Method</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th></tr></thead><tbody>{rows_html}</tbody><tfoot><tr style="background-color: #c8e6c9;"><td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>Total Deposits:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>${total_deposits:,.2f}</strong></td></tr></tfoot></table>'
     
     return table_html
 
@@ -721,41 +685,10 @@ def generate_combined_deposits_table(estimate, invoice=None):
         payment_method = dict(PaymentReceipt.PAYMENT_METHODS).get(payment.payment_method, payment.payment_method)
         payment_type = 'Deposit' if payment.payment_type == 'deposit' else 'Payment'
         
-        rows_html += f'''
-        <tr>
-            <td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{payment_date}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_type}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_method}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${payment.amount:,.2f}</td>
-        </tr>
-        '''
+        rows_html += f'<tr><td style="border: 1px solid #000; padding: 4px 6px; font-size: 9pt;">{payment_date}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_type}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 9pt;">{payment_method}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right; font-size: 9pt;">${payment.amount:,.2f}</td></tr>'
         total_deposits += payment.amount
     
-    table_html = f'''
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;">
-        <thead>
-            <tr style="background-color: #e8f5e9;">
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Date</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Payment Method</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-        <tfoot>
-            <tr style="background-color: #c8e6c9;">
-                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>Total Deposits:</strong>
-                </td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">
-                    <strong>${total_deposits:,.2f}</strong>
-                </td>
-            </tr>
-        </tfoot>
-    </table>
-    '''
+    table_html = f'<table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000; font-size: 9pt;"><thead><tr style="background-color: #e8f5e9;"><th style="border: 1px solid #000; padding: 5px 6px; text-align: left; font-size: 9pt;">Date</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Type</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center; font-size: 9pt;">Payment Method</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;">Amount</th></tr></thead><tbody>{rows_html}</tbody><tfoot><tr style="background-color: #c8e6c9;"><td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>Total Deposits:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right; font-size: 9pt;"><strong>${total_deposits:,.2f}</strong></td></tr></tfoot></table>'
     
     return table_html
 
@@ -767,6 +700,32 @@ def generate_pdf_from_html(html_content):
     # Pre-process HTML to ensure images are base64 encoded for PDF generation
     html_content = convert_images_to_base64(html_content)
     
+    # Add CSS reset to minimize spacing from default browser styles
+    # This fixes the extra spacing caused by WYSIWYG editors wrapping lines in <p> tags
+    css_reset = """
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; }
+        p { margin: 0 !important; padding: 0 !important; line-height: 1.3; }
+        table { margin: 5px 0; border-collapse: collapse; }
+        td, th { vertical-align: top; padding: 2px 4px; }
+        td p, th p { margin: 0 !important; padding: 0 !important; }
+        td br, th br { display: none; }
+        h1, h2, h3, h4, h5, h6 { margin: 2px 0; }
+    </style>
+    """
+    
+    # Insert CSS reset at the beginning of <head> or at the start of the document
+    if '<head>' in html_content.lower():
+        html_content = html_content.replace('<head>', '<head>' + css_reset, 1)
+        html_content = html_content.replace('<HEAD>', '<HEAD>' + css_reset, 1)
+    elif '<html>' in html_content.lower():
+        html_content = html_content.replace('<html>', '<html><head>' + css_reset + '</head>', 1)
+        html_content = html_content.replace('<HTML>', '<HTML><head>' + css_reset + '</head>', 1)
+    else:
+        # No HTML structure, wrap it
+        html_content = f'<html><head>{css_reset}</head><body>{html_content}</body></html>'
+
     result = BytesIO()
     pisa_status = pisa.CreatePDF(html_content, dest=result)
     if pisa_status.err:
@@ -939,36 +898,9 @@ def generate_work_order_pdf(work_order):
     # Generate contractor line items table
     rows_html = ''
     for item in work_order.items.all():
-        rows_html += f'''
-        <tr>
-            <td style="border: 1px solid #000; padding: 4px 6px;">{item.description}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">{item.quantity}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${item.contractor_rate:,.2f}</td>
-            <td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${item.total_amount:,.2f}</td>
-        </tr>
-        '''
+        rows_html += f'<tr><td style="border: 1px solid #000; padding: 4px 6px;">{item.description}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: center;">{item.quantity}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${item.contractor_rate:,.2f}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${item.total_amount:,.2f}</td></tr>'
     
-    table_html = f'''
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000;">
-        <thead>
-            <tr style="background-color: #f2f2f2;">
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: left;">Description</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: center;">Qty</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right;">Rate</th>
-                <th style="border: 1px solid #000; padding: 5px 6px; text-align: right;">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-        <tfoot>
-            <tr style="background-color: #e8e8e8;">
-                <td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right;"><strong>TOTAL:</strong></td>
-                <td style="border: 1px solid #000; padding: 5px 6px; text-align: right;"><strong>${work_order.total_contractor_amount:,.2f}</strong></td>
-            </tr>
-        </tfoot>
-    </table>
-    '''
+    table_html = f'<table style="width: 100%; border-collapse: collapse; margin: 10px 0; border: 1px solid #000;"><thead><tr style="background-color: #f2f2f2;"><th style="border: 1px solid #000; padding: 5px 6px; text-align: left;">Description</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: center;">Qty</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: right;">Rate</th><th style="border: 1px solid #000; padding: 5px 6px; text-align: right;">Total</th></tr></thead><tbody>{rows_html}</tbody><tfoot><tr style="background-color: #e8e8e8;"><td colspan="3" style="border: 1px solid #000; padding: 5px 6px; text-align: right;"><strong>TOTAL:</strong></td><td style="border: 1px solid #000; padding: 5px 6px; text-align: right;"><strong>${work_order.total_contractor_amount:,.2f}</strong></td></tr></tfoot></table>'
     
     html_content = html_content.replace('{{contractor_line_items_table}}', table_html)
     

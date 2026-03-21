@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, notification, Tag, Empty, Modal, Space, Tooltip } from 'antd';
+import { Card, Button, notification, Tag, Empty, Modal, Space, Tooltip, Descriptions } from 'antd';
 import {
     EnvironmentOutlined,
     CalendarOutlined,
@@ -8,18 +8,26 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     CameraOutlined,
-    PlusOutlined
+    PlusOutlined,
+    EditOutlined,
+    PhoneOutlined,
+    MailOutlined,
+    HomeOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
-import { SiteVisitsUrl } from '../utils/network';
-import { SiteVisitProps } from '../utils/types';
+import { SiteVisitsUrl, CustomersUrl } from '../utils/network';
+import { SiteVisitProps, CustomerProps } from '../utils/types';
 import { getAuthToken } from '../utils/functions';
 import { BlackButton, WhiteButton, PageLoader } from '../components';
+import AddCustomerForm from '../components/AddCustomerForm';
 
 const SiteVisits: React.FC = () => {
     const navigate = useNavigate();
     const [visits, setVisits] = useState<SiteVisitProps[]>([]);
     const [loading, setLoading] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState<CustomerProps | null>(null);
+    const [customerModalVisible, setCustomerModalVisible] = useState(false);
+    const [customerDetailsVisible, setCustomerDetailsVisible] = useState(false);
 
     useEffect(() => {
         fetchVisits();
@@ -61,6 +69,37 @@ const SiteVisits: React.FC = () => {
         }
     };
 
+    const fetchCustomerDetails = async (customerId: number) => {
+        try {
+            const headers = getAuthToken() as any;
+            const response = await axios.get(`${CustomersUrl}/${customerId}`, headers);
+            setSelectedCustomer(response.data);
+            setCustomerDetailsVisible(true);
+        } catch (error) {
+            notification.error({
+                message: 'Error',
+                description: 'Failed to fetch customer details',
+                title: 'Error'
+            });
+        }
+    };
+
+    const handleEditCustomer = () => {
+        setCustomerDetailsVisible(false);
+        setCustomerModalVisible(true);
+    };
+
+    const handleCustomerUpdateSuccess = () => {
+        setCustomerModalVisible(false);
+        setSelectedCustomer(null);
+        fetchVisits();
+        notification.success({
+            message: 'Success',
+            description: 'Customer updated successfully',
+            title: 'Success'
+        });
+    };
+
     const getStatusTag = (status: string) => {
         const colors: Record<string, string> = {
             'SCHEDULED': 'blue',
@@ -97,7 +136,18 @@ const SiteVisits: React.FC = () => {
                             title={
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 600 }}>{visit.customer_name}</span>
-                                    {getStatusTag(visit.status)}
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <Tooltip title="View Customer Info">
+                                            <Button
+                                                type="text"
+                                                size="small"
+                                                icon={<UserOutlined />}
+                                                onClick={() => fetchCustomerDetails(visit.customer)}
+                                                style={{ color: '#5b6cf9' }}
+                                            />
+                                        </Tooltip>
+                                        {getStatusTag(visit.status)}
+                                    </div>
                                 </div>
                             }
                         >
@@ -160,6 +210,78 @@ const SiteVisits: React.FC = () => {
                     ))}
                 </div>
             )}
+
+            {/* Customer Details Modal */}
+            <Modal
+                title="Customer Information"
+                open={customerDetailsVisible}
+                onCancel={() => {
+                    setCustomerDetailsVisible(false);
+                    setSelectedCustomer(null);
+                }}
+                footer={[
+                    <Button key="close" onClick={() => setCustomerDetailsVisible(false)}>
+                        Close
+                    </Button>,
+                    <BlackButton key="edit" icon={<EditOutlined />} onClick={handleEditCustomer}>
+                        Edit Customer
+                    </BlackButton>
+                ]}
+                width={700}
+            >
+                {selectedCustomer && (
+                    <Descriptions bordered column={2} size="small">
+                        <Descriptions.Item label="Full Name" span={2}>
+                            <strong>{selectedCustomer.full_name}</strong>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Email" span={2}>
+                            <MailOutlined style={{ marginRight: '6px', color: '#1890ff' }} />
+                            {selectedCustomer.email || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Phone" span={2}>
+                            <PhoneOutlined style={{ marginRight: '6px', color: '#52c41a' }} />
+                            {selectedCustomer.phone || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Origin Address" span={2}>
+                            <HomeOutlined style={{ marginRight: '6px', color: '#fa8c16' }} />
+                            {selectedCustomer.origin_address || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Destination Address" span={2}>
+                            <EnvironmentOutlined style={{ marginRight: '6px', color: '#eb2f96' }} />
+                            {selectedCustomer.destination_address || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Move Date">
+                            <CalendarOutlined style={{ marginRight: '6px' }} />
+                            {selectedCustomer.move_date || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Service Type">
+                            {selectedCustomer.service_type_name || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Move Size">
+                            {selectedCustomer.move_size_name || '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Stage">
+                            <Tag color="blue">{selectedCustomer.stage?.replace('_', ' ').toUpperCase()}</Tag>
+                        </Descriptions.Item>
+                        {selectedCustomer.notes && (
+                            <Descriptions.Item label="Notes" span={2}>
+                                {selectedCustomer.notes}
+                            </Descriptions.Item>
+                        )}
+                    </Descriptions>
+                )}
+            </Modal>
+
+            {/* Customer Edit Form */}
+            <AddCustomerForm
+                isVisible={customerModalVisible}
+                onClose={() => {
+                    setCustomerModalVisible(false);
+                    setSelectedCustomer(null);
+                }}
+                onSuccessCallBack={handleCustomerUpdateSuccess}
+                editingCustomer={selectedCustomer}
+            />
         </div>
     );
 };

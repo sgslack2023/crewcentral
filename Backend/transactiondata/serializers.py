@@ -208,7 +208,7 @@ class EstimateSerializer(serializers.ModelSerializer):
             'delivery_date_from', 'delivery_date_to', 'delivery_time_window', 'delivery_time_window_display',
             'origin_address', 'destination_address',
             'discount_type', 'discount_value', 'subtotal', 'discount_amount', 'tax_percentage', 'tax_amount', 'total_amount',
-            'status', 'payment_status', 'amount_paid', 'balance_due', 'notes', 'external_notes', 'assigned_contractor', 'assigned_contractor_name',
+            'status', 'payment_status', 'amount_paid', 'balance_due', 'notes', 'customer_notes', 'internal_notes', 'contractor_notes', 'assigned_contractor', 'assigned_contractor_name',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
             'items', 'items_count', 'payments',
             'public_token', 'email_sent_at', 'customer_viewed_at', 'customer_responded_at', 'link_active',

@@ -238,9 +238,13 @@ const EstimateEditor: React.FC = () => {
   const [isDiscountModalVisible, setIsDiscountModalVisible] = useState(false);
   const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
   const [collectingDeposit, setCollectingDeposit] = useState(false);
-  const [editingExternalNotes, setEditingExternalNotes] = useState(false);
+  const [editingCustomerNotes, setEditingCustomerNotes] = useState(false);
+  const [editingInternalNotes, setEditingInternalNotes] = useState(false);
+  const [editingContractorNotes, setEditingContractorNotes] = useState(false);
 
-  const [tempExternalNotes, setTempExternalNotes] = useState('');
+  const [tempCustomerNotes, setTempCustomerNotes] = useState('');
+  const [tempInternalNotes, setTempInternalNotes] = useState('');
+  const [tempContractorNotes, setTempContractorNotes] = useState('');
   const [editingContractor, setEditingContractor] = useState(false);
   const [tempContractor, setTempContractor] = useState<number | null>(null);
   const [contractors, setContractors] = useState<any[]>([]);
@@ -409,24 +413,70 @@ const EstimateEditor: React.FC = () => {
     }
   };
 
-  const handleUpdateExternalNotes = async () => {
+  const handleUpdateCustomerNotes = async () => {
     if (!estimateId) return;
     try {
       const headers = getAuthToken() as any;
       await axios.patch(`${EstimatesUrl}/${estimateId}`, {
-        external_notes: tempExternalNotes
+        customer_notes: tempCustomerNotes
       }, headers);
       notification.success({
         message: 'Saved',
-        description: 'External notes updated successfully',
+        description: 'Customer notes updated successfully',
         title: 'Success'
       });
-      setEditingExternalNotes(false);
+      setEditingCustomerNotes(false);
       fetchEstimate();
     } catch (error) {
       notification.error({
         message: 'Error',
-        description: 'Failed to update external notes',
+        description: 'Failed to update customer notes',
+        title: 'Error'
+      });
+    }
+  };
+
+  const handleUpdateInternalNotes = async () => {
+    if (!estimateId) return;
+    try {
+      const headers = getAuthToken() as any;
+      await axios.patch(`${EstimatesUrl}/${estimateId}`, {
+        internal_notes: tempInternalNotes
+      }, headers);
+      notification.success({
+        message: 'Saved',
+        description: 'Internal notes updated successfully',
+        title: 'Success'
+      });
+      setEditingInternalNotes(false);
+      fetchEstimate();
+    } catch (error) {
+      notification.error({
+        message: 'Error',
+        description: 'Failed to update internal notes',
+        title: 'Error'
+      });
+    }
+  };
+
+  const handleUpdateContractorNotes = async () => {
+    if (!estimateId) return;
+    try {
+      const headers = getAuthToken() as any;
+      await axios.patch(`${EstimatesUrl}/${estimateId}`, {
+        contractor_notes: tempContractorNotes
+      }, headers);
+      notification.success({
+        message: 'Saved',
+        description: 'Contractor notes updated successfully',
+        title: 'Success'
+      });
+      setEditingContractorNotes(false);
+      fetchEstimate();
+    } catch (error) {
+      notification.error({
+        message: 'Error',
+        description: 'Failed to update contractor notes',
         title: 'Error'
       });
     }
@@ -614,7 +664,7 @@ const EstimateEditor: React.FC = () => {
       setEditingContractorKey(null);
       if (externalWorkOrder?.id) {
         await fetchContractorLineItems(externalWorkOrder.id);
-        fetchWorkOrder(); // Refresh to update total_contractor_amount
+        await fetchWorkOrder(); // Refresh to update total_contractor_amount
       }
     } catch (error) {
       notification.error({
@@ -782,7 +832,9 @@ const EstimateEditor: React.FC = () => {
       });
 
       setEditingWeightHours(false);
-      fetchEstimate();
+      await fetchEstimate();
+      // Also refresh work orders since weight/labor syncs to contractor line items
+      await fetchWorkOrder();
     } catch (error) {
       notification.error({
         message: 'Update Error',
@@ -1112,7 +1164,7 @@ const EstimateEditor: React.FC = () => {
 
 
 
-  const contractorColumns = [
+  const getContractorColumns = () => [
     {
       title: 'Description',
       dataIndex: 'description',
@@ -1133,8 +1185,24 @@ const EstimateEditor: React.FC = () => {
       width: 120,
       render: (rate: number, record: ContractorEstimateLineItemProps) => {
         if (record.charge_type === 'percent') return <span>-</span>;
-
-        const isEditing = editingContractorKey === record.id && record.charge_type !== 'per_lb';
+        if (record.charge_type === 'per_lb' || record.charge_type === 'hourly') {
+          // Per-lb and hourly rates can be edited
+          const isEditing = editingContractorKey === record.id;
+          return isEditing ? (
+            <InputNumber
+              value={editedContractorValues[record.id!]?.contractor_rate ?? rate}
+              onChange={(value) => handleFieldChangeContractor(record.id!, 'contractor_rate', value)}
+              style={{ width: '100%' }}
+              min={0}
+              step={0.01}
+              prefix="$"
+            />
+          ) : (
+            <span>${rate ? Number(rate).toFixed(2) : '0.00'}</span>
+          );
+        }
+        // Flat rate
+        const isEditing = editingContractorKey === record.id;
         return isEditing ? (
           <InputNumber
             value={editedContractorValues[record.id!]?.contractor_rate ?? rate}
@@ -1188,7 +1256,7 @@ const EstimateEditor: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       width: 100,
-      render: (record: ContractorEstimateLineItemProps) => {
+      render: (_: any, record: ContractorEstimateLineItemProps) => {
         const isEditing = editingContractorKey === record.id;
         return isEditing ? (
           <Space>
@@ -1210,7 +1278,7 @@ const EstimateEditor: React.FC = () => {
           </Space>
         ) : (
           <Space>
-            <Tooltip title="Edit Rate">
+            <Tooltip title={record.charge_type === 'percent' ? "Edit Percentage" : "Edit Rate"}>
               <Button
                 size="small"
                 type="text"
@@ -1772,30 +1840,88 @@ const EstimateEditor: React.FC = () => {
                       />
                     </div>
 
-                    {/* External Notes */}
+                    {/* Customer Notes */}
                     <div style={{
                       padding: '6px 8px',
                       backgroundColor: '#fafafa',
-                      borderRadius: '6px'
+                      borderRadius: '6px',
+                      marginBottom: '8px'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <div style={{ fontSize: '10px', color: '#8c8c8c' }}>EXTERNAL NOTES</div>
+                        <div style={{ fontSize: '10px', color: '#8c8c8c' }}>CUSTOMER NOTES</div>
                         <Button
                           type="text"
                           size="small"
-                          icon={editingExternalNotes ? <CheckOutlined /> : <EditOutlined />}
-                          onClick={editingExternalNotes ? handleUpdateExternalNotes : () => {
-                            setEditingExternalNotes(true);
-                            setTempExternalNotes(estimate.external_notes || '');
+                          icon={editingCustomerNotes ? <CheckOutlined /> : <EditOutlined />}
+                          onClick={editingCustomerNotes ? handleUpdateCustomerNotes : () => {
+                            setEditingCustomerNotes(true);
+                            setTempCustomerNotes(estimate.customer_notes || '');
                           }}
                           style={{ color: '#5b6cf9', height: 'auto', padding: 0 }}
                         />
                       </div>
-                      {editingExternalNotes ? (
-                        <Input.TextArea size="small" value={tempExternalNotes} onChange={(e) => setTempExternalNotes(e.target.value)} autoSize={{ minRows: 2 }} style={{ fontSize: '11px' }} />
+                      {editingCustomerNotes ? (
+                        <Input.TextArea size="small" value={tempCustomerNotes} onChange={(e) => setTempCustomerNotes(e.target.value)} autoSize={{ minRows: 2 }} style={{ fontSize: '11px' }} />
                       ) : (
-                        <div style={{ fontSize: '11px', color: '#595959', fontStyle: estimate.external_notes ? 'normal' : 'italic' }}>
-                          {estimate.external_notes || 'No customer-facing notes...'}
+                        <div style={{ fontSize: '11px', color: '#595959', fontStyle: estimate.customer_notes ? 'normal' : 'italic' }}>
+                          {estimate.customer_notes || 'No customer-facing notes...'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Internal Notes */}
+                    <div style={{
+                      padding: '6px 8px',
+                      backgroundColor: '#fff7e6',
+                      borderRadius: '6px',
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '10px', color: '#8c8c8c' }}>INTERNAL NOTES</div>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={editingInternalNotes ? <CheckOutlined /> : <EditOutlined />}
+                          onClick={editingInternalNotes ? handleUpdateInternalNotes : () => {
+                            setEditingInternalNotes(true);
+                            setTempInternalNotes(estimate.internal_notes || '');
+                          }}
+                          style={{ color: '#fa8c16', height: 'auto', padding: 0 }}
+                        />
+                      </div>
+                      {editingInternalNotes ? (
+                        <Input.TextArea size="small" value={tempInternalNotes} onChange={(e) => setTempInternalNotes(e.target.value)} autoSize={{ minRows: 2 }} style={{ fontSize: '11px' }} />
+                      ) : (
+                        <div style={{ fontSize: '11px', color: '#595959', fontStyle: estimate.internal_notes ? 'normal' : 'italic' }}>
+                          {estimate.internal_notes || 'No internal notes...'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Contractor Notes */}
+                    <div style={{
+                      padding: '6px 8px',
+                      backgroundColor: '#e6f7ff',
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '10px', color: '#8c8c8c' }}>CONTRACTOR NOTES</div>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={editingContractorNotes ? <CheckOutlined /> : <EditOutlined />}
+                          onClick={editingContractorNotes ? handleUpdateContractorNotes : () => {
+                            setEditingContractorNotes(true);
+                            setTempContractorNotes(estimate.contractor_notes || '');
+                          }}
+                          style={{ color: '#1890ff', height: 'auto', padding: 0 }}
+                        />
+                      </div>
+                      {editingContractorNotes ? (
+                        <Input.TextArea size="small" value={tempContractorNotes} onChange={(e) => setTempContractorNotes(e.target.value)} autoSize={{ minRows: 2 }} style={{ fontSize: '11px' }} />
+                      ) : (
+                        <div style={{ fontSize: '11px', color: '#595959', fontStyle: estimate.contractor_notes ? 'normal' : 'italic' }}>
+                          {estimate.contractor_notes || 'No contractor notes...'}
                         </div>
                       )}
                     </div>
@@ -2457,7 +2583,7 @@ const EstimateEditor: React.FC = () => {
                           </div>
 
                           <Table
-                            columns={contractorColumns}
+                            columns={getContractorColumns()}
                             dataSource={contractorLineItems}
                             loading={loading}
                             rowKey="id"
