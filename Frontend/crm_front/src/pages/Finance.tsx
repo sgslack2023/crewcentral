@@ -457,31 +457,29 @@ const Finance: React.FC = () => {
                     >
                         Send
                     </Button>
-                    {row.status !== 'paid' && (
-                        <Popconfirm
-                            title="Delete Invoice"
-                            description="Are you sure? This will reset the estimate status."
-                            onConfirm={(e) => {
-                                e?.stopPropagation();
-                                if (row.id) handleDeleteInvoice(row.id);
-                            }}
-                            onCancel={(e) => e?.stopPropagation()}
-                            okText="Delete"
-                            cancelText="Cancel"
-                            okButtonProps={{ danger: true }}
+                    <Popconfirm
+                        title="Delete Invoice"
+                        description="Are you sure? This will reset the estimate status and allow regeneration."
+                        onConfirm={(e) => {
+                            e?.stopPropagation();
+                            if (row.id) handleDeleteInvoice(row.id);
+                        }}
+                        onCancel={(e) => e?.stopPropagation()}
+                        okText="Delete"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <Button
+                            size="small"
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            loading={deletingInvoice === row.id}
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <Button
-                                size="small"
-                                type="text"
-                                danger
-                                icon={<DeleteOutlined />}
-                                loading={deletingInvoice === row.id}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                Delete
-                            </Button>
-                        </Popconfirm>
-                    )}
+                            Delete
+                        </Button>
+                    </Popconfirm>
                 </div>
             )
         }
