@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Modal } from 'antd';
+import { Card, Button, Tag, notification, Modal, Dropdown } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
@@ -7,17 +7,20 @@ import {
   CarOutlined,
   ColumnHeightOutlined,
   DashboardOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  DownOutlined,
+  UploadOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getMoveTypes, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getMoveTypes, getCurrentUser, downloadExcelTemplate } from '../utils/functions';
 import { MoveTypesUrl } from '../utils/network';
 import { MoveTypeProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddMoveTypeForm from '../components/AddMoveTypeForm';
-import { BlackButton, WhiteButton, SettingsCard, SearchBar, PageLoader } from '../components';
+import { BlackButton, WhiteButton, SettingsCard, SearchBar, PageLoader, BulkUploadModal } from '../components';
 
 interface MoveTypesProps {
   hideHeader?: boolean;
@@ -31,6 +34,7 @@ const MoveTypes: React.FC<MoveTypesProps> = ({ hideHeader = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingMoveType, setEditingMoveType] = useState<MoveTypeProps | null>(null);
+  const [isBulkUploadVisible, setIsBulkUploadVisible] = useState(false);
 
   const currentUser = getCurrentUser();
 
@@ -57,6 +61,30 @@ const MoveTypes: React.FC<MoveTypesProps> = ({ hideHeader = false }) => {
     }
 
     setFilteredMoveTypes(filtered);
+  };
+
+  const handleDownload = async () => {
+    const success = await downloadExcelTemplate(MoveTypesUrl, 'move_types_export.xlsx');
+    if (!success) {
+      notification.error({ message: 'Download Failed', description: 'Failed to download move types data', title: 'Error' });
+    }
+  };
+
+  const bulkActionsMenuItems = {
+    items: [
+      {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download',
+        onClick: handleDownload
+      },
+      {
+        key: 'upload',
+        icon: <UploadOutlined />,
+        label: 'Upload',
+        onClick: () => setIsBulkUploadVisible(true)
+      }
+    ]
   };
 
   const handleDeleteMoveType = async (id: number) => {
@@ -124,6 +152,21 @@ const MoveTypes: React.FC<MoveTypesProps> = ({ hideHeader = false }) => {
           style={{ flex: 1, minWidth: '250px' }}
           allowClear
         />
+        <Dropdown menu={bulkActionsMenuItems} trigger={['click']}>
+          <Button style={{
+            backgroundColor: '#ffffff',
+            borderColor: '#d9d9d9',
+            color: '#000000',
+            fontWeight: 500,
+            height: '32px',
+            padding: '4px 15px',
+            fontSize: '14px',
+            borderRadius: '6px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+          }}>
+            Data Utilities <DownOutlined />
+          </Button>
+        </Dropdown>
         <BlackButton
           icon={<PlusOutlined />}
           onClick={() => {
@@ -215,6 +258,16 @@ const MoveTypes: React.FC<MoveTypesProps> = ({ hideHeader = false }) => {
           fetchMoveTypes();
         }}
         editingMoveType={editingMoveType}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isVisible={isBulkUploadVisible}
+        entityType="move_type"
+        entityLabel="Move Types"
+        apiUrl={MoveTypesUrl}
+        onClose={() => setIsBulkUploadVisible(false)}
+        onSuccess={fetchMoveTypes}
       />
     </div>
   );

@@ -24,3 +24,4 @@ export { default as ThemedSelect } from './ThemedSelect';
 export { default as ThemedSearch } from './ThemedSearch';
 export { default as ThemedDatePicker } from './ThemedDatePicker';
 export { default as ThemedRangePicker } from './ThemedRangePicker';
+export { default as BulkUploadModal } from './BulkUploadModal';

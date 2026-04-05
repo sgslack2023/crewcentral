@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from crm_back.custom_methods import isAuthenticatedCustom, isAdminUser, HasSystemPermission
 from crm_back.mixins import OrganizationContextMixin
 from .models import (
@@ -22,6 +23,7 @@ from .serializers import (
 )
 from rest_framework.views import APIView
 from users.models import Organization
+from .excel_utils import generate_excel_template, parse_and_validate_excel
 
 class LeadIngestionView(APIView):
     """
@@ -423,6 +425,67 @@ class CustomerViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(customer)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """
+        Download Excel file with current customer data for the user's organization
+        """
+        queryset = self.get_queryset()
+        excel_file = generate_excel_template('customer', queryset, request.organization)
+        
+        response = HttpResponse(
+            excel_file.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="customers_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def validate_upload(self, request):
+        """
+        Parse and validate Excel file, return preview data WITHOUT saving to database
+        """
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        preview_data = parse_and_validate_excel(
+            file,
+            'customer',
+            request.organization,
+            dry_run=True
+        )
+        
+        if 'error' in preview_data:
+            return Response(preview_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(preview_data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """
+        Import validated Excel file - saves to database with organization assignment
+        """
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = parse_and_validate_excel(
+            file,
+            'customer',
+            request.organization,
+            user=request.user,
+            dry_run=False
+        )
+        
+        if 'error' in results:
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        if results.get('errors'):
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(results)
+
 
 class CustomerStatisticsViewSet(viewsets.ViewSet):
     """
@@ -504,6 +567,47 @@ class BranchViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             kwargs['organization'] = self.request.organization
         serializer.save(**kwargs)
 
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download Excel file with current branch data"""
+        queryset = self.get_queryset()
+        excel_file = generate_excel_template('branch', queryset, request.organization)
+        
+        response = HttpResponse(
+            excel_file.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="branches_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def validate_upload(self, request):
+        """Parse and validate Excel file, return preview without saving"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        preview_data = parse_and_validate_excel(file, 'branch', request.organization, dry_run=True)
+        
+        if 'error' in preview_data:
+            return Response(preview_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(preview_data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """Import validated Excel file to database"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = parse_and_validate_excel(file, 'branch', request.organization, user=request.user, dry_run=False)
+        
+        if 'error' in results or results.get('errors'):
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(results)
+
 
 class ServiceTypeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
@@ -534,8 +638,49 @@ class ServiceTypeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             kwargs['organization'] = self.request.organization
         serializer.save(**kwargs)
 
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download Excel file with current service type data"""
+        queryset = self.get_queryset()
+        excel_file = generate_excel_template('service_type', queryset, request.organization)
+        
+        response = HttpResponse(
+            excel_file.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="service_types_export.xlsx"'
+        return response
 
-from django.http import HttpResponse, FileResponse
+    @action(detail=False, methods=['post'])
+    def validate_upload(self, request):
+        """Parse and validate Excel file, return preview without saving"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        preview_data = parse_and_validate_excel(file, 'service_type', request.organization, dry_run=True)
+        
+        if 'error' in preview_data:
+            return Response(preview_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(preview_data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """Import validated Excel file to database"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = parse_and_validate_excel(file, 'service_type', request.organization, user=request.user, dry_run=False)
+        
+        if 'error' in results or results.get('errors'):
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(results)
+
+
+from django.http import FileResponse
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
 import mimetypes
@@ -792,6 +937,47 @@ class MoveTypeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
             kwargs['organization'] = self.request.organization
         serializer.save(**kwargs)
 
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download Excel file with current move type data"""
+        queryset = self.get_queryset()
+        excel_file = generate_excel_template('move_type', queryset, request.organization)
+        
+        response = HttpResponse(
+            excel_file.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="move_types_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def validate_upload(self, request):
+        """Parse and validate Excel file, return preview without saving"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        preview_data = parse_and_validate_excel(file, 'move_type', request.organization, dry_run=True)
+        
+        if 'error' in preview_data:
+            return Response(preview_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(preview_data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """Import validated Excel file to database"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = parse_and_validate_excel(file, 'move_type', request.organization, user=request.user, dry_run=False)
+        
+        if 'error' in results or results.get('errors'):
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(results)
+
 
 class RoomSizeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """
@@ -824,6 +1010,48 @@ class RoomSizeViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         if hasattr(self.request, 'organization') and self.request.organization:
             kwargs['organization'] = self.request.organization
         serializer.save(**kwargs)
+
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download Excel file with current room size data"""
+        queryset = self.get_queryset()
+        excel_file = generate_excel_template('room_size', queryset, request.organization)
+        
+        response = HttpResponse(
+            excel_file.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="room_sizes_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def validate_upload(self, request):
+        """Parse and validate Excel file, return preview without saving"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        preview_data = parse_and_validate_excel(file, 'room_size', request.organization, dry_run=True)
+        
+        if 'error' in preview_data:
+            return Response(preview_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(preview_data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """Import validated Excel file to database"""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = parse_and_validate_excel(file, 'room_size', request.organization, user=request.user, dry_run=False)
+        
+        if 'error' in results or results.get('errors'):
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(results)
+
 
 class ScheduleViewSet(viewsets.ModelViewSet):
     """

@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Input, Button, Tag, notification, Modal, Form, TimePicker, Switch, InputNumber } from 'antd';
+import { Card, Input, Button, Tag, notification, Modal, Form, TimePicker, Switch, InputNumber, Dropdown } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
   ArrowLeftOutlined,
-  SaveOutlined
+  SaveOutlined,
+  DownOutlined,
+  UploadOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getCurrentUser, downloadExcelTemplate } from '../utils/functions';
 import { BaseUrl } from '../utils/network';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import dayjs from 'dayjs';
-import { BlackButton, WhiteButton, SettingsCard, SearchBar, AddTimeWindowForm, PageLoader } from '../components';
+import { BlackButton, WhiteButton, SettingsCard, SearchBar, AddTimeWindowForm, PageLoader, BulkUploadModal } from '../components';
 
 const TimeWindowsUrl = BaseUrl + 'transactiondata/time-windows';
 
@@ -47,6 +50,7 @@ const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
   const [editingWindow, setEditingWindow] = useState<TimeWindowProps | null>(null);
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const [isBulkUploadVisible, setIsBulkUploadVisible] = useState(false);
 
   const currentUser = getCurrentUser();
 
@@ -99,6 +103,30 @@ const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
   const handleCloseForm = () => {
     setIsFormVisible(false);
     setEditingWindow(null);
+  };
+
+  const handleDownload = async () => {
+    const success = await downloadExcelTemplate(TimeWindowsUrl, 'time_windows_export.xlsx');
+    if (!success) {
+      notification.error({ message: 'Download Failed', description: 'Failed to download time windows data', title: 'Error' });
+    }
+  };
+
+  const bulkActionsMenuItems = {
+    items: [
+      {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download',
+        onClick: handleDownload
+      },
+      {
+        key: 'upload',
+        icon: <UploadOutlined />,
+        label: 'Upload',
+        onClick: () => setIsBulkUploadVisible(true)
+      }
+    ]
   };
 
   const handleDelete = async (windowId: number) => {
@@ -168,6 +196,21 @@ const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
           style={{ flex: 1, minWidth: '250px' }}
           allowClear
         />
+        <Dropdown menu={bulkActionsMenuItems} trigger={['click']}>
+          <Button style={{
+            backgroundColor: '#ffffff',
+            borderColor: '#d9d9d9',
+            color: '#000000',
+            fontWeight: 500,
+            height: '32px',
+            padding: '4px 15px',
+            fontSize: '14px',
+            borderRadius: '6px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+          }}>
+            Data Utilities <DownOutlined />
+          </Button>
+        </Dropdown>
         <BlackButton
           icon={<PlusOutlined />}
           onClick={() => handleOpenForm()}
@@ -231,6 +274,16 @@ const TimeWindows: React.FC<TimeWindowsProps> = ({ hideHeader = false }) => {
         onClose={handleCloseForm}
         onSuccessCallBack={fetchTimeWindows}
         editingWindow={editingWindow}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isVisible={isBulkUploadVisible}
+        entityType="time_window"
+        entityLabel="Time Windows"
+        apiUrl={TimeWindowsUrl}
+        onClose={() => setIsBulkUploadVisible(false)}
+        onSuccess={fetchTimeWindows}
       />
     </div >
   );

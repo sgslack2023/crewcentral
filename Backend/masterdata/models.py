@@ -23,6 +23,7 @@ STAGE_CHOICES = (
     ('closed', 'Closed'),
     ('bad_lead', 'Bad Lead'),
     ('lost', 'Lost'),
+    ('legacy', 'Legacy'),
 )
 
 

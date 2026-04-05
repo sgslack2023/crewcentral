@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Modal } from 'antd';
+import { Card, Button, Tag, notification, Modal, Dropdown } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
@@ -7,17 +7,20 @@ import {
   HomeOutlined,
   ColumnHeightOutlined,
   DashboardOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  DownOutlined,
+  UploadOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getRoomSizes, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getRoomSizes, getCurrentUser, downloadExcelTemplate } from '../utils/functions';
 import { RoomSizesUrl } from '../utils/network';
 import { RoomSizeProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddRoomSizeForm from '../components/AddRoomSizeForm';
-import { BlackButton, WhiteButton, SearchBar, PageLoader, SettingsCard } from '../components';
+import { BlackButton, WhiteButton, SearchBar, PageLoader, SettingsCard, BulkUploadModal } from '../components';
 
 interface RoomSizesProps {
   hideHeader?: boolean;
@@ -31,6 +34,7 @@ const RoomSizes: React.FC<RoomSizesProps> = ({ hideHeader = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingRoomSize, setEditingRoomSize] = useState<RoomSizeProps | null>(null);
+  const [isBulkUploadVisible, setIsBulkUploadVisible] = useState(false);
 
   const currentUser = getCurrentUser();
 
@@ -57,6 +61,30 @@ const RoomSizes: React.FC<RoomSizesProps> = ({ hideHeader = false }) => {
     }
 
     setFilteredRoomSizes(filtered);
+  };
+
+  const handleDownload = async () => {
+    const success = await downloadExcelTemplate(RoomSizesUrl, 'room_sizes_export.xlsx');
+    if (!success) {
+      notification.error({ message: 'Download Failed', description: 'Failed to download room sizes data', title: 'Error' });
+    }
+  };
+
+  const bulkActionsMenuItems = {
+    items: [
+      {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download',
+        onClick: handleDownload
+      },
+      {
+        key: 'upload',
+        icon: <UploadOutlined />,
+        label: 'Upload',
+        onClick: () => setIsBulkUploadVisible(true)
+      }
+    ]
   };
 
   const handleDeleteRoomSize = async (id: number) => {
@@ -123,6 +151,21 @@ const RoomSizes: React.FC<RoomSizesProps> = ({ hideHeader = false }) => {
           style={{ flex: 1, minWidth: '250px' }}
           allowClear
         />
+        <Dropdown menu={bulkActionsMenuItems} trigger={['click']}>
+          <Button style={{
+            backgroundColor: '#ffffff',
+            borderColor: '#d9d9d9',
+            color: '#000000',
+            fontWeight: 500,
+            height: '32px',
+            padding: '4px 15px',
+            fontSize: '14px',
+            borderRadius: '6px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+          }}>
+            Data Utilities <DownOutlined />
+          </Button>
+        </Dropdown>
         <BlackButton
           icon={<PlusOutlined />}
           onClick={() => {
@@ -214,6 +257,16 @@ const RoomSizes: React.FC<RoomSizesProps> = ({ hideHeader = false }) => {
           fetchRoomSizes();
         }}
         editingRoomSize={editingRoomSize}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isVisible={isBulkUploadVisible}
+        entityType="room_size"
+        entityLabel="Room Sizes"
+        apiUrl={RoomSizesUrl}
+        onClose={() => setIsBulkUploadVisible(false)}
+        onSuccess={fetchRoomSizes}
       />
     </div>
   );

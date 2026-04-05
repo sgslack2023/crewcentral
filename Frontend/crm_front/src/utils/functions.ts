@@ -620,6 +620,32 @@ export const getPurchases = async (
   }
 };
 
+// Data Utilities - Download Excel template
+export const downloadExcelTemplate = async (apiUrl: string, filename: string): Promise<boolean> => {
+  const headers = getAuthToken() as AuthTokenType;
+  if (!headers) return false;
+  
+  try {
+    const response = await axios.get(`${apiUrl}/download_template`, {
+      ...headers,
+      responseType: 'blob',
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    return true;
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    return false;
+  }
+};
+
 // Clipboard utility that works on both HTTP and HTTPS
 export const copyToClipboard = async (text: string): Promise<boolean> => {
   try {

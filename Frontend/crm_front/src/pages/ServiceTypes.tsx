@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Modal } from 'antd';
+import { Card, Button, Tag, notification, Modal, Dropdown } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
@@ -9,15 +9,18 @@ import {
   PercentageOutlined,
   InfoCircleOutlined,
   MoreOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  DownOutlined,
+  UploadOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getCurrentUser, downloadExcelTemplate } from '../utils/functions';
 import { ServiceTypesUrl } from '../utils/network';
 import { ServiceTypeProps } from '../utils/types';
 import AddServiceTypeForm from '../components/AddServiceTypeForm';
-import { BlackButton, WhiteButton, SettingsCard, SearchBar, PageLoader } from '../components';
+import { BlackButton, WhiteButton, SettingsCard, SearchBar, PageLoader, BulkUploadModal } from '../components';
 
 interface ServiceTypesProps {
   hideHeader?: boolean;
@@ -31,6 +34,7 @@ const ServiceTypes: React.FC<ServiceTypesProps> = ({ hideHeader = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingServiceType, setEditingServiceType] = useState<ServiceTypeProps | null>(null);
+  const [isBulkUploadVisible, setIsBulkUploadVisible] = useState(false);
 
   useEffect(() => {
     fetchServiceTypes();
@@ -67,6 +71,30 @@ const ServiceTypes: React.FC<ServiceTypesProps> = ({ hideHeader = false }) => {
     }
 
     setFilteredServiceTypes(filtered);
+  };
+
+  const handleDownload = async () => {
+    const success = await downloadExcelTemplate(ServiceTypesUrl, 'service_types_export.xlsx');
+    if (!success) {
+      notification.error({ message: 'Download Failed', description: 'Failed to download service types data', title: 'Error' });
+    }
+  };
+
+  const bulkActionsMenuItems = {
+    items: [
+      {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download',
+        onClick: handleDownload
+      },
+      {
+        key: 'upload',
+        icon: <UploadOutlined />,
+        label: 'Upload',
+        onClick: () => setIsBulkUploadVisible(true)
+      }
+    ]
   };
 
   const handleDeleteServiceType = async (id: number) => {
@@ -134,6 +162,21 @@ const ServiceTypes: React.FC<ServiceTypesProps> = ({ hideHeader = false }) => {
           style={{ flex: 1, minWidth: '250px' }}
           allowClear
         />
+        <Dropdown menu={bulkActionsMenuItems} trigger={['click']}>
+          <Button style={{
+            backgroundColor: '#ffffff',
+            borderColor: '#d9d9d9',
+            color: '#000000',
+            fontWeight: 500,
+            height: '32px',
+            padding: '4px 15px',
+            fontSize: '14px',
+            borderRadius: '6px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+          }}>
+            Data Utilities <DownOutlined />
+          </Button>
+        </Dropdown>
         <BlackButton
           icon={<PlusOutlined />}
           onClick={() => {
@@ -243,6 +286,16 @@ const ServiceTypes: React.FC<ServiceTypesProps> = ({ hideHeader = false }) => {
           fetchServiceTypes();
         }}
         editingServiceType={editingServiceType}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isVisible={isBulkUploadVisible}
+        entityType="service_type"
+        entityLabel="Service Types"
+        apiUrl={ServiceTypesUrl}
+        onClose={() => setIsBulkUploadVisible(false)}
+        onSuccess={fetchServiceTypes}
       />
     </div>
   );

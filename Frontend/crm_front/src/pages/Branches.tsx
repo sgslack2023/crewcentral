@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Tag, notification, Modal } from 'antd';
+import { Card, Button, Tag, notification, Modal, Dropdown } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
@@ -9,17 +9,20 @@ import {
   SendOutlined,
   InfoCircleOutlined,
   MoreOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  DownOutlined,
+  UploadOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getBranches, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getBranches, getCurrentUser, downloadExcelTemplate } from '../utils/functions';
 import { BranchesUrl } from '../utils/network';
 import { BranchProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
 import Header from '../components/Header';
 import AddBranchForm from '../components/AddBranchForm';
-import { BlackButton, WhiteButton, SearchBar, SettingsCard, PageLoader } from '../components';
+import { BlackButton, WhiteButton, SearchBar, SettingsCard, PageLoader, BulkUploadModal } from '../components';
 
 interface BranchesProps {
   hideHeader?: boolean;
@@ -33,6 +36,7 @@ const Branches: React.FC<BranchesProps> = ({ hideHeader = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [editingBranch, setEditingBranch] = useState<BranchProps | null>(null);
+  const [isBulkUploadVisible, setIsBulkUploadVisible] = useState(false);
 
   const currentUser = getCurrentUser();
 
@@ -60,6 +64,30 @@ const Branches: React.FC<BranchesProps> = ({ hideHeader = false }) => {
     }
 
     setFilteredBranches(filtered);
+  };
+
+  const handleDownload = async () => {
+    const success = await downloadExcelTemplate(BranchesUrl, 'branches_export.xlsx');
+    if (!success) {
+      notification.error({ message: 'Download Failed', description: 'Failed to download branches data', title: 'Error' });
+    }
+  };
+
+  const bulkActionsMenuItems = {
+    items: [
+      {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download',
+        onClick: handleDownload
+      },
+      {
+        key: 'upload',
+        icon: <UploadOutlined />,
+        label: 'Upload',
+        onClick: () => setIsBulkUploadVisible(true)
+      }
+    ]
   };
 
   const handleDeleteBranch = async (branchId: number) => {
@@ -126,6 +154,21 @@ const Branches: React.FC<BranchesProps> = ({ hideHeader = false }) => {
           style={{ flex: 1, minWidth: '250px' }}
           allowClear
         />
+        <Dropdown menu={bulkActionsMenuItems} trigger={['click']}>
+          <Button style={{
+            backgroundColor: '#ffffff',
+            borderColor: '#d9d9d9',
+            color: '#000000',
+            fontWeight: 500,
+            height: '32px',
+            padding: '4px 15px',
+            fontSize: '14px',
+            borderRadius: '6px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+          }}>
+            Data Utilities <DownOutlined />
+          </Button>
+        </Dropdown>
         <BlackButton
           icon={<PlusOutlined />}
           onClick={() => {
@@ -229,6 +272,16 @@ const Branches: React.FC<BranchesProps> = ({ hideHeader = false }) => {
           fetchBranches();
         }}
         editingBranch={editingBranch}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isVisible={isBulkUploadVisible}
+        entityType="branch"
+        entityLabel="Branches"
+        apiUrl={BranchesUrl}
+        onClose={() => setIsBulkUploadVisible(false)}
+        onSuccess={fetchBranches}
       />
     </div>
   );

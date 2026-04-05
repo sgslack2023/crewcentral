@@ -67,6 +67,53 @@ class TimeWindowViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         serializer = TimeWindowSimpleSerializer(windows, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """Download Excel file with current time window data"""
+        from masterdata.excel_utils import generate_excel_template
+        
+        queryset = self.get_queryset()
+        excel_file = generate_excel_template('time_window', queryset, request.organization)
+        
+        response = HttpResponse(
+            excel_file.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="time_windows_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def validate_upload(self, request):
+        """Parse and validate Excel file, return preview without saving"""
+        from masterdata.excel_utils import parse_and_validate_excel
+        
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        preview_data = parse_and_validate_excel(file, 'time_window', request.organization, dry_run=True)
+        
+        if 'error' in preview_data:
+            return Response(preview_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(preview_data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """Import validated Excel file to database"""
+        from masterdata.excel_utils import parse_and_validate_excel
+        
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        results = parse_and_validate_excel(file, 'time_window', request.organization, user=request.user, dry_run=False)
+        
+        if 'error' in results or results.get('errors'):
+            return Response(results, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(results)
+
 
 class ChargeCategoryViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     """

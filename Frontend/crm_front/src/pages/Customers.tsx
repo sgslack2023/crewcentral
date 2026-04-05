@@ -13,11 +13,14 @@ import {
   InboxOutlined,
   UndoOutlined,
   FilterOutlined,
+  DownOutlined,
+  UploadOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
-import { Card, Input, Select, Button, Tag, notification, Modal, Tooltip, Space } from 'antd';
+import { Card, Input, Select, Button, Tag, notification, Modal, Tooltip, Space, Dropdown } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getAuthToken, getCurrentUser } from '../utils/functions';
+import { getAuthToken, getCurrentUser, downloadExcelTemplate } from '../utils/functions';
 import { CustomersUrl } from '../utils/network';
 import { CustomerProps } from '../utils/types';
 import { fullname, role, email } from '../utils/data';
@@ -25,7 +28,7 @@ import AddCustomerForm from '../components/AddCustomerForm';
 import CreateEstimateForm from '../components/CreateEstimateForm';
 import ScheduleSiteVisitForm from "../components/ScheduleSiteVisitForm";
 import FixedTable from '../components/FixedTable';
-import { BlackButton, WhiteButton, ThemedSearch, ThemedSelect } from '../components';
+import { BlackButton, WhiteButton, ThemedSearch, ThemedSelect, BulkUploadModal } from '../components';
 
 const { Option } = Select;
 
@@ -48,6 +51,7 @@ const STAGE_OPTIONS = [
   { value: 'closed', label: 'Closed', color: 'green' },
   { value: 'bad_lead', label: 'Bad Lead', color: 'volcano' },
   { value: 'lost', label: 'Lost', color: 'red' },
+  { value: 'legacy', label: 'Legacy', color: 'purple' },
 ];
 
 
@@ -67,6 +71,7 @@ const Customers: React.FC = () => {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string | undefined>(undefined);
   const [sourceFilter, setSourceFilter] = useState<string | undefined>(undefined);
+  const [isBulkUploadVisible, setIsBulkUploadVisible] = useState(false);
 
   const currentUser = getCurrentUser();
 
@@ -240,6 +245,34 @@ const Customers: React.FC = () => {
     }, 1000);
   };
 
+  const handleDownloadCustomers = async () => {
+    const success = await downloadExcelTemplate(CustomersUrl, 'customers_export.xlsx');
+    if (!success) {
+      notification.error({
+        message: 'Download Failed',
+        description: 'Failed to download customer data',
+        title: 'Error'
+      });
+    }
+  };
+
+  const bulkActionsMenuItems = {
+    items: [
+      {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download',
+        onClick: handleDownloadCustomers
+      },
+      {
+        key: 'upload',
+        icon: <UploadOutlined />,
+        label: 'Upload',
+        onClick: () => setIsBulkUploadVisible(true)
+      }
+    ]
+  };
+
   const columns = [
     {
       id: 'full_name',
@@ -382,6 +415,21 @@ const Customers: React.FC = () => {
           >
             {showArchived ? 'Active' : 'Archived'}
           </WhiteButton>
+          <Dropdown menu={bulkActionsMenuItems} trigger={['click']}>
+            <Button style={{
+              backgroundColor: '#ffffff',
+              borderColor: '#d9d9d9',
+              color: '#000000',
+              fontWeight: 500,
+              height: '32px',
+              padding: '4px 15px',
+              fontSize: '14px',
+              borderRadius: '6px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+            }}>
+              Data Utilities <DownOutlined />
+            </Button>
+          </Dropdown>
           <BlackButton
             icon={<PlusOutlined />}
             onClick={() => {
@@ -507,6 +555,16 @@ const Customers: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isVisible={isBulkUploadVisible}
+        entityType="customer"
+        entityLabel="Customers"
+        apiUrl={CustomersUrl}
+        onClose={() => setIsBulkUploadVisible(false)}
+        onSuccess={fetchCustomers}
+      />
     </div>
   );
 };
