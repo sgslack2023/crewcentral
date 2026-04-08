@@ -707,10 +707,11 @@ def generate_pdf_from_html(html_content):
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; }
         p { margin: 0 !important; padding: 0 !important; line-height: 1.3; }
-        table { margin: 5px 0; border-collapse: collapse; }
-        td, th { vertical-align: top; padding: 2px 4px; }
-        td p, th p { margin: 0 !important; padding: 0 !important; }
+        table { margin: 5px 0; border-collapse: collapse; width: 100%; }
+        td, th { vertical-align: top; padding: 4px 8px !important; line-height: 1.2 !important; height: auto !important; }
+        td p, th p { margin: 0 !important; padding: 0 !important; line-height: 1.2 !important; }
         td br, th br { display: none; }
+        td div, th div { margin: 0 !important; padding: 0 !important; line-height: 1.2 !important; }
         h1, h2, h3, h4, h5, h6 { margin: 2px 0; }
     </style>
     """

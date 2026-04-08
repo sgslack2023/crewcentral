@@ -408,25 +408,25 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                         <InfoCircleOutlined /> Enter the JSON path for each field. Use dots for nested fields (e.g. <code>lead.contact.name</code>).
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px', color: '#6366f1' }}>
-                        <strong>Field Combination:</strong> For Notes, you can combine multiple source fields by separating them with commas (e.g. <code>notes, description, comments</code>). They will be joined with line breaks.
+                        <strong>Field Combination:</strong> For any field, you can combine multiple source fields by separating them with commas (e.g. <code>notes, description, comments</code>). They will be joined with line breaks.
                     </Text>
                 </div>
                 <Form form={mappingForm} layout="vertical" onFinish={handleUpdateMapping}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
                         <Form.Item name="full_name" label="Full Name Path">
-                            <Input placeholder="e.g. name or lead.name" />
+                            <Input placeholder="e.g. name, lead.name, contact.full_name" />
                         </Form.Item>
                         <Form.Item name="email" label="Email Path">
-                            <Input placeholder="e.g. email or lead.email" />
+                            <Input placeholder="e.g. email, lead.email, contact.email" />
                         </Form.Item>
                         <Form.Item name="phone" label="Phone Path">
-                            <Input placeholder="e.g. phone or lead.phone" />
+                            <Input placeholder="e.g. phone, lead.phone, contact.phone" />
                         </Form.Item>
                         <Form.Item name="company" label="Company Path">
-                            <Input placeholder="e.g. company" />
+                            <Input placeholder="e.g. company, organization, business_name" />
                         </Form.Item>
                         <Form.Item name="address" label="Address Path">
-                            <Input placeholder="e.g. address" />
+                            <Input placeholder="e.g. address, street_address, full_address" />
                         </Form.Item>
                         <Form.Item name="city" label="City Path">
                             <Input placeholder="e.g. city" />
@@ -441,10 +441,10 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                             <Input placeholder="e.g. zip_code" />
                         </Form.Item>
                         <Form.Item name="origin_address" label="Origin Address Path">
-                            <Input placeholder="e.g. origin_address, from_address" />
+                            <Input placeholder="e.g. origin_address, from_address, pickup_location" />
                         </Form.Item>
                         <Form.Item name="destination_address" label="Destination Address Path">
-                            <Input placeholder="e.g. destination_address, to_address" />
+                            <Input placeholder="e.g. destination_address, to_address, delivery_location" />
                         </Form.Item>
                         <Form.Item name="move_date" label="Move Date Path">
                             <Input placeholder="e.g. move_date" />

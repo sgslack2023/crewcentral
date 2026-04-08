@@ -529,9 +529,20 @@ const Finance: React.FC = () => {
                             size="small"
                             type="text"
                             icon={<EyeOutlined />}
-                            onClick={(e) => {
+                            onClick={async (e) => {
                                 e.stopPropagation();
-                                window.open(`${PaymentsUrl}/${row.id}/download_pdf${row.estimate_public_token ? `?token=${row.estimate_public_token}` : ''}`, '_blank');
+                                try {
+                                    const authConfig = getAuthToken();
+                                    const response = await axios.get(`${PaymentsUrl}/${row.id}/download_pdf`, {
+                                        headers: authConfig?.headers,
+                                        responseType: 'blob'
+                                    });
+                                    const blob = new Blob([response.data], { type: 'application/pdf' });
+                                    const url = window.URL.createObjectURL(blob);
+                                    window.open(url, '_blank');
+                                } catch (error) {
+                                    notification.error({ message: 'Error', title: 'Failed to download PDF' });
+                                }
                             }}
                         />
                     </Tooltip>

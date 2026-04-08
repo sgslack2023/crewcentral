@@ -1813,31 +1813,16 @@ class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
+    @action(detail=True, methods=['get'])
     def download_pdf(self, request, pk=None):
         """
-        Download payment receipt as PDF. Supports token-based access for easy viewing.
+        Download payment receipt as PDF for authenticated users.
         """
         from django.http import FileResponse
         try:
             receipt = PaymentReceipt.objects.get(pk=pk)
         except PaymentReceipt.DoesNotExist:
             return Response({'error': 'Receipt not found'}, status=status.HTTP_404_NOT_FOUND)
-            
-        token = request.query_params.get('token')
-        # Allow access if authenticated OR if correct estimate token is provided via its invoice OR directly
-        is_authenticated = request.user and request.user.is_authenticated
-        is_token_valid = False
-        if token:
-            # Check via invoice -> estimate path
-            if receipt.invoice and receipt.invoice.estimate and receipt.invoice.estimate.public_token == token:
-                is_token_valid = True
-            # Check via direct estimate path (deposits taken before invoice)
-            elif receipt.estimate and receipt.estimate.public_token == token:
-                is_token_valid = True
-        
-        if not (is_authenticated or is_token_valid):
-            return Response({'error': 'Authentication required or invalid token'}, status=status.HTTP_403_FORBIDDEN)
 
         if not receipt.pdf_file:
             from .utils import generate_payment_receipt_pdf
