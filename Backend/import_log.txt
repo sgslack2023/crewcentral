@@ -1,0 +1,993 @@
+============================================================
+STEP 2: Import data to PostgreSQL
+============================================================
+
+Database: postgres
+Host: localhost
+
+Clearing existing data from PostgreSQL tables...
+  ✓ Cleared auth_group
+  ✓ Cleared auth_group_permissions
+  ✓ Cleared users_customuser
+  ✓ Cleared users_customuser_groups
+  ✓ Cleared users_useractivities
+  ✓ Cleared users_organization
+  ✓ Cleared users_systempermission
+  ✓ Cleared users_organizationrole
+  ✓ Cleared dashboard_dashboard
+  ✓ Cleared users_organizationmember
+  ✓ Cleared dashboard_custommetric
+  ✓ Cleared django_q_ormq
+  ✓ Cleared django_q_schedule
+  ✓ Cleared django_q_task
+  ✓ Cleared masterdata_documentlibrary
+  ✓ Cleared masterdata_branch
+  ✓ Cleared masterdata_servicetype
+  ✓ Cleared masterdata_movetype
+  ✓ Cleared masterdata_customer
+  ✓ Cleared transactiondata_chargedefinition
+  ✓ Cleared masterdata_endpointconfiguration
+  ✓ Cleared masterdata_rawendpointlead
+  ✓ Cleared django_session
+  ✓ Cleared masterdata_roomsize
+  ✓ Cleared users_organizationrole_permissions
+  ✓ Cleared masterdata_documentservicetypebranchmapping
+  ✓ Cleared sitevisits_sitevisit
+  ✓ Cleared sitevisits_sitevisitphoto
+  ✓ Cleared transactiondata_chargecategory
+  ✓ Cleared transactiondata_invoicelineitem
+  ✓ Cleared transactiondata_documentsigningbatch
+  ✓ Cleared transactiondata_invoice
+  ✓ Cleared transactiondata_paymentreceipt
+  ✓ Cleared users_customuser_user_permissions
+  ✓ Cleared users_resetpasswordtoken
+  ✓ Cleared django_admin_log
+  ✓ Cleared transactiondata_emaillog
+  ✓ Cleared transactiondata_estimatetemplate
+  ✓ Cleared transactiondata_timewindow
+  ✓ Cleared dashboard_dashboardwidget
+  ✓ Cleared transactiondata_transactioncategory
+  ✓ Cleared transactiondata_purchase
+  ✓ Cleared transactiondata_expense
+  ✓ Cleared masterdata_documentlibrary_attachments
+  ✓ Cleared sitevisits_sitevisitobservation
+  ✓ Cleared transactiondata_templatelineitem
+  ✓ Cleared transactiondata_chargedefinition_applies_to
+  ✓ Cleared transactiondata_estimatelineitem
+  ✓ Cleared dashboard_dashboard_shared_with_roles
+  ✓ Cleared transactiondata_estimate
+  ✓ Cleared transactiondata_feedback
+  ✓ Cleared transactiondata_customeractivity
+  ✓ Cleared transactiondata_estimatedocument
+  ✓ Cleared transactiondata_workorder
+  ✓ Cleared transactiondata_contractorestimatelineitem
+  Done clearing tables.
+
+
+Importing: users_organization
+  JSON has 6 rows
+  PostgreSQL columns: ['id', 'name', 'org_type', 'is_active', 'created_at', 'updated_at', 'parent_organization_id', 'google_business_link', 'admin_email', 'equipment_type', 'notes', 'payment_method', 'phone_number']
+  JSON columns: ['id', 'name', 'org_type', 'is_active', 'created_at', 'updated_at', 'parent_organization_id', 'google_business_link', 'admin_email', 'equipment_type', 'notes', 'payment_method', 'phone_number']
+  Matching columns: ['id', 'name', 'org_type', 'is_active', 'created_at', 'updated_at', 'parent_organization_id', 'google_business_link', 'admin_email', 'equipment_type', 'notes', 'payment_method', 'phone_number']
+  SQL: INSERT INTO "users_organization" ("id", "name", "org_type", "is_active", "created_at", "updated_at",...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...umber") VALUES (1, 'Baltic Van Lines', 'company', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Baltic Van Lines', 'company']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...hone_number") VALUES (2, 'My COmpnay', 'company', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'My COmpnay', 'company']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...mber") VALUES (3, 'TJs Relocation', 'contractor', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, 'TJs Relocation', 'contractor']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...r") VALUES (4, 'Harry - HK Movers', 'contractor', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 'Harry - HK Movers', 'contractor']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...r") VALUES (5, 'Ron Boakes - GCVL', 'contractor', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'Ron Boakes - GCVL', 'contractor']...
+  ... and 1 more errors
+  Inserted 0 rows, 6 errors
+  ✓ Imported 0 rows
+
+Importing: users_systempermission
+  JSON has 17 rows
+  PostgreSQL columns: ['id', 'codename', 'name', 'category']
+  JSON columns: ['id', 'codename', 'name', 'category']
+  Matching columns: ['id', 'codename', 'name', 'category']
+  SQL: INSERT INTO "users_systempermission" ("id", "codename", "name", "category") VALUES (%s, %s, %s, %s)...
+  Inserted 17 rows, 0 errors
+  ✓ Imported 17 rows
+
+Importing: users_organizationrole
+  JSON has 2 rows
+  PostgreSQL columns: ['id', 'name', 'is_default_admin', 'organization_id']
+  JSON columns: ['id', 'name', 'is_default_admin', 'organization_id']
+  Matching columns: ['id', 'name', 'is_default_admin', 'organization_id']
+  SQL: INSERT INTO "users_organizationrole" ("id", "name", "is_default_admin", "organization_id") VALUES (%...
+  Row error: column "is_default_admin" is of type boolean but expression is of type integer
+LINE 1: ...default_admin", "organization_id") VALUES (1, 'Admin', 1, 1)
+                                                                  ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Admin', 1]...
+  Row error: column "is_default_admin" is of type boolean but expression is of type integer
+LINE 1: ...default_admin", "organization_id") VALUES (2, 'Admin', 1, 2)
+                                                                  ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'Admin', 1]...
+  Inserted 0 rows, 2 errors
+  ✓ Imported 0 rows
+
+Importing: users_customuser
+  JSON has 3 rows
+  PostgreSQL columns: ['id', 'password', 'fullname', 'role', 'email', 'created_at', 'updated_at', 'is_staff', 'is_superuser', 'is_active', 'last_login', 'approved', 'approval_notes', 'denial_reason']
+  JSON columns: ['id', 'password', 'fullname', 'role', 'email', 'created_at', 'updated_at', 'is_staff', 'is_superuser', 'is_active', 'last_login', 'approved', 'approval_notes', 'denial_reason']
+  Matching columns: ['id', 'password', 'fullname', 'role', 'email', 'created_at', 'updated_at', 'is_staff', 'is_superuser', 'is_active', 'last_login', 'approved', 'approval_notes', 'denial_reason']
+  SQL: INSERT INTO "users_customuser" ("id", "password", "fullname", "role", "email", "created_at", "update...
+  Row error: column "is_staff" is of type boolean but expression is of type integer
+LINE 1: ...8 09:18:55.234512', '2026-03-19 08:04:41.882569', 1, 1, 1, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'pbkdf2_sha256$1000000$fyWVnRDzlsBPCeDOnvEGNJ$EUxvCAKTo+PZfcOtWss7Drm6dKQs05ZMfi/2tlo9sCA=', '']...
+  Row error: column "is_staff" is of type boolean but expression is of type integer
+LINE 1: ...2 14:55:53.845019', '2026-04-10 18:05:36.412641', 0, 0, 1, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'pbkdf2_sha256$1000000$C2EkXn37e2hGxLoYbCgvog$Fctmd11mcsfmee5YDDCFIK0VKKkUTUwfBaNv6rvjXo8=', 'Daryl Wells']...
+  Row error: column "is_staff" is of type boolean but expression is of type integer
+LINE 1: ...3 18:41:49.669237', '2026-03-03 18:42:52.434556', 0, 0, 1, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, 'pbkdf2_sha256$1000000$0NeHVrM2qOPGZU28nc4Abv$kei6oyBHZ5GUEnx4186tYEmBReyTctNLDQ+7qU068JU=', 'SHivam']...
+  Inserted 0 rows, 3 errors
+  ✓ Imported 0 rows
+
+Importing: users_organizationmember
+  JSON has 2 rows
+  PostgreSQL columns: ['id', 'is_default', 'organization_id', 'user_id', 'role_id']
+  JSON columns: ['id', 'is_default', 'organization_id', 'user_id', 'role_id']
+  Matching columns: ['id', 'is_default', 'organization_id', 'user_id', 'role_id']
+  SQL: INSERT INTO "users_organizationmember" ("id", "is_default", "organization_id", "user_id", "role_id")...
+  Row error: column "is_default" is of type boolean but expression is of type integer
+LINE 1: ...rganization_id", "user_id", "role_id") VALUES (1, 1, 1, 2, 1...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 1, 1]...
+  Row error: column "is_default" is of type boolean but expression is of type integer
+LINE 1: ...rganization_id", "user_id", "role_id") VALUES (2, 1, 2, 3, 2...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 1, 2]...
+  Inserted 0 rows, 2 errors
+  ✓ Imported 0 rows
+
+Importing: users_organizationrole_permissions
+  No data to import
+
+Importing: users_customuser_groups
+  No data to import
+
+Importing: users_customuser_user_permissions
+  No data to import
+
+Importing: masterdata_branch
+  JSON has 8 rows
+  PostgreSQL columns: ['id', 'name', 'destination', 'dispatch_location', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'sales_tax_percentage', 'organization_id']
+  JSON columns: ['id', 'destination', 'dispatch_location', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'sales_tax_percentage', 'organization_id', 'name']
+  Matching columns: ['id', 'destination', 'dispatch_location', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'sales_tax_percentage', 'organization_id', 'name']
+  SQL: INSERT INTO "masterdata_branch" ("id", "destination", "dispatch_location", "is_active", "created_at"...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ... 96 Avenue SE, Calgary, Alberta T2C 4R5, Canada', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Alberta', '4046 96 Avenue SE, Calgary, Alberta T2C 4R5, Canada']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...rio', '54 Burland Crescent Hamilton, ON L8H 3S1', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'Ontario', '54 Burland Crescent Hamilton, ON L8H 3S1']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...", "name") VALUES (3, 'Manitoba', 'Winnipeg, MB', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, 'Manitoba', 'Winnipeg, MB']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...tario', '140 Advance Blvd, Brampton, ON L6T 4Z8', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 'Ontario', '140 Advance Blvd, Brampton, ON L6T 4Z8']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...Nova Scotia, New Brunswick & PEI', 'Nova Scotia', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'Nova Scotia, New Brunswick & PEI', 'Nova Scotia']...
+  ... and 3 more errors
+  Inserted 0 rows, 8 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_servicetype
+  JSON has 2 rows
+  PostgreSQL columns: ['id', 'service_type', 'scaling_factor', 'color', 'enabled', 'created_at', 'updated_at', 'created_by_id', 'estimate_content', 'organization_id']
+  JSON columns: ['id', 'scaling_factor', 'color', 'enabled', 'created_at', 'updated_at', 'created_by_id', 'estimate_content', 'organization_id', 'service_type']
+  Matching columns: ['id', 'scaling_factor', 'color', 'enabled', 'created_at', 'updated_at', 'created_by_id', 'estimate_content', 'organization_id', 'service_type']
+  SQL: INSERT INTO "masterdata_servicetype" ("id", "scaling_factor", "color", "enabled", "created_at", "upd...
+  Row error: column "enabled" is of type boolean but expression is of type integer
+LINE 1: ...ion_id", "service_type") VALUES (1, 1, '#F72900', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 1, '#F72900']...
+  Row error: column "enabled" is of type boolean but expression is of type integer
+LINE 1: ...zation_id", "service_type") VALUES (2, 1, 'blue', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 1, 'blue']...
+  Inserted 0 rows, 2 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_movetype
+  JSON has 2 rows
+  PostgreSQL columns: ['id', 'name', 'description', 'cubic_feet', 'weight', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  JSON columns: ['id', 'description', 'cubic_feet', 'weight', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'name']
+  Matching columns: ['id', 'description', 'cubic_feet', 'weight', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'name']
+  SQL: INSERT INTO "masterdata_movetype" ("id", "description", "cubic_feet", "weight", "is_active", "create...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..."organization_id", "name") VALUES (1, NULL, 0, 0, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, None, 0]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nization_id", "name") VALUES (2, NULL, 300, 2000, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, None, 300]...
+  Inserted 0 rows, 2 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_roomsize
+  JSON has 11 rows
+  PostgreSQL columns: ['id', 'name', 'description', 'cubic_feet', 'weight', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  JSON columns: ['id', 'description', 'cubic_feet', 'weight', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'name']
+  Matching columns: ['id', 'description', 'cubic_feet', 'weight', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'name']
+  SQL: INSERT INTO "masterdata_roomsize" ("id", "description", "cubic_feet", "weight", "is_active", "create...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nization_id", "name") VALUES (1, NULL, 300, 2000, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, None, 300]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nization_id", "name") VALUES (2, NULL, 400, 2800, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, None, 400]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nization_id", "name") VALUES (3, NULL, 500, 3500, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, None, 500]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...ization_id", "name") VALUES (4, NULL, 1000, 7000, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, None, 1000]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nization_id", "name") VALUES (5, NULL, 400, 2800, 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, None, 400]...
+  ... and 6 more errors
+  Inserted 0 rows, 11 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_documentlibrary
+  JSON has 13 rows
+  PostgreSQL columns: ['id', 'title', 'description', 'file', 'document_type', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'category', 'subject', 'document_purpose']
+  JSON columns: ['id', 'title', 'description', 'file', 'document_type', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'category', 'subject', 'document_purpose']
+  Matching columns: ['id', 'title', 'description', 'file', 'document_type', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'category', 'subject', 'document_purpose']
+  SQL: INSERT INTO "masterdata_documentlibrary" ("id", "title", "description", "file", "document_type", "is...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...documents/Invoice_Z2yvXw9.html', 'HTML Document', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'Invoice', 'Updated using document editor']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...ts/New_Lead_Email_XyRx3Ly.html', 'HTML Document', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'New Lead Email', 'Updated using document editor']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nts/Booking_Email_HOgMzsD.html', 'HTML Document', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [6, 'Booking Email', 'Updated using document editor']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...nts/Invoice_Email_bTy6BBQ.html', 'HTML Document', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [7, 'Invoice Email', 'Updated using document editor']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...s/Signed_Document_Eku8FQp.html', 'HTML Document', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [8, 'Signed Document', 'Updated using document editor']...
+  ... and 8 more errors
+  Inserted 0 rows, 13 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_documentlibrary_attachments
+  No data to import
+
+Importing: masterdata_customer
+  JSON has 6 rows
+  PostgreSQL columns: ['id', 'full_name', 'email', 'phone', 'company', 'address', 'city', 'state', 'country', 'postal_code', 'source', 'stage', 'notes', 'created_at', 'updated_at', 'assigned_to_id', 'created_by_id', 'branch_id', 'destination_address', 'move_date', 'move_size_id', 'origin_address', 'service_type_id', 'organization_id', 'is_archived']
+  JSON columns: ['id', 'full_name', 'email', 'phone', 'company', 'address', 'city', 'state', 'country', 'postal_code', 'source', 'stage', 'notes', 'created_at', 'updated_at', 'assigned_to_id', 'created_by_id', 'branch_id', 'destination_address', 'move_date', 'move_size_id', 'origin_address', 'service_type_id', 'organization_id', 'is_archived']
+  Matching columns: ['id', 'full_name', 'email', 'phone', 'company', 'address', 'city', 'state', 'country', 'postal_code', 'source', 'stage', 'notes', 'created_at', 'updated_at', 'assigned_to_id', 'created_by_id', 'branch_id', 'destination_address', 'move_date', 'move_size_id', 'origin_address', 'service_type_id', 'organization_id', 'is_archived']
+  SQL: INSERT INTO "masterdata_customer" ("id", "full_name", "email", "phone", "company", "address", "city"...
+  Row error: column "is_archived" is of type boolean but expression is of type integer
+LINE 3: ...', 6, '47 Nolanfield Terrace, NW, Calgary, Canada', 2, 1, 0)
+                                                                     ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [8, 'Akmal Nadeem', 'akmalnadeem7@gmail.com']...
+  Row error: column "is_archived" is of type boolean but expression is of type integer
+LINE 3: ... Gormley Avenue, Toronto, Ontario M4V 1Z1, Canada', 2, 1, 0)
+                                                                     ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [9, 'Hyeran Choi', 'choi.heran@gmail.com']...
+  Row error: column "is_archived" is of type boolean but expression is of type integer
+LINE 10: ...Maplewood Drive, Unit 35B, Moose Jaw, SK, S6J 0C5', 2, 1, 0)
+                                                                      ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [10, 'Irene (Neelu) Firoz', 'ireneneelofer@hotmail.com']...
+  Row error: column "is_archived" is of type boolean but expression is of type integer
+LINE 1: ...arles-Desnoyers, Gatineau, Quebec J8P 3X5, Canada', 2, 1, 0)
+                                                                     ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [11, 'Diana Bertrand', 'binrat2003@hotmail.com']...
+  Row error: column "is_archived" is of type boolean but expression is of type integer
+LINE 1: ...0 Carling Avenue, Nepean, Ontario K2B 6J6, Canada', 2, 1, 0)
+                                                                     ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [12, 'Jadyn Westbye', 'jadynwestbye@gmail.com']...
+  ... and 1 more errors
+  Inserted 0 rows, 6 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_documentservicetypebranchmapping
+  JSON has 84 rows
+  PostgreSQL columns: ['id', 'created_at', 'branch_id', 'created_by_id', 'document_id', 'service_type_id']
+  JSON columns: ['id', 'created_at', 'branch_id', 'created_by_id', 'document_id', 'service_type_id']
+  Matching columns: ['id', 'created_at', 'branch_id', 'created_by_id', 'document_id', 'service_type_id']
+  SQL: INSERT INTO "masterdata_documentservicetypebranchmapping" ("id", "created_at", "branch_id", "created...
+  Inserted 84 rows, 0 errors
+  ✓ Imported 84 rows
+
+Importing: masterdata_endpointconfiguration
+  JSON has 5 rows
+  PostgreSQL columns: ['id', 'name', 'secret_key', 'mapping_config', 'is_active', 'created_at', 'updated_at', 'organization_id']
+  JSON columns: ['id', 'name', 'secret_key', 'mapping_config', 'is_active', 'created_at', 'updated_at', 'organization_id']
+  Matching columns: ['id', 'name', 'secret_key', 'mapping_config', 'is_active', 'created_at', 'updated_at', 'organization_id']
+  SQL: INSERT INTO "masterdata_endpointconfiguration" ("id", "name", "secret_key", "mapping_config", "is_ac...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...", "move_date": "move", "notes": "description"}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'source a', '0df898423dca48a6a1e9d30ba9658044']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...bsite', '678c5689244f4699bc3247b5dbafd4b5', '{}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'BVL Website', '678c5689244f4699bc3247b5dbafd4b5']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...ovince", "ToProvince", "MoveSize", "Comments"]}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, 'MoveIT', '59312cdf92154fbab110c76def7a5ed9']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...bsite', 'f1596fc31bb741ea8b33b4d66314eade', '{}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 'N1M Website', 'f1596fc31bb741ea8b33b4d66314eade']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...ty", "to_state", "to_zip_code", "description"]}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'MyMovingLoads', '79831d0b15ff45c8b39e524f851fdba1']...
+  Inserted 0 rows, 5 errors
+  ✓ Imported 0 rows
+
+Importing: masterdata_rawendpointlead
+  JSON has 11 rows
+  PostgreSQL columns: ['id', 'raw_data', 'processed', 'error_message', 'created_at', 'endpoint_config_id', 'organization_id']
+  JSON columns: ['id', 'raw_data', 'processed', 'error_message', 'created_at', 'endpoint_config_id', 'organization_id']
+  Matching columns: ['id', 'raw_data', 'processed', 'error_message', 'created_at', 'endpoint_config_id', 'organization_id']
+  SQL: INSERT INTO "masterdata_rawendpointlead" ("id", "raw_data", "processed", "error_message", "created_a...
+  Row error: column "processed" is of type boolean but expression is of type integer
+LINE 1: ...is is a test lead from the ingestion endpoint"}', 1, NULL, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, '{"name": "Test Lead", "email": "testlead@example.com", "phone": "555-000-1234", "address": "456 Test Avenue", "city": "Toronto", "state": "ON", "zip_code": "M5V 2A1", "move_date": "2026-05-01", "description": "This is a test lead from the ingestion endpoint"}', 1]...
+  Row error: column "processed" is of type boolean but expression is of type integer
+LINE 1: ...t_config_id", "organization_id") VALUES (2, '{}', 0, NULL, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, '{}', 0]...
+  Row error: column "processed" is of type boolean but expression is of type integer
+LINE 1: ...", "description": "New test lead via curl CMD"}', 0, NULL, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, '{"name": "Rahul Sharma", "email": "rahul.sharma@example.com", "phone": "9876543210", "address": "789 Maple Street", "city": "Vancouver", "state": "BC", "zip_code": "V5K 0A1", "move_date": "2026-06-15", "description": "New test lead via curl CMD"}', 0]...
+  Row error: column "processed" is of type boolean but expression is of type integer
+LINE 1: ... "4 Bedroom House (10,000lbs)", "Comments": ""}', 1, NULL, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, '{"FullName": "Chaye Wild", "PhoneNumber": "2045908507", "Email": "wildchaye@gmail.com", "PreferredContactMethod": "Either", "MoveDate": "20260625", "FlexibleMoveDate": "Yes", "FromCity": "Winnipeg", "FromProvince": "Manitoba", "ToCity": "Calgary", "ToProvince": "Alberta", "MoveSize": "4 Bedroom House (10,000lbs)", "Comments": ""}', 1]...
+  Row error: column "processed" is of type boolean but expression is of type integer
+LINE 1: ...e": "2 Bedroom Apt (5,000lbs)", "Comments": ""}', 1, NULL, '...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, '{"FullName": "Zoriel Labandelo", "PhoneNumber": "3065372392", "Email": "Zoriel.Labandelo@gmail.com", "PreferredContactMethod": "Either", "MoveDate": "20270228", "FlexibleMoveDate": "Yes", "FromCity": "Unity", "FromProvince": "Saskatchewan", "ToCity": "Red Deer", "ToProvince": "Alberta", "MoveSize": "2 Bedroom Apt (5,000lbs)", "Comments": ""}', 1]...
+  ... and 6 more errors
+  Inserted 0 rows, 11 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_timewindow
+  JSON has 6 rows
+  PostgreSQL columns: ['id', 'name', 'start_time', 'end_time', 'is_active', 'display_order', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  JSON columns: ['id', 'name', 'start_time', 'end_time', 'is_active', 'display_order', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  Matching columns: ['id', 'name', 'start_time', 'end_time', 'is_active', 'display_order', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  SQL: INSERT INTO "transactiondata_timewindow" ("id", "name", "start_time", "end_time", "is_active", "disp...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...d") VALUES (1, 'Morning', '08:00:00', '09:30:00', 1, 0, '202...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Morning', '08:00:00']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...d") VALUES (2, 'Morning', '09:00:00', '11:00:00', 1, 0, '202...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'Morning', '09:00:00']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..._id") VALUES (3, 'Lunch', '11:00:00', '13:00:00', 1, 0, '202...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, 'Lunch', '11:00:00']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...) VALUES (4, 'Afternoon', '12:00:00', '14:00:00', 1, 0, '202...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 'Afternoon', '12:00:00']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...UES (5, 'Late Afternoon', '14:00:00', '16:00:00', 1, 0, '202...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'Late Afternoon', '14:00:00']...
+  ... and 1 more errors
+  Inserted 0 rows, 6 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_chargecategory
+  JSON has 5 rows
+  PostgreSQL columns: ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  JSON columns: ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  Matching columns: ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  SQL: INSERT INTO "transactiondata_chargecategory" ("id", "name", "description", "is_active", "created_at"...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...", "organization_id") VALUES (1, 'Materials', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Materials', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...tion_id") VALUES (2, 'Local Moving Services', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 'Local Moving Services', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...) VALUES (3, 'Long Distance Moving Services', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, 'Long Distance Moving Services', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...n_id") VALUES (5, 'Additional Services - LD', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'Additional Services - LD', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...d") VALUES (6, 'Additional Services - Local', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [6, 'Additional Services - Local', '']...
+  Inserted 0 rows, 5 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_chargedefinition
+  No data to import
+
+Importing: transactiondata_chargedefinition_applies_to
+  JSON has 31 rows
+  PostgreSQL columns: ['id', 'chargedefinition_id', 'servicetype_id']
+  JSON columns: ['id', 'chargedefinition_id', 'servicetype_id']
+  Matching columns: ['id', 'chargedefinition_id', 'servicetype_id']
+  SQL: INSERT INTO "transactiondata_chargedefinition_applies_to" ("id", "chargedefinition_id", "servicetype...
+  Inserted 31 rows, 0 errors
+  ✓ Imported 31 rows
+
+Importing: transactiondata_estimatetemplate
+  JSON has 4 rows
+  PostgreSQL columns: ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'service_type_id', 'organization_id']
+  JSON columns: ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'service_type_id', 'organization_id']
+  Matching columns: ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'service_type_id', 'organization_id']
+  SQL: INSERT INTO "transactiondata_estimatetemplate" ("id", "name", "description", "is_active", "created_a...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...organization_id") VALUES (1, 'Long Distance', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Long Distance', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..., "organization_id") VALUES (4, 'Local Move', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 'Local Move', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..._id") VALUES (5, 'Long Distance (Flat Rate)', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'Long Distance (Flat Rate)', '']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...ion_id") VALUES (6, 'Local Move (Flat Rate)', '', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [6, 'Local Move (Flat Rate)', '']...
+  Inserted 0 rows, 4 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_templatelineitem
+  JSON has 13 rows
+  PostgreSQL columns: ['id', 'rate', 'percentage', 'is_editable', 'display_order', 'charge_id', 'template_id']
+  JSON columns: ['id', 'rate', 'percentage', 'is_editable', 'display_order', 'charge_id', 'template_id']
+  Matching columns: ['id', 'rate', 'percentage', 'is_editable', 'display_order', 'charge_id', 'template_id']
+  SQL: INSERT INTO "transactiondata_templatelineitem" ("id", "rate", "percentage", "is_editable", "display_...
+  Row error: column "is_editable" is of type boolean but expression is of type integer
+LINE 1: ... "charge_id", "template_id") VALUES (1, NULL, 24, 1, 3, 3, 1...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, None, 24]...
+  Row error: column "is_editable" is of type boolean but expression is of type integer
+LINE 1: ...charge_id", "template_id") VALUES (2, 0.79, NULL, 1, 0, 1, 1...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [2, 0.79, None]...
+  Row error: column "is_editable" is of type boolean but expression is of type integer
+LINE 1: ..., "charge_id", "template_id") VALUES (4, 0, NULL, 1, 1, 30, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 0, None]...
+  Row error: column "is_editable" is of type boolean but expression is of type integer
+LINE 1: ... "charge_id", "template_id") VALUES (5, 55, NULL, 1, 2, 33, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 55, None]...
+  Row error: column "is_editable" is of type boolean but expression is of type integer
+LINE 1: ..."charge_id", "template_id") VALUES (6, 195, NULL, 1, 4, 29, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [6, 195, None]...
+  ... and 8 more errors
+  Inserted 0 rows, 13 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_transactioncategory
+  JSON has 1 rows
+  PostgreSQL columns: ['id', 'name', 'description', 'category_type', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  JSON columns: ['id', 'name', 'description', 'category_type', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  Matching columns: ['id', 'name', 'description', 'category_type', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id']
+  SQL: INSERT INTO "transactiondata_transactioncategory" ("id", "name", "description", "category_type", "is...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...VALUES (1, 'MoveIT', 'Leads from MoveIT', 'both', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'MoveIT', 'Leads from MoveIT']...
+  Inserted 0 rows, 1 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_estimate
+  JSON has 1 rows
+  PostgreSQL columns: ['id', 'weight_lbs', 'labour_hours', 'subtotal', 'total_amount', 'status', 'notes', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'template_used_id', 'service_type_id', 'customer_responded_at', 'customer_viewed_at', 'email_sent_at', 'link_active', 'public_token', 'tax_amount', 'tax_percentage', 'delivery_date_from', 'delivery_date_to', 'pickup_date_from', 'pickup_date_to', 'delivery_time_window_id', 'pickup_time_window_id', 'discount_amount', 'discount_type', 'discount_value', 'amount_paid', 'assigned_contractor_id', 'balance_due', 'customer_notes', 'organization_id', 'payment_status', 'assigned_to_id', 'contractor_notes', 'internal_notes']
+  JSON columns: ['id', 'weight_lbs', 'labour_hours', 'subtotal', 'total_amount', 'status', 'notes', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'template_used_id', 'service_type_id', 'customer_responded_at', 'customer_viewed_at', 'email_sent_at', 'link_active', 'public_token', 'tax_amount', 'tax_percentage', 'delivery_date_from', 'delivery_date_to', 'pickup_date_from', 'pickup_date_to', 'delivery_time_window_id', 'pickup_time_window_id', 'discount_amount', 'discount_type', 'discount_value', 'amount_paid', 'assigned_contractor_id', 'balance_due', 'organization_id', 'payment_status', 'assigned_to_id', 'customer_notes', 'contractor_notes', 'internal_notes']
+  Matching columns: ['id', 'weight_lbs', 'labour_hours', 'subtotal', 'total_amount', 'status', 'notes', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'template_used_id', 'service_type_id', 'customer_responded_at', 'customer_viewed_at', 'email_sent_at', 'link_active', 'public_token', 'tax_amount', 'tax_percentage', 'delivery_date_from', 'delivery_date_to', 'pickup_date_from', 'pickup_date_to', 'delivery_time_window_id', 'pickup_time_window_id', 'discount_amount', 'discount_type', 'discount_value', 'amount_paid', 'assigned_contractor_id', 'balance_due', 'organization_id', 'payment_status', 'assigned_to_id', 'customer_notes', 'contractor_notes', 'internal_notes']
+  SQL: INSERT INTO "transactiondata_estimate" ("id", "weight_lbs", "labour_hours", "subtotal", "total_amoun...
+  Row error: column "link_active" is of type boolean but expression is of type integer
+LINE 1: ...1 16:30:34.192851', 2, 7, 1, 1, NULL, NULL, NULL, 1, NULL, 0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [7, 5000, 8]...
+  Inserted 0 rows, 1 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_estimatelineitem
+  No data to import
+
+Importing: transactiondata_estimatedocument
+  No data to import
+
+Importing: transactiondata_documentsigningbatch
+  JSON has 4 rows
+  PostgreSQL columns: ['id', 'signing_token', 'link_active', 'email_sent_at', 'created_at', 'created_by_id', 'estimate_id']
+  JSON columns: ['id', 'signing_token', 'link_active', 'email_sent_at', 'created_at', 'created_by_id', 'estimate_id']
+  Matching columns: ['id', 'signing_token', 'link_active', 'email_sent_at', 'created_at', 'created_by_id', 'estimate_id']
+  SQL: INSERT INTO "transactiondata_documentsigningbatch" ("id", "signing_token", "link_active", "email_sen...
+  Row error: column "link_active" is of type boolean but expression is of type integer
+LINE 1: ...3, '_9Ji0rYFTRBu6tZNnfwpPZEvAHK1jhvyPzvo7R4siRM', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [3, '_9Ji0rYFTRBu6tZNnfwpPZEvAHK1jhvyPzvo7R4siRM', 1]...
+  Row error: column "link_active" is of type boolean but expression is of type integer
+LINE 1: ...4, 'pHG3H2R6H4tyjwg_LsOLvzqgkF-QAyRCMh_9T4Hnba4', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [4, 'pHG3H2R6H4tyjwg_LsOLvzqgkF-QAyRCMh_9T4Hnba4', 1]...
+  Row error: column "link_active" is of type boolean but expression is of type integer
+LINE 1: ...5, 'AnBSZlAVXYPcSFAnhOR1D1494tx7Arm-jr2l-iPQSpQ', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [5, 'AnBSZlAVXYPcSFAnhOR1D1494tx7Arm-jr2l-iPQSpQ', 1]...
+  Row error: column "link_active" is of type boolean but expression is of type integer
+LINE 1: ...6, 'xlUAFysl4mmz1JIn2JnsLzSBb5ro6enbytN6FO97YiI', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [6, 'xlUAFysl4mmz1JIn2JnsLzSBb5ro6enbytN6FO97YiI', 1]...
+  Inserted 0 rows, 4 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_invoice
+  JSON has 1 rows
+  PostgreSQL columns: ['id', 'invoice_number', 'issue_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'balance_due', 'status', 'notes', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'estimate_id', 'organization_id', 'pdf_file', 'email_sent_at', 'work_order_id', 'assigned_to_id']
+  JSON columns: ['id', 'invoice_number', 'issue_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'balance_due', 'status', 'notes', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'estimate_id', 'organization_id', 'pdf_file', 'email_sent_at', 'work_order_id', 'assigned_to_id']
+  Matching columns: ['id', 'invoice_number', 'issue_date', 'due_date', 'subtotal', 'tax_amount', 'total_amount', 'balance_due', 'status', 'notes', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'estimate_id', 'organization_id', 'pdf_file', 'email_sent_at', 'work_order_id', 'assigned_to_id']
+  SQL: INSERT INTO "transactiondata_invoice" ("id", "invoice_number", "issue_date", "due_date", "subtotal",...
+  Inserted 1 rows, 0 errors
+  ✓ Imported 1 rows
+
+Importing: transactiondata_invoicelineitem
+  No data to import
+
+Importing: transactiondata_paymentreceipt
+  JSON has 6 rows
+  PostgreSQL columns: ['id', 'amount', 'payment_date', 'payment_method', 'transaction_id', 'notes', 'created_at', 'created_by_id', 'invoice_id', 'organization_id', 'pdf_file', 'email_sent_at', 'estimate_id', 'payment_type']
+  JSON columns: ['id', 'amount', 'payment_date', 'payment_method', 'transaction_id', 'notes', 'created_at', 'created_by_id', 'organization_id', 'pdf_file', 'email_sent_at', 'estimate_id', 'payment_type', 'invoice_id']
+  Matching columns: ['id', 'amount', 'payment_date', 'payment_method', 'transaction_id', 'notes', 'created_at', 'created_by_id', 'organization_id', 'pdf_file', 'email_sent_at', 'estimate_id', 'payment_type', 'invoice_id']
+  SQL: INSERT INTO "transactiondata_paymentreceipt" ("id", "amount", "payment_date", "payment_method", "tra...
+  Inserted 6 rows, 0 errors
+  ✓ Imported 6 rows
+
+Importing: transactiondata_workorder
+  JSON has 7 rows
+  PostgreSQL columns: ['id', 'status', 'external_id', 'total_contractor_amount', 'pdf_file', 'public_token', 'created_at', 'updated_at', 'contractor_id', 'created_by_id', 'estimate_id', 'organization_id', 'work_order_template_id', 'delivery_date_from', 'delivery_date_to', 'delivery_time_window_id', 'labour_hours', 'notes', 'pickup_date_from', 'pickup_date_to', 'pickup_time_window_id', 'service_type_id', 'weight_lbs', 'work_order_type', 'assigned_to_id']
+  JSON columns: ['id', 'status', 'external_id', 'total_contractor_amount', 'pdf_file', 'public_token', 'created_at', 'updated_at', 'created_by_id', 'estimate_id', 'organization_id', 'work_order_template_id', 'delivery_date_from', 'delivery_date_to', 'delivery_time_window_id', 'labour_hours', 'notes', 'pickup_date_from', 'pickup_date_to', 'pickup_time_window_id', 'service_type_id', 'weight_lbs', 'work_order_type', 'contractor_id', 'assigned_to_id']
+  Matching columns: ['id', 'status', 'external_id', 'total_contractor_amount', 'pdf_file', 'public_token', 'created_at', 'updated_at', 'created_by_id', 'estimate_id', 'organization_id', 'work_order_template_id', 'delivery_date_from', 'delivery_date_to', 'delivery_time_window_id', 'labour_hours', 'notes', 'pickup_date_from', 'pickup_date_to', 'pickup_time_window_id', 'service_type_id', 'weight_lbs', 'work_order_type', 'contractor_id', 'assigned_to_id']
+  SQL: INSERT INTO "transactiondata_workorder" ("id", "status", "external_id", "total_contractor_amount", "...
+  Inserted 7 rows, 0 errors
+  ✓ Imported 7 rows
+
+Importing: transactiondata_contractorestimatelineitem
+  JSON has 41 rows
+  PostgreSQL columns: ['id', 'description', 'quantity', 'contractor_rate', 'total_amount', 'is_active', 'estimate_item_id', 'work_order_id', 'charge_type', 'percentage']
+  JSON columns: ['id', 'description', 'quantity', 'contractor_rate', 'total_amount', 'is_active', 'estimate_item_id', 'work_order_id', 'charge_type', 'percentage']
+  Matching columns: ['id', 'description', 'quantity', 'contractor_rate', 'total_amount', 'is_active', 'estimate_item_id', 'work_order_id', 'charge_type', 'percentage']
+  SQL: INSERT INTO "transactiondata_contractorestimatelineitem" ("id", "description", "quantity", "contract...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ... (41, 'Transportation and Labour', 1, 0.72, 1800, 1, 25, 8, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [41, 'Transportation and Labour', 1]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...42, 'Enhanced Release Value Protection', 1, 0, 0, 1, 26, 8, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [42, 'Enhanced Release Value Protection', 1]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...ercentage") VALUES (43, 'Scaling Fee', 1, 55, 55, 1, 27, 8, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [43, 'Scaling Fee', 1]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...entage") VALUES (44, 'Fuel Surcharge', 1, 0, 432, 1, 28, 8, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [44, 'Fuel Surcharge', 1]...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...tage") VALUES (45, 'Administration', 1, 195, 195, 1, 29, 8, ...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [45, 'Administration', 1]...
+  ... and 36 more errors
+  Inserted 0 rows, 41 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_feedback
+  No data to import
+
+Importing: transactiondata_emaillog
+  JSON has 23 rows
+  PostgreSQL columns: ['id', 'subject', 'purpose', 'tracking_token', 'sent_at', 'opened_at', 'is_opened', 'customer_id', 'estimate_id', 'invoice_id', 'organization_id']
+  JSON columns: ['id', 'subject', 'purpose', 'tracking_token', 'sent_at', 'opened_at', 'is_opened', 'customer_id', 'estimate_id', 'invoice_id', 'organization_id']
+  Matching columns: ['id', 'subject', 'purpose', 'tracking_token', 'sent_at', 'opened_at', 'is_opened', 'customer_id', 'estimate_id', 'invoice_id', 'organization_id']
+  SQL: INSERT INTO "transactiondata_emaillog" ("id", "subject", "purpose", "tracking_token", "sent_at", "op...
+  Row error: column "is_opened" is of type boolean but expression is of type integer
+LINE 1: ...4b546b46c56', '2026-03-21 07:17:25.897022', NULL, 0, 7, NULL...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [40, 'Relocation Services w/ Baltic Van Lines', 'new_lead_email']...
+  Row error: column "is_opened" is of type boolean but expression is of type integer
+LINE 1: ...ce7d0c9eaec', '2026-04-08 15:43:18.786061', NULL, 0, 7, 7, N...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [46, 'Payment Receipt', 'receipt_email']...
+  Row error: column "is_opened" is of type boolean but expression is of type integer
+LINE 1: ...5eae395b219', '2026-04-08 15:43:25.830600', NULL, 0, 7, 7, N...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [47, 'Payment Receipt', 'receipt_email']...
+  Row error: column "is_opened" is of type boolean but expression is of type integer
+LINE 1: ...e9487697b8f', '2026-04-08 15:47:37.865848', NULL, 0, 7, 7, N...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [48, 'Payment Receipt', 'receipt_email']...
+  Row error: column "is_opened" is of type boolean but expression is of type integer
+LINE 1: ...834fbb78777', '2026-04-08 15:49:34.739538', NULL, 0, 7, 7, N...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [49, 'Payment Receipt', 'receipt_email']...
+  ... and 18 more errors
+  Inserted 0 rows, 23 errors
+  ✓ Imported 0 rows
+
+Importing: transactiondata_customeractivity
+  JSON has 24 rows
+  PostgreSQL columns: ['id', 'activity_type', 'title', 'description', 'created_at', 'created_by_id', 'customer_id', 'estimate_id', 'organization_id']
+  JSON columns: ['id', 'activity_type', 'title', 'description', 'created_at', 'created_by_id', 'customer_id', 'estimate_id', 'organization_id']
+  Matching columns: ['id', 'activity_type', 'title', 'description', 'created_at', 'created_by_id', 'customer_id', 'estimate_id', 'organization_id']
+  SQL: INSERT INTO "transactiondata_customeractivity" ("id", "activity_type", "title", "description", "crea...
+  Inserted 24 rows, 0 errors
+  ✓ Imported 24 rows
+
+Importing: transactiondata_expense
+  No data to import
+
+Importing: transactiondata_purchase
+  No data to import
+
+Importing: sitevisits_sitevisit
+  JSON has 25 rows
+  PostgreSQL columns: ['id', 'scheduled_at', 'started_at', 'completed_at', 'status', 'notes', 'appointment_confirmed_by', 'appointment_phone', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'organization_id', 'surveyor_id']
+  JSON columns: ['id', 'scheduled_at', 'started_at', 'completed_at', 'status', 'notes', 'appointment_confirmed_by', 'appointment_phone', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'organization_id', 'surveyor_id']
+  Matching columns: ['id', 'scheduled_at', 'started_at', 'completed_at', 'status', 'notes', 'appointment_confirmed_by', 'appointment_phone', 'created_at', 'updated_at', 'created_by_id', 'customer_id', 'organization_id', 'surveyor_id']
+  SQL: INSERT INTO "sitevisits_sitevisit" ("id", "scheduled_at", "started_at", "completed_at", "status", "n...
+  Inserted 25 rows, 0 errors
+  ✓ Imported 25 rows
+
+Importing: sitevisits_sitevisitobservation
+  No data to import
+
+Importing: sitevisits_sitevisitphoto
+  No data to import
+
+Importing: dashboard_dashboard
+  JSON has 1 rows
+  PostgreSQL columns: ['id', 'name', 'description', 'is_locked', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'organization_id', 'global_filters', 'category', 'is_template']
+  JSON columns: ['id', 'name', 'description', 'is_locked', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'global_filters', 'category', 'is_template', 'organization_id']
+  Matching columns: ['id', 'name', 'description', 'is_locked', 'is_active', 'created_at', 'updated_at', 'created_by_id', 'global_filters', 'category', 'is_template', 'organization_id']
+  SQL: INSERT INTO "dashboard_dashboard" ("id", "name", "description", "is_locked", "is_active", "created_a...
+  Row error: column "is_locked" is of type boolean but expression is of type integer
+LINE 1: ...ization_id") VALUES (1, 'Dashboard', 'Dashboard', 0, 1, '202...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [1, 'Dashboard', 'Dashboard']...
+  Inserted 0 rows, 1 errors
+  ✓ Imported 0 rows
+
+Importing: dashboard_dashboard_shared_with_roles
+  No data to import
+
+Importing: dashboard_dashboardwidget
+  JSON has 7 rows
+  PostgreSQL columns: ['id', 'title', 'widget_type', 'chart_library', 'data_source', 'config', 'layout', 'is_active', 'created_at', 'updated_at', 'dashboard_id', 'widget_category', 'click_action', 'click_target', 'enable_click']
+  JSON columns: ['id', 'title', 'widget_type', 'chart_library', 'data_source', 'config', 'layout', 'is_active', 'created_at', 'updated_at', 'dashboard_id', 'widget_category', 'click_action', 'click_target', 'enable_click']
+  Matching columns: ['id', 'title', 'widget_type', 'chart_library', 'data_source', 'config', 'layout', 'is_active', 'created_at', 'updated_at', 'dashboard_id', 'widget_category', 'click_action', 'click_target', 'enable_click']
+  SQL: INSERT INTO "dashboard_dashboardwidget" ("id", "title", "widget_type", "chart_library", "data_source...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...y": "none"}', '{"x": 0, "y": 0, "w": 3, "h": 1}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [34, 'Total Leads', 'kpi']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..."recharts"}', '{"x": 6, "y": 0, "w": 6, "h": 2}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [35, 'Lead Source', 'breakdown']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ...y": "none"}', '{"x": 3, "y": 0, "w": 3, "h": 1}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [36, 'Total Revenue', 'kpi']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..."recharts"}', '{"x": 0, "y": 1, "w": 6, "h": 2}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [37, 'Site Visits', 'Calendar']...
+  Row error: column "is_active" is of type boolean but expression is of type integer
+LINE 1: ..."recharts"}', '{"x": 0, "y": 3, "w": 6, "h": 2}', 1, '2026-0...
+                                                             ^
+HINT:  You will need to rewrite or cast the expression.
+
+  Values: [38, 'Upcoming Jobs', 'Calendar']...
+  ... and 2 more errors
+  Inserted 0 rows, 7 errors
+  ✓ Imported 0 rows
+
+Importing: dashboard_custommetric
+  No data to import
+
+Importing: auth_group
+  No data to import
+
+Importing: auth_group_permissions
+  No data to import
+
+Importing: users_resetpasswordtoken
+  No data in JSON file
+  ✓ Imported 0 rows
+
+Importing: lost_and_found
+  JSON has 1384 rows
+  Warning: Table lost_and_found not found in PostgreSQL
+  ✓ Imported 0 rows
+
+Importing: users_useractivities
+  No data in JSON file
+  ✓ Imported 0 rows
+
+Resetting sequences...
+
+============================================================
+IMPORT SUMMARY
+============================================================
+
+Successfully imported 34 tables:
+  ✓ dashboard_dashboard: 0 rows
+  ✓ dashboard_dashboardwidget: 0 rows
+  ✓ lost_and_found: 0 rows
+  ✓ masterdata_branch: 0 rows
+  ✓ masterdata_customer: 0 rows
+  ✓ masterdata_documentlibrary: 0 rows
+  ✓ masterdata_documentservicetypebranchmapping: 84 rows
+  ✓ masterdata_endpointconfiguration: 0 rows
+  ✓ masterdata_movetype: 0 rows
+  ✓ masterdata_rawendpointlead: 0 rows
+  ✓ masterdata_roomsize: 0 rows
+  ✓ masterdata_servicetype: 0 rows
+  ✓ sitevisits_sitevisit: 25 rows
+  ✓ transactiondata_chargecategory: 0 rows
+  ✓ transactiondata_chargedefinition_applies_to: 31 rows
+  ✓ transactiondata_contractorestimatelineitem: 0 rows
+  ✓ transactiondata_customeractivity: 24 rows
+  ✓ transactiondata_documentsigningbatch: 0 rows
+  ✓ transactiondata_emaillog: 0 rows
+  ✓ transactiondata_estimate: 0 rows
+  ✓ transactiondata_estimatetemplate: 0 rows
+  ✓ transactiondata_invoice: 1 rows
+  ✓ transactiondata_paymentreceipt: 6 rows
+  ✓ transactiondata_templatelineitem: 0 rows
+  ✓ transactiondata_timewindow: 0 rows
+  ✓ transactiondata_transactioncategory: 0 rows
+  ✓ transactiondata_workorder: 7 rows
+  ✓ users_customuser: 0 rows
+  ✓ users_organization: 0 rows
+  ✓ users_organizationmember: 0 rows
+  ✓ users_organizationrole: 0 rows
+  ✓ users_resetpasswordtoken: 0 rows
+  ✓ users_systempermission: 17 rows
+  ✓ users_useractivities: 0 rows
+
+Total rows imported: 195
+============================================================
+
+Verifying data...
+  Customers: 0
+  Estimates: 0
+  Users: 0
+
+Log saved to: import_log.txt

@@ -50,6 +50,23 @@ def get_table_columns(cursor, table):
     """, [table])
     return [row[0] for row in cursor.fetchall()]
 
+def convert_sqlite_to_pg_value(value, col_name):
+    """Convert SQLite values to PostgreSQL compatible values"""
+    # Convert integer booleans to actual booleans
+    boolean_columns = [
+        'is_active', 'is_staff', 'is_superuser', 'is_default', 'is_default_admin',
+        'approved', 'enabled', 'is_archived', 'processed', 'link_active',
+        'is_editable', 'is_opened', 'is_locked', 'is_template', 'enable_click'
+    ]
+    
+    if col_name in boolean_columns:
+        if value == 1 or value == '1' or value is True:
+            return True
+        elif value == 0 or value == '0' or value is False or value is None:
+            return False
+    
+    return value
+
 def import_table(cursor, table, data):
     """Import data into a PostgreSQL table"""
     if not data:
@@ -64,12 +81,9 @@ def import_table(cursor, table, data):
         log(f"  Warning: Table {table} not found in PostgreSQL")
         return 0
     
-    log(f"  PostgreSQL columns: {pg_columns}")
-    
     # Filter data columns to only those that exist in PostgreSQL
     first_row = data[0]
     json_columns = list(first_row.keys())
-    log(f"  JSON columns: {json_columns}")
     
     common_columns = [col for col in json_columns if col in pg_columns]
     
@@ -77,30 +91,29 @@ def import_table(cursor, table, data):
         log(f"  Warning: No matching columns for {table}")
         return 0
     
-    log(f"  Matching columns: {common_columns}")
+    log(f"  Matching {len(common_columns)} columns")
     
     # Build INSERT statement
     columns_str = ', '.join([f'"{col}"' for col in common_columns])
     placeholders = ', '.join(['%s'] * len(common_columns))
     insert_sql = f'INSERT INTO "{table}" ({columns_str}) VALUES ({placeholders})'
-    log(f"  SQL: {insert_sql[:100]}...")
     
     count = 0
     errors = 0
     for row in data:
         try:
-            values = [row.get(col) for col in common_columns]
+            # Convert values, especially booleans
+            values = [convert_sqlite_to_pg_value(row.get(col), col) for col in common_columns]
             cursor.execute(insert_sql, values)
             count += 1
         except Exception as e:
             errors += 1
-            if errors <= 5:
+            if errors <= 3:
                 log(f"  Row error: {e}")
-                log(f"  Values: {values[:3]}...")
             continue
     
-    if errors > 5:
-        log(f"  ... and {errors - 5} more errors")
+    if errors > 3:
+        log(f"  ... and {errors - 3} more errors")
     
     log(f"  Inserted {count} rows, {errors} errors")
     return count
