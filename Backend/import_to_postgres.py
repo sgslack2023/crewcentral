@@ -12,6 +12,15 @@ import sys
 import json
 import django
 
+# Log file
+LOG_FILE = 'import_log.txt'
+log_file = open(LOG_FILE, 'w')
+
+def log(msg):
+    print(msg)
+    log_file.write(msg + '\n')
+    log_file.flush()
+
 # Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_back.settings')
 django.setup()
@@ -44,38 +53,37 @@ def get_table_columns(cursor, table):
 def import_table(cursor, table, data):
     """Import data into a PostgreSQL table"""
     if not data:
-        print(f"  No data in JSON file")
+        log(f"  No data in JSON file")
         return 0
     
-    print(f"  JSON has {len(data)} rows")
+    log(f"  JSON has {len(data)} rows")
     
     # Get actual columns in the PostgreSQL table
     pg_columns = get_table_columns(cursor, table)
     if not pg_columns:
-        print(f"  Warning: Table {table} not found in PostgreSQL")
+        log(f"  Warning: Table {table} not found in PostgreSQL")
         return 0
     
-    print(f"  PostgreSQL columns: {pg_columns[:5]}...")  # Show first 5
+    log(f"  PostgreSQL columns: {pg_columns}")
     
     # Filter data columns to only those that exist in PostgreSQL
     first_row = data[0]
     json_columns = list(first_row.keys())
-    print(f"  JSON columns: {json_columns[:5]}...")  # Show first 5
+    log(f"  JSON columns: {json_columns}")
     
     common_columns = [col for col in json_columns if col in pg_columns]
     
     if not common_columns:
-        print(f"  Warning: No matching columns for {table}")
-        print(f"  JSON columns: {json_columns}")
-        print(f"  PG columns: {pg_columns}")
+        log(f"  Warning: No matching columns for {table}")
         return 0
     
-    print(f"  Matching columns: {len(common_columns)}")
+    log(f"  Matching columns: {common_columns}")
     
-    # Build INSERT statement - don't use ON CONFLICT for tables without unique constraints
+    # Build INSERT statement
     columns_str = ', '.join([f'"{col}"' for col in common_columns])
     placeholders = ', '.join(['%s'] * len(common_columns))
     insert_sql = f'INSERT INTO "{table}" ({columns_str}) VALUES ({placeholders})'
+    log(f"  SQL: {insert_sql[:100]}...")
     
     count = 0
     errors = 0
@@ -86,18 +94,20 @@ def import_table(cursor, table, data):
             count += 1
         except Exception as e:
             errors += 1
-            if errors <= 3:  # Only show first 3 errors
-                print(f"  Row error: {e}")
+            if errors <= 5:
+                log(f"  Row error: {e}")
+                log(f"  Values: {values[:3]}...")
             continue
     
-    if errors > 3:
-        print(f"  ... and {errors - 3} more errors")
+    if errors > 5:
+        log(f"  ... and {errors - 5} more errors")
     
+    log(f"  Inserted {count} rows, {errors} errors")
     return count
 
 def reset_sequences(cursor):
     """Reset all PostgreSQL sequences after data import"""
-    print("\nResetting sequences...")
+    log("\nResetting sequences...")
     cursor.execute("""
         SELECT 'SELECT SETVAL(' ||
                quote_literal(quote_ident(PGT.schemaname) || '.' || quote_ident(S.relname)) ||
@@ -119,7 +129,7 @@ def reset_sequences(cursor):
 
 def clear_all_tables(cursor):
     """Clear all data from tables before import"""
-    print("\nClearing existing data from PostgreSQL tables...")
+    log("\nClearing existing data from PostgreSQL tables...")
     
     # Get all tables except Django system tables
     cursor.execute("""
@@ -135,34 +145,34 @@ def clear_all_tables(cursor):
     for table in tables:
         try:
             cursor.execute(f'TRUNCATE TABLE "{table}" CASCADE;')
-            print(f"  ✓ Cleared {table}")
+            log(f"  ✓ Cleared {table}")
         except Exception as e:
-            print(f"  ✗ Could not clear {table}: {e}")
+            log(f"  ✗ Could not clear {table}: {e}")
     
     # Re-enable foreign key checks
     cursor.execute("SET session_replication_role = 'origin';")
-    print("  Done clearing tables.\n")
+    log("  Done clearing tables.\n")
 
 def main():
-    print("="*60)
-    print("STEP 2: Import data to PostgreSQL")
-    print("="*60)
+    log("="*60)
+    log("STEP 2: Import data to PostgreSQL")
+    log("="*60)
     
     # Verify we're using PostgreSQL
     db_engine = settings.DATABASES['default']['ENGINE']
     if 'postgresql' not in db_engine:
-        print(f"\nERROR: Database is not PostgreSQL!")
-        print(f"Current engine: {db_engine}")
-        print("\nPlease update settings.py to use PostgreSQL first.")
+        log(f"\nERROR: Database is not PostgreSQL!")
+        log(f"Current engine: {db_engine}")
+        log("\nPlease update settings.py to use PostgreSQL first.")
         sys.exit(1)
     
-    print(f"\nDatabase: {settings.DATABASES['default']['NAME']}")
-    print(f"Host: {settings.DATABASES['default']['HOST']}")
+    log(f"\nDatabase: {settings.DATABASES['default']['NAME']}")
+    log(f"Host: {settings.DATABASES['default']['HOST']}")
     
     # Check if input directory exists
     if not os.path.exists(INPUT_DIR):
-        print(f"\nERROR: '{INPUT_DIR}' folder not found!")
-        print("Run 'python extract_from_sqlite.py' first.")
+        log(f"\nERROR: '{INPUT_DIR}' folder not found!")
+        log("Run 'python extract_from_sqlite.py' first.")
         sys.exit(1)
     
     # Clear existing data
@@ -255,25 +265,25 @@ def main():
                 continue
             
             json_file = os.path.join(INPUT_DIR, available_files_map[table])
-            print(f"\nImporting: {table}")
+            log(f"\nImporting: {table}")
             
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 
                 if not data:
-                    print(f"  No data to import")
+                    log(f"  No data to import")
                     continue
                 
                 count = import_table(cursor, table, data)
                 connection.commit()
                 imported[table] = count
-                print(f"  ✓ Imported {count} rows")
+                log(f"  ✓ Imported {count} rows")
                 
             except Exception as e:
                 connection.rollback()
                 failed[table] = str(e)
-                print(f"  ✗ Failed: {e}")
+                log(f"  ✗ Failed: {e}")
         
         # Import any remaining tables not in the order list
         for table, filename in available_files_map.items():
@@ -281,7 +291,7 @@ def main():
                 continue
             
             json_file = os.path.join(INPUT_DIR, filename)
-            print(f"\nImporting: {table}")
+            log(f"\nImporting: {table}")
             
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
@@ -290,12 +300,12 @@ def main():
                 count = import_table(cursor, table, data)
                 connection.commit()
                 imported[table] = count
-                print(f"  ✓ Imported {count} rows")
+                log(f"  ✓ Imported {count} rows")
                 
             except Exception as e:
                 connection.rollback()
                 failed[table] = str(e)
-                print(f"  ✗ Failed: {e}")
+                log(f"  ✗ Failed: {e}")
         
         # Re-enable foreign key checks
         cursor.execute("SET session_replication_role = 'origin';")
@@ -305,30 +315,33 @@ def main():
         connection.commit()
     
     # Summary
-    print("\n" + "="*60)
-    print("IMPORT SUMMARY")
-    print("="*60)
-    print(f"\nSuccessfully imported {len(imported)} tables:")
+    log("\n" + "="*60)
+    log("IMPORT SUMMARY")
+    log("="*60)
+    log(f"\nSuccessfully imported {len(imported)} tables:")
     for table, count in sorted(imported.items()):
-        print(f"  ✓ {table}: {count} rows")
+        log(f"  ✓ {table}: {count} rows")
     
     if failed:
-        print(f"\nFailed to import {len(failed)} tables:")
+        log(f"\nFailed to import {len(failed)} tables:")
         for table, error in sorted(failed.items()):
-            print(f"  ✗ {table}: {error}")
+            log(f"  ✗ {table}: {error}")
     
-    print(f"\nTotal rows imported: {sum(imported.values())}")
-    print("="*60)
+    log(f"\nTotal rows imported: {sum(imported.values())}")
+    log("="*60)
     
     # Verification
-    print("\nVerifying data...")
+    log("\nVerifying data...")
     with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM masterdata_customer")
-        print(f"  Customers: {cursor.fetchone()[0]}")
+        log(f"  Customers: {cursor.fetchone()[0]}")
         cursor.execute("SELECT COUNT(*) FROM transactiondata_estimate")
-        print(f"  Estimates: {cursor.fetchone()[0]}")
+        log(f"  Estimates: {cursor.fetchone()[0]}")
         cursor.execute("SELECT COUNT(*) FROM users_customuser")
-        print(f"  Users: {cursor.fetchone()[0]}")
+        log(f"  Users: {cursor.fetchone()[0]}")
+    
+    log(f"\nLog saved to: {LOG_FILE}")
+    log_file.close()
 
 if __name__ == '__main__':
     main()
