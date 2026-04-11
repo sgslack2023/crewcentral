@@ -56,7 +56,8 @@ def convert_sqlite_to_pg_value(value, col_name):
     boolean_columns = [
         'is_active', 'is_staff', 'is_superuser', 'is_default', 'is_default_admin',
         'approved', 'enabled', 'is_archived', 'processed', 'link_active',
-        'is_editable', 'is_opened', 'is_locked', 'is_template', 'enable_click'
+        'is_editable', 'is_opened', 'is_locked', 'is_template', 'enable_click',
+        'is_required', 'is_estimate_only'
     ]
     
     if col_name in boolean_columns:
