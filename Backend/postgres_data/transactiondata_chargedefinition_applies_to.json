@@ -1,157 +1,157 @@
 [
   {
-    "id": 1,
-    "chargedefinition_id": 4,
-    "servicetype_id": 2
-  },
-  {
-    "id": 2,
-    "chargedefinition_id": 6,
-    "servicetype_id": 2
-  },
-  {
     "id": 3,
-    "chargedefinition_id": 7,
-    "servicetype_id": 2
+    "chargedefinition_id": 3,
+    "servicetype_id": 1
   },
   {
     "id": 4,
-    "chargedefinition_id": 8,
-    "servicetype_id": 2
-  },
-  {
-    "id": 5,
-    "chargedefinition_id": 3,
-    "servicetype_id": 2
+    "chargedefinition_id": 4,
+    "servicetype_id": 1
   },
   {
     "id": 6,
-    "chargedefinition_id": 9,
+    "chargedefinition_id": 1,
     "servicetype_id": 2
   },
   {
     "id": 7,
-    "chargedefinition_id": 10,
-    "servicetype_id": 2
+    "chargedefinition_id": 6,
+    "servicetype_id": 1
   },
   {
     "id": 8,
-    "chargedefinition_id": 12,
-    "servicetype_id": 2
+    "chargedefinition_id": 7,
+    "servicetype_id": 1
   },
   {
     "id": 9,
-    "chargedefinition_id": 13,
+    "chargedefinition_id": 8,
     "servicetype_id": 2
   },
   {
     "id": 10,
-    "chargedefinition_id": 14,
+    "chargedefinition_id": 9,
     "servicetype_id": 2
   },
   {
     "id": 11,
-    "chargedefinition_id": 15,
+    "chargedefinition_id": 10,
     "servicetype_id": 2
   },
   {
     "id": 12,
-    "chargedefinition_id": 16,
-    "servicetype_id": 2
+    "chargedefinition_id": 11,
+    "servicetype_id": 1
   },
   {
     "id": 13,
+    "chargedefinition_id": 12,
+    "servicetype_id": 1
+  },
+  {
+    "id": 14,
+    "chargedefinition_id": 16,
+    "servicetype_id": 1
+  },
+  {
+    "id": 15,
     "chargedefinition_id": 17,
     "servicetype_id": 2
   },
   {
-    "id": 14,
-    "chargedefinition_id": 18,
-    "servicetype_id": 2
-  },
-  {
-    "id": 15,
-    "chargedefinition_id": 19,
-    "servicetype_id": 2
-  },
-  {
     "id": 16,
-    "chargedefinition_id": 20,
-    "servicetype_id": 2
+    "chargedefinition_id": 14,
+    "servicetype_id": 1
   },
   {
     "id": 17,
-    "chargedefinition_id": 21,
-    "servicetype_id": 2
+    "chargedefinition_id": 13,
+    "servicetype_id": 1
   },
   {
     "id": 18,
-    "chargedefinition_id": 22,
-    "servicetype_id": 2
+    "chargedefinition_id": 15,
+    "servicetype_id": 1
   },
   {
     "id": 19,
-    "chargedefinition_id": 23,
+    "chargedefinition_id": 18,
     "servicetype_id": 1
   },
   {
     "id": 20,
-    "chargedefinition_id": 24,
+    "chargedefinition_id": 19,
     "servicetype_id": 1
   },
   {
     "id": 21,
-    "chargedefinition_id": 25,
+    "chargedefinition_id": 20,
     "servicetype_id": 1
   },
   {
     "id": 22,
-    "chargedefinition_id": 26,
+    "chargedefinition_id": 22,
     "servicetype_id": 1
   },
   {
     "id": 23,
-    "chargedefinition_id": 27,
+    "chargedefinition_id": 23,
     "servicetype_id": 1
   },
   {
     "id": 24,
-    "chargedefinition_id": 28,
+    "chargedefinition_id": 24,
     "servicetype_id": 1
   },
   {
     "id": 25,
-    "chargedefinition_id": 29,
-    "servicetype_id": 2
+    "chargedefinition_id": 25,
+    "servicetype_id": 1
   },
   {
     "id": 26,
-    "chargedefinition_id": 30,
-    "servicetype_id": 2
+    "chargedefinition_id": 26,
+    "servicetype_id": 1
   },
   {
     "id": 27,
-    "chargedefinition_id": 31,
-    "servicetype_id": 2
+    "chargedefinition_id": 27,
+    "servicetype_id": 1
   },
   {
     "id": 28,
-    "chargedefinition_id": 32,
+    "chargedefinition_id": 44,
     "servicetype_id": 1
   },
   {
     "id": 29,
-    "chargedefinition_id": 32,
-    "servicetype_id": 2
+    "chargedefinition_id": 45,
+    "servicetype_id": 1
   },
   {
     "id": 30,
-    "chargedefinition_id": 33,
-    "servicetype_id": 2
+    "chargedefinition_id": 46,
+    "servicetype_id": 1
   },
   {
     "id": 31,
-    "chargedefinition_id": 34,
+    "chargedefinition_id": 47,
     "servicetype_id": 2
+  },
+  {
+    "id": 32,
+    "chargedefinition_id": 49,
+    "servicetype_id": 1
+  },
+  {
+    "id": 33,
+    "chargedefinition_id": 53,
+    "servicetype_id": 1
+  },
+  {
+    "id": 34,
+    "chargedefinition_id": 54,
+    "servicetype_id": 1
   }
 ]
