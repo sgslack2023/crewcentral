@@ -383,7 +383,7 @@ def send_feedback_email(customer, organization, base_url=None):
         return False, str(e)
 
 
-def render_email_template(template_name, context, default_subject, default_body, purpose=None, organization=None, template=None, tracking_token=None, customer=None, estimate=None):
+def render_email_template(template_name, context, default_subject, default_body, purpose=None, organization=None, template=None, tracking_token=None, customer=None, estimate=None, payment=None):
     """
     Fetch email template from DB (by purpose or title) or use default.
     If 'template' is provided directly, it bypasses the lookup.
@@ -492,7 +492,7 @@ def render_email_template(template_name, context, default_subject, default_body,
             html_body = html_body.replace('â€‹', '')  # Zero-width space as read on Windows (cp1252)
             
             # Use process_document_template for unified tag replacement (handles model-based tags)
-            html_body = process_document_template(html_body, customer, estimate)
+            html_body = process_document_template(html_body, customer, estimate, payment=payment)
 
             # Strip SunEditor's styled span wrapper around feedback_button tag
             # SunEditor inserts: <span style="...">{{feedback_button}}</span>
@@ -1152,7 +1152,7 @@ def send_receipt_pdf_email(receipt, template=None, tracking_token=None):
             template_title, context, default_subject, default_html,
             purpose='receipt_email', organization=estimate.organization,
             template=template, tracking_token=tracking_token,
-            customer=estimate.customer, estimate=estimate
+            customer=estimate.customer, estimate=estimate, payment=receipt
         )
         
         # Filter out attachments that are already payment receipts to avoid duplicates
