@@ -152,17 +152,74 @@ def main():
         clear_all_tables(cursor)
         connection.commit()
     
-    # Load table order
-    order_file = os.path.join(INPUT_DIR, '_table_order.json')
-    if os.path.exists(order_file):
-        with open(order_file, 'r') as f:
-            table_order = json.load(f)
-    else:
-        # Get all JSON files
-        table_order = [f.replace('.json', '') for f in os.listdir(INPUT_DIR) if f.endswith('.json') and not f.startswith('_')]
+    # Get all JSON files - ignore the predefined order, just use what exists
+    available_files = [f.replace('.json', '') for f in os.listdir(INPUT_DIR) if f.endswith('.json') and not f.startswith('_')]
     
-    # Get available JSON files
-    available_files = {f.replace('.json', ''): f for f in os.listdir(INPUT_DIR) if f.endswith('.json') and not f.startswith('_')}
+    # Define import order (parent tables first, then child tables)
+    table_order = [
+        # Users and Organizations first (no dependencies)
+        'users_organization',
+        'users_systempermission',
+        'users_organizationrole',
+        'users_customuser',
+        'users_organizationmember',
+        'users_organizationrole_permissions',
+        'users_customuser_groups',
+        'users_customuser_user_permissions',
+        
+        # Master data (depends on users/org)
+        'masterdata_branch',
+        'masterdata_servicetype',
+        'masterdata_movetype',
+        'masterdata_roomsize',
+        'masterdata_documentlibrary',
+        'masterdata_documentlibrary_attachments',
+        'masterdata_customer',
+        'masterdata_documentservicetypebranchmapping',
+        'masterdata_endpointconfiguration',
+        'masterdata_rawendpointlead',
+        
+        # Transaction data
+        'transactiondata_timewindow',
+        'transactiondata_chargecategory',
+        'transactiondata_chargedefinition',
+        'transactiondata_chargedefinition_applies_to',
+        'transactiondata_estimatetemplate',
+        'transactiondata_templatelineitem',
+        'transactiondata_transactioncategory',
+        'transactiondata_estimate',
+        'transactiondata_estimatelineitem',
+        'transactiondata_estimatedocument',
+        'transactiondata_documentsigningbatch',
+        'transactiondata_invoice',
+        'transactiondata_invoicelineitem',
+        'transactiondata_paymentreceipt',
+        'transactiondata_workorder',
+        'transactiondata_contractorestimatelineitem',
+        'transactiondata_feedback',
+        'transactiondata_emaillog',
+        'transactiondata_customeractivity',
+        'transactiondata_expense',
+        'transactiondata_purchase',
+        
+        # Site visits
+        'sitevisits_sitevisit',
+        'sitevisits_sitevisitobservation',
+        'sitevisits_sitevisitphoto',
+        
+        # Dashboard
+        'dashboard_dashboard',
+        'dashboard_dashboard_shared_with_roles',
+        'dashboard_dashboardwidget',
+        'dashboard_custommetric',
+        
+        # Auth
+        'auth_group',
+        'auth_group_permissions',
+    ]
+    
+    # Build map of available JSON files
+    available_files_map = {f.replace('.json', ''): f for f in os.listdir(INPUT_DIR) if f.endswith('.json') and not f.startswith('_')}
     
     imported = {}
     failed = {}
@@ -176,10 +233,10 @@ def main():
             if table in SKIP_TABLES:
                 continue
             
-            if table not in available_files:
+            if table not in available_files_map:
                 continue
             
-            json_file = os.path.join(INPUT_DIR, available_files[table])
+            json_file = os.path.join(INPUT_DIR, available_files_map[table])
             print(f"\nImporting: {table}")
             
             try:
@@ -201,7 +258,7 @@ def main():
                 print(f"  ✗ Failed: {e}")
         
         # Import any remaining tables not in the order list
-        for table, filename in available_files.items():
+        for table, filename in available_files_map.items():
             if table in imported or table in failed or table in SKIP_TABLES or table in table_order:
                 continue
             
