@@ -44,7 +44,10 @@ def get_table_columns(cursor, table):
 def import_table(cursor, table, data):
     """Import data into a PostgreSQL table"""
     if not data:
+        print(f"  No data in JSON file")
         return 0
+    
+    print(f"  JSON has {len(data)} rows")
     
     # Get actual columns in the PostgreSQL table
     pg_columns = get_table_columns(cursor, table)
@@ -52,28 +55,43 @@ def import_table(cursor, table, data):
         print(f"  Warning: Table {table} not found in PostgreSQL")
         return 0
     
+    print(f"  PostgreSQL columns: {pg_columns[:5]}...")  # Show first 5
+    
     # Filter data columns to only those that exist in PostgreSQL
     first_row = data[0]
-    common_columns = [col for col in first_row.keys() if col in pg_columns]
+    json_columns = list(first_row.keys())
+    print(f"  JSON columns: {json_columns[:5]}...")  # Show first 5
+    
+    common_columns = [col for col in json_columns if col in pg_columns]
     
     if not common_columns:
         print(f"  Warning: No matching columns for {table}")
+        print(f"  JSON columns: {json_columns}")
+        print(f"  PG columns: {pg_columns}")
         return 0
     
-    # Build INSERT statement
+    print(f"  Matching columns: {len(common_columns)}")
+    
+    # Build INSERT statement - don't use ON CONFLICT for tables without unique constraints
     columns_str = ', '.join([f'"{col}"' for col in common_columns])
     placeholders = ', '.join(['%s'] * len(common_columns))
-    insert_sql = f'INSERT INTO {table} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
+    insert_sql = f'INSERT INTO "{table}" ({columns_str}) VALUES ({placeholders})'
     
     count = 0
+    errors = 0
     for row in data:
         try:
             values = [row.get(col) for col in common_columns]
             cursor.execute(insert_sql, values)
             count += 1
         except Exception as e:
-            print(f"  Row error: {e}")
+            errors += 1
+            if errors <= 3:  # Only show first 3 errors
+                print(f"  Row error: {e}")
             continue
+    
+    if errors > 3:
+        print(f"  ... and {errors - 3} more errors")
     
     return count
 
