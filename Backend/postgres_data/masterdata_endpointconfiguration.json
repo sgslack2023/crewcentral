@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "source a",
+    "secret_key": "0df898423dca48a6a1e9d30ba9658044",
+    "mapping_config": "{\"full_name\": \"name\", \"email\": \"email\", \"phone\": \"phone\", \"address\": \"address\", \"city\": \"city\", \"state\": \"state\", \"zip\": \"zip\", \"move_date\": \"move\", \"notes\": \"description\"}",
+    "is_active": 1,
+    "created_at": "2026-03-21 06:27:50.399000",
+    "updated_at": "2026-03-21 07:32:22.741262",
+    "organization_id": 1
+  },
+  {
+    "id": 2,
+    "name": "BVL Website",
+    "secret_key": "678c5689244f4699bc3247b5dbafd4b5",
+    "mapping_config": "{}",
+    "is_active": 1,
+    "created_at": "2026-03-21 14:46:37.808697",
+    "updated_at": "2026-03-21 14:48:38.090615",
+    "organization_id": 1
+  },
+  {
+    "id": 3,
+    "name": "MoveIT",
+    "secret_key": "59312cdf92154fbab110c76def7a5ed9",
+    "mapping_config": "{\"full_name\": \"FullName\", \"email\": \"Email\", \"phone\": \"PhoneNumber\", \"address\": \"FromProvince\", \"city\": \"FromCity\", \"state\": \"\", \"zip\": \"\", \"origin_address\": [\"FromCity\", \"FromProvince\"], \"destination_address\": [\"ToCity\", \"ToProvince\"], \"move_date\": \"MoveDate\", \"notes\": [\"FromProvince\", \"ToProvince\", \"MoveSize\", \"Comments\"]}",
+    "is_active": 1,
+    "created_at": "2026-03-21 14:51:23.947552",
+    "updated_at": "2026-04-08 16:43:18.011094",
+    "organization_id": 1
+  },
+  {
+    "id": 4,
+    "name": "N1M Website",
+    "secret_key": "f1596fc31bb741ea8b33b4d66314eade",
+    "mapping_config": "{}",
+    "is_active": 1,
+    "created_at": "2026-04-02 12:42:45.260776",
+    "updated_at": "2026-04-02 12:42:45.260826",
+    "organization_id": 1
+  },
+  {
+    "id": 5,
+    "name": "MyMovingLoads",
+    "secret_key": "79831d0b15ff45c8b39e524f851fdba1",
+    "mapping_config": "{\"full_name\": \"name\", \"email\": \"email\", \"phone\": \"phone\", \"address\": \"from_address\", \"city\": \"from_city\", \"state\": \"from_state\", \"zip\": \"from_zip_code\", \"origin_address\": [\"from_address\", \"from_city\", \"from_state\", \"from_zip_code\"], \"destination_address\": [\"to_address\", \"to_city\", \"to_state\", \"to_zip_code\"], \"move_date\": \"move_date\", \"notes\": [\"to_city\", \"to_state\", \"to_zip_code\", \"description\"]}",
+    "is_active": 1,
+    "created_at": "2026-04-02 12:42:54.663791",
+    "updated_at": "2026-04-08 16:41:52.781068",
+    "organization_id": 1
+  }
+]

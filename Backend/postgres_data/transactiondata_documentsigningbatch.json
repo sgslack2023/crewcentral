@@ -1,0 +1,38 @@
+[
+  {
+    "id": 3,
+    "signing_token": "_9Ji0rYFTRBu6tZNnfwpPZEvAHK1jhvyPzvo7R4siRM",
+    "link_active": 1,
+    "email_sent_at": "2026-04-09 18:04:56.209574",
+    "created_at": "2026-04-06 19:04:39.540964",
+    "created_by_id": null,
+    "estimate_id": 13
+  },
+  {
+    "id": 4,
+    "signing_token": "pHG3H2R6H4tyjwg_LsOLvzqgkF-QAyRCMh_9T4Hnba4",
+    "link_active": 1,
+    "email_sent_at": "2026-04-08 18:36:46.173103",
+    "created_at": "2026-04-08 18:36:44.544034",
+    "created_by_id": null,
+    "estimate_id": 6
+  },
+  {
+    "id": 5,
+    "signing_token": "AnBSZlAVXYPcSFAnhOR1D1494tx7Arm-jr2l-iPQSpQ",
+    "link_active": 1,
+    "email_sent_at": "2026-04-08 20:56:43.636250",
+    "created_at": "2026-04-08 20:56:42.135429",
+    "created_by_id": null,
+    "estimate_id": 28
+  },
+  {
+    "id": 6,
+    "signing_token": "xlUAFysl4mmz1JIn2JnsLzSBb5ro6enbytN6FO97YiI",
+    "link_active": 1,
+    "email_sent_at": "2026-04-10 18:44:15.492355",
+    "created_at": "2026-04-10 18:44:13.481529",
+    "created_by_id": null,
+    "estimate_id": 8
+  }
+]

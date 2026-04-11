@@ -1,0 +1,119 @@
+[
+  {
+    "id": 1,
+    "rate": null,
+    "percentage": 24,
+    "is_editable": 1,
+    "display_order": 3,
+    "charge_id": 3,
+    "template_id": 1
+  },
+  {
+    "id": 2,
+    "rate": 0.79,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 0,
+    "charge_id": 1,
+    "template_id": 1
+  },
+  {
+    "id": 4,
+    "rate": 0,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 1,
+    "charge_id": 30,
+    "template_id": 1
+  },
+  {
+    "id": 5,
+    "rate": 55,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 2,
+    "charge_id": 33,
+    "template_id": 1
+  },
+  {
+    "id": 6,
+    "rate": 195,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 4,
+    "charge_id": 29,
+    "template_id": 1
+  },
+  {
+    "id": 7,
+    "rate": 159,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 0,
+    "charge_id": 27,
+    "template_id": 4
+  },
+  {
+    "id": 8,
+    "rate": 55,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 1,
+    "charge_id": 25,
+    "template_id": 4
+  },
+  {
+    "id": 9,
+    "rate": 89,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 2,
+    "charge_id": 26,
+    "template_id": 4
+  },
+  {
+    "id": 10,
+    "rate": 0,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 3,
+    "charge_id": 28,
+    "template_id": 4
+  },
+  {
+    "id": 11,
+    "rate": 2500,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 0,
+    "charge_id": 31,
+    "template_id": 5
+  },
+  {
+    "id": 12,
+    "rate": 0,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 1,
+    "charge_id": 30,
+    "template_id": 5
+  },
+  {
+    "id": 13,
+    "rate": 5000,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 0,
+    "charge_id": 32,
+    "template_id": 6
+  },
+  {
+    "id": 14,
+    "rate": 0,
+    "percentage": null,
+    "is_editable": 1,
+    "display_order": 0,
+    "charge_id": 28,
+    "template_id": 6
+  }
+]

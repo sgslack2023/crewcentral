@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "password": "pbkdf2_sha256$1000000$fyWVnRDzlsBPCeDOnvEGNJ$EUxvCAKTo+PZfcOtWss7Drm6dKQs05ZMfi/2tlo9sCA=",
+    "fullname": "",
+    "role": "",
+    "email": "admin@admin.com",
+    "created_at": "2026-02-28 09:18:55.234512",
+    "updated_at": "2026-03-19 08:04:41.882569",
+    "is_staff": 1,
+    "is_superuser": 1,
+    "is_active": 1,
+    "last_login": "2026-03-19 08:04:41.882404",
+    "approved": 1,
+    "approval_notes": null,
+    "denial_reason": null
+  },
+  {
+    "id": 2,
+    "password": "pbkdf2_sha256$1000000$C2EkXn37e2hGxLoYbCgvog$Fctmd11mcsfmee5YDDCFIK0VKKkUTUwfBaNv6rvjXo8=",
+    "fullname": "Daryl Wells",
+    "role": "Admin",
+    "email": "info@balticvanlines.ca",
+    "created_at": "2026-03-02 14:55:53.845019",
+    "updated_at": "2026-04-10 18:05:36.412641",
+    "is_staff": 0,
+    "is_superuser": 0,
+    "is_active": 1,
+    "last_login": "2026-04-10 18:05:36.412489",
+    "approved": 1,
+    "approval_notes": null,
+    "denial_reason": null
+  },
+  {
+    "id": 3,
+    "password": "pbkdf2_sha256$1000000$0NeHVrM2qOPGZU28nc4Abv$kei6oyBHZ5GUEnx4186tYEmBReyTctNLDQ+7qU068JU=",
+    "fullname": "SHivam",
+    "role": "Admin",
+    "email": "sgslack2023@gmail.com",
+    "created_at": "2026-03-03 18:41:49.669237",
+    "updated_at": "2026-03-03 18:42:52.434556",
+    "is_staff": 0,
+    "is_superuser": 0,
+    "is_active": 1,
+    "last_login": "2026-03-03 18:42:52.434416",
+    "approved": 1,
+    "approval_notes": null,
+    "denial_reason": null
+  }
+]

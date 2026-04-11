@@ -1,0 +1,104 @@
+[
+  {
+    "id": 1,
+    "codename": "view_customers",
+    "name": "View Customers",
+    "category": "Master Data"
+  },
+  {
+    "id": 2,
+    "codename": "create_customers",
+    "name": "Create Customers",
+    "category": "Master Data"
+  },
+  {
+    "id": 3,
+    "codename": "edit_customers",
+    "name": "Edit Customers",
+    "category": "Master Data"
+  },
+  {
+    "id": 4,
+    "codename": "delete_customers",
+    "name": "Delete Customers",
+    "category": "Master Data"
+  },
+  {
+    "id": 5,
+    "codename": "view_branches",
+    "name": "View Branches",
+    "category": "Master Data"
+  },
+  {
+    "id": 6,
+    "codename": "manage_branches",
+    "name": "Manage Branches",
+    "category": "Master Data"
+  },
+  {
+    "id": 7,
+    "codename": "view_estimates",
+    "name": "View Estimates",
+    "category": "Transaction Data"
+  },
+  {
+    "id": 8,
+    "codename": "create_estimates",
+    "name": "Create Estimates",
+    "category": "Transaction Data"
+  },
+  {
+    "id": 9,
+    "codename": "edit_estimates",
+    "name": "Edit Estimates",
+    "category": "Transaction Data"
+  },
+  {
+    "id": 10,
+    "codename": "approve_estimates",
+    "name": "Approve Estimates",
+    "category": "Transaction Data"
+  },
+  {
+    "id": 11,
+    "codename": "view_site_visits",
+    "name": "View Site Visits",
+    "category": "Operations"
+  },
+  {
+    "id": 12,
+    "codename": "create_site_visits",
+    "name": "Schedule Site Visits",
+    "category": "Operations"
+  },
+  {
+    "id": 13,
+    "codename": "edit_site_visits",
+    "name": "Perform Site Visits",
+    "category": "Operations"
+  },
+  {
+    "id": 14,
+    "codename": "view_users",
+    "name": "View Users",
+    "category": "User Management"
+  },
+  {
+    "id": 15,
+    "codename": "manage_users",
+    "name": "Manage Users",
+    "category": "User Management"
+  },
+  {
+    "id": 16,
+    "codename": "view_roles",
+    "name": "View Roles",
+    "category": "User Management"
+  },
+  {
+    "id": 17,
+    "codename": "manage_roles",
+    "name": "Manage Roles",
+    "category": "User Management"
+  }
+]

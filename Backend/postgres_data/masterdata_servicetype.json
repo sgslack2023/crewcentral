@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "scaling_factor": 1,
+    "color": "#F72900",
+    "enabled": 1,
+    "created_at": "2026-03-02 16:36:39.818128",
+    "updated_at": "2026-03-02 16:36:39.818156",
+    "created_by_id": 1,
+    "estimate_content": "This estimate is valid for 72 hours. Subject to Availability.\n\nHere at Baltic Van Lines we believe in being upfront with our pricing.\n\nWith us there are NO HIDDEN FEES. Everything is included in the hourly rate.\n\nOur moves are billed dock to dock and charged in only 15 minute increments to be as fair as possible.\n\nWith a lengthy hiring and training process we ensure that only THE BEST AND MOST QUALIFIED MOVERS handle your belongings. Not just strong, but friendly, skilled and organized.\n\nWe do not charge for stairs or heavy lifting. (ATTENTION : MOST MOVERS CHARGE EXTRA FOR THAT)\n\nWe can even disassemble and assemble your furniture with no extra cost.\n\nYour satisfaction is our priority!\n\nReservation:\n\nTo finalize your reservation with Baltic Van Lines and lock in your rate, we require a $150 deposit to guarantee your date. The deposit can be made in the form of Visa, Mastercard or Email Transfer. The deposit is NON REFUNDABLE for Cancellations. We ask that any changes that need to be made are done as soon as possible.",
+    "organization_id": 1,
+    "service_type": "Local Moving Services"
+  },
+  {
+    "id": 2,
+    "scaling_factor": 1,
+    "color": "blue",
+    "enabled": 1,
+    "created_at": "2026-03-02 16:37:00.109783",
+    "updated_at": "2026-03-02 16:37:00.109814",
+    "created_by_id": 1,
+    "estimate_content": "At Baltic Van Lines, our goal is to make your relocation smooth from your first call until the final item is placed in your new home. Every client is paired with a dedicated coordinator who follows your move from start to finish — so each time you call, you’ll speak with someone who already knows your story and needs.\n\nA non-refundable deposit of 10% (minimum $300) secures your space and rate. This deposit can be made by Visa, Mastercard, or Email Transfer. If you need to make changes, please let us know as soon as possible so we can accommodate.\n\nThis estimate given is in accordance with the preliminary information you have provided through the online portal or your moving consultant. The total cost will be determined at the end of your move adjusted in accordance with means of weight charges. \n\nThe weight of your household contents’ can vary and the above mentioned weight range is non-binding and merely a guideline to provide you with a greater understanding of the weight to transport your items from one location to another. \n\nThe Dates provided are based on availability at the time of inquiry. This and rates may change, this estimate is only valid for 72 Hours. Please check with your Consultant after this window to ensure there have been no changes.",
+    "organization_id": 1,
+    "service_type": "Long Distance Relocation"
+  }
+]

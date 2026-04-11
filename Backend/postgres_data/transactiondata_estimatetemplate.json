@@ -1,0 +1,46 @@
+[
+  {
+    "id": 1,
+    "name": "Long Distance",
+    "description": "",
+    "is_active": 1,
+    "created_at": "2026-03-04 14:42:12.856715",
+    "updated_at": "2026-03-30 10:38:25.520853",
+    "created_by_id": 1,
+    "service_type_id": 2,
+    "organization_id": 1
+  },
+  {
+    "id": 4,
+    "name": "Local Move",
+    "description": "",
+    "is_active": 1,
+    "created_at": "2026-03-30 11:08:47.984162",
+    "updated_at": "2026-03-30 11:08:47.984192",
+    "created_by_id": 2,
+    "service_type_id": 1,
+    "organization_id": 1
+  },
+  {
+    "id": 5,
+    "name": "Long Distance (Flat Rate)",
+    "description": "",
+    "is_active": 1,
+    "created_at": "2026-03-30 11:09:41.300251",
+    "updated_at": "2026-03-30 11:09:41.300283",
+    "created_by_id": 2,
+    "service_type_id": 2,
+    "organization_id": 1
+  },
+  {
+    "id": 6,
+    "name": "Local Move (Flat Rate)",
+    "description": "",
+    "is_active": 1,
+    "created_at": "2026-03-30 11:10:17.351350",
+    "updated_at": "2026-03-30 11:10:17.351380",
+    "created_by_id": 2,
+    "service_type_id": 1,
+    "organization_id": 1
+  }
+]

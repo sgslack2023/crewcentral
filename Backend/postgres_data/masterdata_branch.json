@@ -1,0 +1,98 @@
+[
+  {
+    "id": 1,
+    "destination": "Alberta",
+    "dispatch_location": "4046 96 Avenue SE, Calgary, Alberta T2C 4R5, Canada",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:33:39.178614",
+    "updated_at": "2026-03-02 16:33:39.178642",
+    "created_by_id": 1,
+    "sales_tax_percentage": 5,
+    "organization_id": 1,
+    "name": "Calgary Office"
+  },
+  {
+    "id": 2,
+    "destination": "Ontario",
+    "dispatch_location": "54 Burland Crescent Hamilton, ON L8H 3S1",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:34:06.263595",
+    "updated_at": "2026-03-02 16:34:06.263623",
+    "created_by_id": 1,
+    "sales_tax_percentage": 13,
+    "organization_id": 1,
+    "name": "Hamilton Office"
+  },
+  {
+    "id": 3,
+    "destination": "Manitoba",
+    "dispatch_location": "Winnipeg, MB",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:34:25.997911",
+    "updated_at": "2026-03-02 16:34:25.997939",
+    "created_by_id": 1,
+    "sales_tax_percentage": 12,
+    "organization_id": 1,
+    "name": "Manitoba"
+  },
+  {
+    "id": 4,
+    "destination": "Ontario",
+    "dispatch_location": "140 Advance Blvd, Brampton, ON L6T 4Z8",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:34:47.248450",
+    "updated_at": "2026-03-02 16:34:47.248477",
+    "created_by_id": 1,
+    "sales_tax_percentage": 13,
+    "organization_id": 1,
+    "name": "Mississauga Office"
+  },
+  {
+    "id": 5,
+    "destination": "Nova Scotia, New Brunswick & PEI",
+    "dispatch_location": "Nova Scotia",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:35:11.832420",
+    "updated_at": "2026-03-02 16:35:11.832445",
+    "created_by_id": 1,
+    "sales_tax_percentage": 15,
+    "organization_id": 1,
+    "name": "NS, NB & PEI"
+  },
+  {
+    "id": 6,
+    "destination": "Quebec",
+    "dispatch_location": "Quebec",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:35:34.447913",
+    "updated_at": "2026-03-02 16:35:34.447942",
+    "created_by_id": 1,
+    "sales_tax_percentage": 14.98,
+    "organization_id": 1,
+    "name": "Quebec"
+  },
+  {
+    "id": 7,
+    "destination": "Saskatchewan",
+    "dispatch_location": "Saskatchewan, Canada",
+    "is_active": 1,
+    "created_at": "2026-03-02 16:35:54.388516",
+    "updated_at": "2026-03-02 16:35:54.388543",
+    "created_by_id": 1,
+    "sales_tax_percentage": 11,
+    "organization_id": 1,
+    "name": "Saskatchewan"
+  },
+  {
+    "id": 8,
+    "destination": "British Columbia",
+    "dispatch_location": "6739 176 Street, Surrey, British Columbia V3S 4G6, Canada",
+    "is_active": 1,
+    "created_at": "2026-03-30 10:35:17.696204",
+    "updated_at": "2026-03-30 10:35:17.696237",
+    "created_by_id": 2,
+    "sales_tax_percentage": 12,
+    "organization_id": 1,
+    "name": "Vancouver Office"
+  }
+]

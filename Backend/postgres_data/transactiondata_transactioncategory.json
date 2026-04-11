@@ -1,0 +1,13 @@
+[
+  {
+    "id": 1,
+    "name": "MoveIT",
+    "description": "Leads from MoveIT",
+    "category_type": "both",
+    "is_active": 1,
+    "created_at": "2026-03-03 20:11:43.392902",
+    "updated_at": "2026-03-03 20:11:43.392929",
+    "created_by_id": 2,
+    "organization_id": 1
+  }
+]

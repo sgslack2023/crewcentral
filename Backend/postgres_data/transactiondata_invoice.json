@@ -1,0 +1,24 @@
+[
+  {
+    "id": 8,
+    "invoice_number": "INV-516945",
+    "issue_date": "2026-04-02",
+    "due_date": "2026-04-02",
+    "subtotal": 3280,
+    "tax_amount": 393.6,
+    "total_amount": 3673.6,
+    "balance_due": 0,
+    "status": "paid",
+    "notes": "",
+    "created_at": "2026-04-02 14:09:00.482239",
+    "updated_at": "2026-04-02 14:09:01.730127",
+    "created_by_id": 2,
+    "customer_id": 8,
+    "estimate_id": 5,
+    "organization_id": 1,
+    "pdf_file": "invoices/Invoice_INV-516945_u9lJrCh.pdf",
+    "email_sent_at": "2026-04-02 14:09:03.717536",
+    "work_order_id": 8,
+    "assigned_to_id": null
+  }
+]

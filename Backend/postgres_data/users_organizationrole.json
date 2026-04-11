@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "name": "Admin",
+    "is_default_admin": 1,
+    "organization_id": 1
+  },
+  {
+    "id": 2,
+    "name": "Admin",
+    "is_default_admin": 1,
+    "organization_id": 2
+  }
+]

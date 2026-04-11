@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "description": null,
+    "cubic_feet": 0,
+    "weight": 0,
+    "is_active": 1,
+    "created_at": "2026-03-02 16:37:24.244391",
+    "updated_at": "2026-03-02 16:37:24.244418",
+    "created_by_id": 1,
+    "organization_id": 1,
+    "name": "Local Move"
+  },
+  {
+    "id": 2,
+    "description": null,
+    "cubic_feet": 300,
+    "weight": 2000,
+    "is_active": 1,
+    "created_at": "2026-03-02 16:37:39.662692",
+    "updated_at": "2026-03-02 16:37:39.662720",
+    "created_by_id": 1,
+    "organization_id": 1,
+    "name": "Long Distance"
+  }
+]
