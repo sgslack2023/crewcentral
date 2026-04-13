@@ -373,6 +373,15 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         
+        # Optimize queries by prefetching related objects to avoid N+1 queries
+        from django.db.models import Count
+        queryset = queryset.select_related(
+            'customer', 'created_by', 'service_type', 'template_used',
+            'pickup_time_window', 'delivery_time_window', 'assigned_contractor'
+        ).prefetch_related('items', 'payments').annotate(
+            items_count_annotated=Count('items')
+        )
+        
         # Filter by customer
         customer_id = self.request.query_params.get('customer', None)
         if customer_id:
@@ -1285,10 +1294,13 @@ class CustomerActivityViewSet(viewsets.ModelViewSet):
     queryset = CustomerActivity.objects.all()
     serializer_class = CustomerActivitySerializer
     permission_classes = (isAuthenticatedCustom,)
-    
+
     def get_queryset(self):
         queryset = CustomerActivity.objects.all()
         
+        # Optimize queries by prefetching related objects to avoid N+1 queries
+        queryset = queryset.select_related('customer', 'created_by')
+
         # Filter by customer
         customer_id = self.request.query_params.get('customer', None)
         if customer_id:
@@ -1636,6 +1648,11 @@ class InvoiceViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         
+        # Optimize queries by prefetching related objects to avoid N+1 queries
+        queryset = queryset.select_related(
+            'customer', 'estimate', 'created_by'
+        ).prefetch_related('items', 'payments')
+        
         # Filter by customer
         customer_id = self.request.query_params.get('customer', None)
         if customer_id:
@@ -1758,6 +1775,11 @@ class PaymentReceiptViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        
+        # Optimize queries by prefetching related objects to avoid N+1 queries
+        queryset = queryset.select_related(
+            'invoice', 'estimate', 'estimate__customer', 'invoice__customer', 'created_by'
+        )
 
         # Filter by invoice
         invoice_id = self.request.query_params.get('invoice', None)
@@ -2012,6 +2034,12 @@ class WorkOrderViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         
+        # Optimize queries by prefetching related objects to avoid N+1 queries
+        queryset = queryset.select_related(
+            'created_by', 'contractor', 'pickup_time_window', 'delivery_time_window',
+            'estimate', 'estimate__customer'
+        ).prefetch_related('items')
+
         estimate_id = self.request.query_params.get('estimate_id', None)
         if estimate_id:
             queryset = queryset.filter(estimate_id=estimate_id)

@@ -123,6 +123,9 @@ class EstimateTemplateSerializer(serializers.ModelSerializer):
         return obj.service_type.service_type if obj.service_type else None
     
     def get_items_count(self, obj):
+        # Use annotated count if available, otherwise fallback to query
+        if hasattr(obj, 'items_count_annotated'):
+            return obj.items_count_annotated
         return obj.items.count()
 
 
@@ -157,10 +160,13 @@ class PaymentReceiptSerializer(serializers.ModelSerializer):
         return obj.created_by.fullname if obj.created_by else 'System'
         
     def get_customer_name(self, obj):
-        if obj.invoice and obj.invoice.customer:
-            return obj.invoice.customer.full_name
-        if obj.estimate and obj.estimate.customer:
-            return obj.estimate.customer.full_name
+        try:
+            if obj.invoice and obj.invoice.customer:
+                return obj.invoice.customer.full_name
+            if obj.estimate and obj.estimate.customer:
+                return obj.estimate.customer.full_name
+        except:
+            pass
         return None
         
     def get_estimate_public_token(self, obj):
@@ -223,10 +229,16 @@ class EstimateSerializer(serializers.ModelSerializer):
         return None
 
     def get_customer_name(self, obj):
-        return obj.customer.full_name if obj.customer else None
+        try:
+            return obj.customer.full_name if obj.customer else None
+        except:
+            return None
 
     def get_customer_job_number(self, obj):
-        return obj.customer.job_number if obj.customer else None
+        try:
+            return obj.customer.job_number if obj.customer else None
+        except:
+            return None
 
     def get_template_name(self, obj):
         return obj.template_used.name if obj.template_used else None
@@ -238,10 +250,16 @@ class EstimateSerializer(serializers.ModelSerializer):
         return obj.service_type.estimate_content if obj.service_type and obj.service_type.estimate_content else None
 
     def get_origin_address(self, obj):
-        return obj.customer.origin_address if obj.customer else None
+        try:
+            return obj.customer.origin_address if obj.customer else None
+        except:
+            return None
 
     def get_destination_address(self, obj):
-        return obj.customer.destination_address if obj.customer else None
+        try:
+            return obj.customer.destination_address if obj.customer else None
+        except:
+            return None
 
     def get_pickup_time_window_display(self, obj):
         if obj.pickup_time_window:
@@ -254,6 +272,9 @@ class EstimateSerializer(serializers.ModelSerializer):
         return None
 
     def get_items_count(self, obj):
+        # Use annotated count if available, otherwise fallback to query
+        if hasattr(obj, 'items_count_annotated'):
+            return obj.items_count_annotated
         return obj.items.count()
 
     def get_document_signing_token(self, obj):
@@ -333,7 +354,10 @@ class CustomerActivitySerializer(serializers.ModelSerializer):
         return obj.created_by.fullname if obj.created_by else 'System'
     
     def get_customer_name(self, obj):
-        return obj.customer.full_name if obj.customer else None
+        try:
+            return obj.customer.full_name if obj.customer else None
+        except:
+            return None
     
     def get_estimate_id(self, obj):
         return obj.estimate.id if obj.estimate else None
@@ -490,7 +514,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
         return obj.created_by.fullname if obj.created_by else 'System'
         
     def get_customer_name(self, obj):
-        return obj.customer.full_name if obj.customer else None
+        try:
+            return obj.customer.full_name if obj.customer else None
+        except:
+            return None
         
     def get_estimate_public_token(self, obj):
         return obj.estimate.public_token if obj.estimate else None
@@ -516,7 +543,10 @@ class FeedbackSerializer(serializers.ModelSerializer):
         return obj.created_by.fullname if obj.created_by else 'System'
     
     def get_customer_name(self, obj):
-        return obj.customer.full_name if obj.customer else None
+        try:
+            return obj.customer.full_name if obj.customer else None
+        except:
+            return None
 
 
 class ContractorEstimateLineItemSerializer(serializers.ModelSerializer):
@@ -605,7 +635,10 @@ class ExpenseSerializer(serializers.ModelSerializer):
         return obj.category.name if obj.category else None
 
     def get_customer_name(self, obj):
-        return obj.customer.full_name if obj.customer else None
+        try:
+            return obj.customer.full_name if obj.customer else None
+        except:
+            return None
 
     def get_work_order_id(self, obj):
         return obj.work_order.id if obj.work_order else None

@@ -14,7 +14,7 @@ import django
 
 # Log file
 LOG_FILE = 'import_log.txt'
-log_file = open(LOG_FILE, 'w')
+log_file = open(LOG_FILE, 'w', encoding='utf-8')
 
 def log(msg):
     print(msg)

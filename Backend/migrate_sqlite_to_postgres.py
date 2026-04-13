@@ -11,11 +11,11 @@ from datetime import datetime
 # SQLite connection (your recovered database)
 SQLITE_PATH = 'db.sqlite3'  # or 'recovered.db' if that's what you named it
 
-# PostgreSQL connection (update these!)
+# PostgreSQL connection
 PG_CONFIG = {
-    'dbname': 'crewcentral',
-    'user': 'crewcentral_user',
-    'password': 'your_secure_password_here',  # UPDATE THIS
+    'dbname': 'postgres',
+    'user': 'postgres',
+    'password': 'postgres',
     'host': 'localhost',
     'port': '5432'
 }

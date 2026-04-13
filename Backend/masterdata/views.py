@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Prefetch
 from django.http import HttpResponse
 from crm_back.custom_methods import isAuthenticatedCustom, isAdminUser, HasSystemPermission
 from crm_back.mixins import OrganizationContextMixin
@@ -13,6 +13,7 @@ from .models import (
     DocumentServiceTypeBranchMapping, MoveType, RoomSize,
     EndpointConfiguration, RawEndpointLead
 )
+from sitevisits.models import SiteVisit
 from django_q.models import Schedule
 from .serializers import (
     CustomerSerializer, CustomerStatsSerializer, BranchSerializer, 
@@ -129,6 +130,19 @@ class CustomerViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
         Optionally filter customers by stage, source, or assigned_to
         """
         queryset = super().get_queryset()
+        
+        # Optimize queries by prefetching related objects to avoid N+1 queries
+        # Use Prefetch to only fetch upcoming visits (SCHEDULED or IN_PROGRESS) for efficiency
+        upcoming_visits_prefetch = Prefetch(
+            'site_visits',
+            queryset=SiteVisit.objects.filter(
+                status__in=['SCHEDULED', 'IN_PROGRESS']
+            ).order_by('scheduled_at'),
+            to_attr='upcoming_visits'
+        )
+        queryset = queryset.select_related(
+            'assigned_to', 'created_by', 'service_type', 'move_size', 'branch'
+        ).prefetch_related(upcoming_visits_prefetch)
         
         # Handle archiving: restrict to archived/active ONLY for list action
         # This allows retrieve/archive/unarchive to find the object by ID regardless of status

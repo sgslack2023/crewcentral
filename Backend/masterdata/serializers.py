@@ -36,7 +36,10 @@ class CustomerSerializer(serializers.ModelSerializer):
         return None
     
     def get_upcoming_visit_id(self, obj):
-        # Find the next scheduled or in-progress visit
+        # Use prefetched upcoming_visits if available, otherwise fallback to query
+        if hasattr(obj, 'upcoming_visits'):
+            return obj.upcoming_visits[0].id if obj.upcoming_visits else None
+        # Fallback for when not prefetched (e.g., single object retrieval)
         visit = obj.site_visits.filter(
             status__in=['SCHEDULED', 'IN_PROGRESS']
         ).order_by('scheduled_at').first()
