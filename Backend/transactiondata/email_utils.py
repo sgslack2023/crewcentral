@@ -142,7 +142,61 @@ def ensure_inline_styles_for_email(html_content):
         html_content,
         flags=re.IGNORECASE
     )
-    
+
+    # SunEditor-specific: inline the styles its alignment classes normally apply
+    # via its stylesheet (which Gmail/Outlook strip). This preserves what the
+    # user already set in the editor without re-inventing centering.
+    def inline_style_on_opening_tag(tag, inline_style):
+        if 'style=' in tag.lower():
+            def merge(style_match):
+                existing = style_match.group(1).rstrip().rstrip(';')
+                return f'style="{inline_style};{existing}"' if existing else f'style="{inline_style}"'
+            return re.sub(r'style=["\']([^"\']*)["\']', merge, tag, count=1, flags=re.IGNORECASE)
+        return re.sub(r'^(<\w+)', rf'\1 style="{inline_style}"', tag)
+
+    def process_se_aligned_block(match, alignment):
+        """
+        Add inline alignment to the wrapper AND ensure the image inside centers.
+        For center: add text-align:center to wrapper and display:block;margin:0 auto to the img.
+        """
+        full_block = match.group(0)
+        opening_tag_match = re.match(r'<\w+[^>]*>', full_block)
+        if not opening_tag_match:
+            return full_block
+        opening_tag = opening_tag_match.group(0)
+
+        if alignment == 'center':
+            new_opening = inline_style_on_opening_tag(opening_tag, 'text-align:center')
+            rest = full_block[len(opening_tag):]
+            # Also ensure images inside get centered (display:block;margin:0 auto)
+            rest = re.sub(r'<img[^>]*>', add_centering_to_img, rest, flags=re.IGNORECASE)
+            # And ensure any inner <figure> is inline-block so text-align:center takes effect
+            rest = re.sub(
+                r'<figure\b[^>]*>',
+                lambda m: inline_style_on_opening_tag(m.group(0), 'display:inline-block;margin:0 auto'),
+                rest,
+                flags=re.IGNORECASE,
+            )
+            return new_opening + rest
+        else:
+            new_opening = inline_style_on_opening_tag(opening_tag, f'text-align:{alignment}')
+            return new_opening + full_block[len(opening_tag):]
+
+    # __se__float-center / -left / -right wrappers
+    for cls, alignment in (('__se__float-center', 'center'),
+                           ('__se__float-left', 'left'),
+                           ('__se__float-right', 'right')):
+        pattern = (
+            r'<(div|p|figure)\b[^>]*class=["\'][^"\']*' + re.escape(cls) +
+            r'[^"\']*["\'][^>]*>[\s\S]*?</\1>'
+        )
+        html_content = re.sub(
+            pattern,
+            lambda m, a=alignment: process_se_aligned_block(m, a),
+            html_content,
+            flags=re.IGNORECASE,
+        )
+
     print(f"[EMAIL] Processed inline styles for email compatibility")
     return html_content
 
@@ -674,12 +728,6 @@ def send_estimate_email(estimate, base_url=None, backend_base_url=None):
             </div>
             <div class="button-container">
                 <a href="{public_link}" class="button">View Estimate</a>
-            </div>
-            <div class="message">
-                If you would like to download a PDF copy of your current estimate feel free to click the button below.
-            </div>
-            <div class="button-container">
-                <a href="{pdf_download_link}" class="button-secondary">Download PDF</a>
             </div>
             <div class="contact">
                 If you have any questions don't hesitate at any time to contact our office. You can respond to this email or call us at <strong>+1(647)931-5244</strong>.

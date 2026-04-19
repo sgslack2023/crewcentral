@@ -713,6 +713,12 @@ def generate_pdf_from_html(html_content):
         td br, th br { display: none; }
         td div, th div { margin: 0 !important; padding: 0 !important; line-height: 1.2 !important; }
         h1, h2, h3, h4, h5, h6 { margin: 2px 0; }
+        /* SunEditor image alignment classes - preserve what user set in editor */
+        .__se__float-center { text-align: center; }
+        .__se__float-left { text-align: left; }
+        .__se__float-right { text-align: right; }
+        .__se__float-center figure, .__se__float-left figure, .__se__float-right figure { display: inline-block; margin: 0; padding: 0; }
+        .__se__float-center img, .__se__float-left img, .__se__float-right img { display: inline-block; }
     </style>
     """
     

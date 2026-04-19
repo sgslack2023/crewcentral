@@ -254,6 +254,8 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                                     tooltip: 'Configure Mapping',
                                     onClick: () => {
                                         setSelectedConfig(config);
+                                        // Reset form first to clear any previous values
+                                        mappingForm.resetFields();
                                         // Convert arrays to comma-separated strings for display
                                         const displayMapping: any = {};
                                         for (const [key, value] of Object.entries(config.mapping_config || {})) {
@@ -389,9 +391,15 @@ const Endpoints: React.FC<EndpointsProps> = ({ hideHeader = false }) => {
                     </div>
                 }
                 open={isMappingModalVisible}
-                onCancel={() => setIsMappingModalVisible(false)}
+                onCancel={() => {
+                    mappingForm.resetFields();
+                    setIsMappingModalVisible(false);
+                }}
                 footer={[
-                    <WhiteButton key="cancel" onClick={() => setIsMappingModalVisible(false)}>
+                    <WhiteButton key="cancel" onClick={() => {
+                        mappingForm.resetFields();
+                        setIsMappingModalVisible(false);
+                    }}>
                         Cancel
                     </WhiteButton>,
                     <BlackButton key="submit" onClick={() => mappingForm.submit()}>
