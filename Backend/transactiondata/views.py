@@ -1,3 +1,4 @@
+import os
 from rest_framework import viewsets, status
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
@@ -894,37 +895,24 @@ class EstimateViewSet(OrganizationContextMixin, viewsets.ModelViewSet):
 </html>
 """
             
-            # Try to generate PDF using xhtml2pdf (pisa)
+            # Generate PDF using WeasyPrint
             try:
-                from xhtml2pdf import pisa
-                from .utils import convert_images_to_base64
+                from .utils import convert_images_to_base64, render_pdf_with_weasyprint
                 
                 # Convert any external images to base64 for PDF rendering
                 html_content = convert_images_to_base64(html_content)
                 
-                # Generate PDF from HTML
-                pdf_buffer = BytesIO()
-                pisa_status = pisa.CreatePDF(
-                    html_content,
-                    dest=pdf_buffer,
-                    encoding='utf-8'
-                )
+                pdf_bytes = render_pdf_with_weasyprint(html_content)
                 
-                if pisa_status.err:
-                    # If PDF generation fails, fall through to HTML fallback
+                if not pdf_bytes:
                     raise Exception("PDF generation failed")
                 
-                pdf_bytes = pdf_buffer.getvalue()
-                
-                # Create filename with job number or fallback
                 if job_number:
                     filename = f"Estimate_{job_number}.pdf"
                 else:
                     filename = "Estimate.pdf"
                 
-                # Return PDF as file response
-                pdf_buffer = BytesIO(pdf_bytes)
-                response = FileResponse(pdf_buffer, content_type='application/pdf')
+                response = FileResponse(BytesIO(pdf_bytes), content_type='application/pdf')
                 response['Content-Disposition'] = f'attachment; filename="{filename}"'
                 return response
                 
@@ -1481,14 +1469,13 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
         if not html_content:
             return Response({'error': 'Document content is not available or not an HTML document'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Remove problematic Unicode characters that render as black boxes in xhtml2pdf
+        # Remove problematic Unicode characters
         import re
-        # Remove zero-width spaces, BOM, and other invisible characters
         html_content = re.sub(r'[\u200b-\u200f\u2028-\u202f\ufeff]', '', html_content)
-        # Remove any remaining control characters except newlines and tabs
         html_content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', html_content)
         
-        # Build full HTML for PDF rendering (simplified for xhtml2pdf compatibility)
+        # Build full HTML for PDF rendering. WeasyPrint has full CSS support,
+        # so we keep the original document formatting intact.
         full_html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1505,22 +1492,16 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
             color: #000000;
         }}
         table {{
-            width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
+            max-width: 100%;
         }}
         th, td {{
-            border: 1px solid #000000;
-            padding: 8px;
-            text-align: left;
             vertical-align: top;
-        }}
-        th {{
-            background-color: #f4f4f4;
-            font-weight: bold;
         }}
         img {{
             max-width: 100%;
+            height: auto;
         }}
     </style>
 </head>
@@ -1529,31 +1510,20 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
 </body>
 </html>"""
         
-        # Generate PDF using xhtml2pdf
+        # Generate PDF using WeasyPrint
         try:
-            from xhtml2pdf import pisa
-            from .utils import convert_images_to_base64
+            from .utils import convert_images_to_base64, render_pdf_with_weasyprint
             
-            # Convert images to base64
+            # Convert images to base64 so WeasyPrint doesn't need network access
             full_html = convert_images_to_base64(full_html)
             
-            pdf_buffer = BytesIO()
-            pisa_status = pisa.CreatePDF(
-                full_html,
-                dest=pdf_buffer,
-                encoding='utf-8'
-            )
+            pdf_bytes = render_pdf_with_weasyprint(full_html)
             
-            if pisa_status.err:
-                # Return HTML as fallback for debugging
-                response = HttpResponse(full_html, content_type='text/html')
-                response['Content-Disposition'] = 'attachment; filename="debug.html"'
-                return response
-            
-            pdf_bytes = pdf_buffer.getvalue()
-            
-            if len(pdf_bytes) == 0:
-                return Response({'error': 'PDF generation produced empty file'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            if not pdf_bytes:
+                return Response(
+                    {'error': 'PDF generation failed. Make sure WeasyPrint is installed: pip install weasyprint'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
             # Create filename with document title and customer name
             doc_title = estimate_document.document.title.replace(' ', '_').replace('/', '_').replace('\\', '_')
@@ -1562,18 +1532,23 @@ class EstimateDocumentViewSet(viewsets.ModelViewSet):
             else:
                 customer_name = "Customer"
             
-            # Format: DocumentTitle_CustomerName.pdf
             filename = f"{doc_title}_{customer_name}.pdf"
             
-            # Return PDF
-            pdf_buffer.seek(0)
-            response = FileResponse(pdf_buffer, content_type='application/pdf')
+            response = FileResponse(BytesIO(pdf_bytes), content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
             
-        except ImportError:
-            return Response({'error': 'PDF library not available'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
+            import traceback
+            print(f"PDF generation error for document {pk}: {e}")
+            print(traceback.format_exc())
+            try:
+                debug_path = os.path.join(settings.MEDIA_ROOT, f'debug_pdf_{pk}.html')
+                with open(debug_path, 'w', encoding='utf-8') as f:
+                    f.write(full_html if 'full_html' in locals() else '')
+                print(f"Saved debug HTML: {debug_path}")
+            except Exception as debug_err:
+                print(f"Could not save debug HTML for document {pk}: {debug_err}")
             return Response({'error': f'PDF generation error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'])

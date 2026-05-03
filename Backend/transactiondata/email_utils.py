@@ -205,8 +205,7 @@ def send_signed_documents_email(estimate, signed_docs):
     """
     Send all signed documents back to the customer as confirmation attachments
     """
-    from .utils import generate_pdf_from_html, convert_images_to_base64
-    from xhtml2pdf import pisa
+    from .utils import generate_pdf_from_html, convert_images_to_base64, render_pdf_with_weasyprint
     from io import BytesIO
     import re
     from .serializers import EstimateDocumentSerializer
@@ -260,20 +259,14 @@ def send_signed_documents_email(estimate, signed_docs):
                 html_content = re.sub(r'[\u200b-\u200f\u2028-\u202f\ufeff]', '', html_content)
                 html_content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', html_content)
 
-                full_html = f"<html><head><style>body {{ font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #000000; }} table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }} th, td {{ border: 1px solid #000000; padding: 8px; text-align: left; vertical-align: top; }} th {{ background-color: #f4f4f4; font-weight: bold; }} img {{ max-width: 100%; }}</style></head><body>{html_content}</body></html>"
+                full_html = f"<html><head><style>@page {{ size: A4; margin: 20mm; }} body {{ font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #000000; }} table {{ border-collapse: collapse; margin: 15px 0; max-width: 100%; }} th, td {{ vertical-align: top; }} img {{ max-width: 100%; height: auto; }}</style></head><body>{html_content}</body></html>"
                 full_html = convert_images_to_base64(full_html)
 
-                pdf_buffer = BytesIO()
-                # pisa.CreatePDF needs context if it's not simple, but here it's full HTML
-                pisa_status = pisa.CreatePDF(
-                    full_html,
-                    dest=pdf_buffer,
-                    encoding='utf-8'
-                )
+                pdf_bytes = render_pdf_with_weasyprint(full_html)
 
-                if not pisa_status.err:
+                if pdf_bytes:
                     doc_title = (doc.document.title if doc.document else "Document").replace(' ', '_').replace('/', '_')
-                    email.attach(f"{doc_title}.pdf", pdf_buffer.getvalue(), 'application/pdf')
+                    email.attach(f"{doc_title}.pdf", pdf_bytes, 'application/pdf')
 
         email.send(fail_silently=False)
         return True, "Signed documents sent successfully"

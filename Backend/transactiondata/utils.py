@@ -4,10 +4,59 @@ from .models import Estimate, EstimateLineItem, ChargeType, Invoice, PaymentRece
 from datetime import datetime
 from io import BytesIO
 from django.core.files.base import ContentFile
-from xhtml2pdf import pisa
 import os
 
 logger = logging.getLogger(__name__)
+
+
+def render_pdf_with_weasyprint(html_content):
+    """
+    Render HTML to PDF bytes using WeasyPrint.
+    WeasyPrint has full CSS support (flex, max-width, border-radius, nowrap, etc.)
+    and handles complex tables far better than xhtml2pdf.
+    Returns PDF bytes on success, None on failure.
+    """
+    # Windows: Help WeasyPrint find GTK3 DLLs and avoid Tesseract's incompatible libs.
+    if os.name == 'nt':
+        gtk_paths = [
+            r'C:\Program Files\GTK3-Runtime Win64\bin',
+            r'C:\Program Files (x86)\GTK3-Runtime Win64\bin',
+            r'C:\msys64\mingw64\bin',
+            os.environ.get('WEASYPRINT_DLL_DIRECTORIES', ''),
+        ]
+        for path in gtk_paths:
+            if path and os.path.isdir(path):
+                try:
+                    os.add_dll_directory(path)
+                except (OSError, AttributeError):
+                    pass
+                if path not in os.environ.get('PATH', ''):
+                    os.environ['PATH'] = path + os.pathsep + os.environ.get('PATH', '')
+                break
+
+        # Suppress noisy GLib UWP-app scan warnings on Windows.
+        os.environ.setdefault('G_MESSAGES_DEBUG', '')
+        os.environ.setdefault('GIO_USE_VFS', 'local')
+        os.environ.setdefault('G_MESSAGES_PREFIXED', '')
+
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        logger.error("WeasyPrint is not installed. Install with: pip install weasyprint")
+        return None
+    except OSError as e:
+        logger.error(
+            f"WeasyPrint failed to load GTK libraries: {e}. "
+            "Install GTK3 Runtime: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases"
+        )
+        return None
+
+    try:
+        pdf_bytes = HTML(string=html_content).write_pdf()
+        return pdf_bytes
+    except Exception as e:
+        logger.error(f"WeasyPrint PDF generation failed: {e}")
+        return None
 
 
 def create_estimate_from_template(template, customer, weight=None, labour_hours=None, 
@@ -248,6 +297,177 @@ def convert_images_to_base64(html_content):
         flags=re.IGNORECASE
     )
     
+    return html_content
+
+
+def normalize_html_for_xhtml2pdf_layout(html_content):
+    """
+    Non-destructive HTML normalization for xhtml2pdf table width issues.
+    Keeps document/table structure and most formatting intact.
+    """
+    import re
+
+    if not html_content:
+        return html_content
+
+    # xhtml2pdf can crash on nowrap + inline-block inside narrow table cells.
+    html_content = re.sub(r'white-space\s*:\s*nowrap\s*;?', 'white-space: normal;', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'display\s*:\s*inline-block\s*;?', 'display: inline;', html_content, flags=re.IGNORECASE)
+
+    # Unsupported/interactive styles can confuse layout engine.
+    html_content = re.sub(r'cursor\s*:\s*pointer\s*;?', '', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'border-radius\s*:\s*[^;"]+\s*;?', '', html_content, flags=re.IGNORECASE)
+
+    # Prefer explicit signature image size for predictable table geometry.
+    html_content = re.sub(
+        r'<img([^>]*?)max-width:\s*140px;?\s*max-height:\s*40px;?([^>]*?)>',
+        r'<img\1width: 140px; height: 40px;\2>',
+        html_content,
+        flags=re.IGNORECASE
+    )
+
+    # Remove fixed width attributes from table cells only (keep table structure).
+    html_content = re.sub(r'(<t[dh][^>]*?)\swidth="[^"]*"', r'\1', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'(<t[dh][^>]*?style="[^"]*)\bwidth\s*:\s*[^;"]+;?', r'\1', html_content, flags=re.IGNORECASE)
+
+    # Add word-wrap guards to table cells to prevent negative available width.
+    def _inject_cell_wrap(match):
+        tag = match.group(0)
+        if 'style=' in tag.lower():
+            return re.sub(
+                r'style="([^"]*)"',
+                lambda m: f'style="{m.group(1).rstrip(";")}; word-wrap: break-word; overflow-wrap: anywhere;"',
+                tag,
+                count=1,
+                flags=re.IGNORECASE
+            )
+        return tag[:-1] + ' style="word-wrap: break-word; overflow-wrap: anywhere;">'
+
+    html_content = re.sub(r'<t[dh][^>]*>', _inject_cell_wrap, html_content, flags=re.IGNORECASE)
+
+    return html_content
+
+
+def normalize_html_for_xhtml2pdf_layout_aggressive(html_content):
+    """
+    Second-pass normalization for stubborn xhtml2pdf table width crashes.
+    Preserves table structure but clamps style values that can create negative cell widths.
+    """
+    import re
+
+    if not html_content:
+        return html_content
+
+    html_content = normalize_html_for_xhtml2pdf_layout(html_content)
+
+    # Clamp large paddings that can produce negative available width in narrow cells.
+    def _clamp_padding(style_value):
+        def repl(match):
+            try:
+                px = int(match.group(1))
+                return f"padding: {min(px, 6)}px"
+            except Exception:
+                return "padding: 6px"
+
+        return re.sub(r'padding\s*:\s*(\d{2,})px', repl, style_value, flags=re.IGNORECASE)
+
+    def _normalize_cell_tag(match):
+        tag = match.group(0)
+
+        # Remove width/min-width/max-width and float from cell styles.
+        if 'style=' in tag.lower():
+            tag = re.sub(
+                r'style="([^"]*)"',
+                lambda m: 'style="' +
+                _clamp_padding(
+                    re.sub(r'\b(min-width|max-width|width|float)\s*:\s*[^;"]+;?', '', m.group(1), flags=re.IGNORECASE)
+                ).rstrip(';') + ';"',
+                tag,
+                count=1,
+                flags=re.IGNORECASE
+            )
+        return tag
+
+    html_content = re.sub(r'<t[dh][^>]*>', _normalize_cell_tag, html_content, flags=re.IGNORECASE)
+
+    # Table-level width safety while keeping table rendering.
+    def _normalize_table_tag(match):
+        tag = match.group(0)
+        if 'style=' in tag.lower():
+            tag = re.sub(
+                r'style="([^"]*)"',
+                lambda m: 'style="' +
+                re.sub(r'\b(min-width|max-width|width)\s*:\s*[^;"]+;?', '', m.group(1), flags=re.IGNORECASE).rstrip(';') +
+                '; width: 100%; table-layout: fixed;"',
+                tag,
+                count=1,
+                flags=re.IGNORECASE
+            )
+        else:
+            tag = tag[:-1] + ' style="width: 100%; table-layout: fixed;">'
+        return tag
+
+    html_content = re.sub(r'<table[^>]*>', _normalize_table_tag, html_content, flags=re.IGNORECASE)
+
+    # Normalize inconsistent table row column counts (common in WYSIWYG HTML).
+    # ReportLab/xhtml2pdf can crash on mixed column counts within the same table.
+    try:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html_content, 'html.parser')
+        for table in soup.find_all('table'):
+            rows = table.find_all('tr')
+            if not rows:
+                continue
+
+            def _row_col_count(row):
+                count = 0
+                for cell in row.find_all(['td', 'th'], recursive=False):
+                    try:
+                        count += int(cell.get('colspan', 1) or 1)
+                    except Exception:
+                        count += 1
+                return count
+
+            max_cols = max((_row_col_count(row) for row in rows), default=0)
+            if max_cols <= 0:
+                continue
+
+            for row in rows:
+                cells = row.find_all(['td', 'th'], recursive=False)
+                if not cells:
+                    continue
+
+                row_cols = _row_col_count(row)
+                missing = max_cols - row_cols
+                while missing > 0:
+                    filler = soup.new_tag('td')
+                    filler.string = ''
+                    row.append(filler)
+                    missing -= 1
+
+                # Clamp excessive cell padding to reduce negative available width risk.
+                for cell in row.find_all(['td', 'th'], recursive=False):
+                    style = cell.get('style', '')
+                    if style:
+                        style = re.sub(r'padding\s*:\s*(\d{2,})px', 'padding: 6px', style, flags=re.IGNORECASE)
+                        cell['style'] = style
+    except Exception:
+        # Keep original normalized HTML if BeautifulSoup is unavailable.
+        pass
+
+    # Ensure signature placeholders do not enforce nowrap/inline-block in PDF.
+    html_content = str(soup) if 'soup' in locals() else html_content
+    html_content = re.sub(
+        r'(<span[^>]*class="[^"]*signature-box-container[^"]*"[^>]*style=")([^"]*)(")',
+        lambda m: m.group(1)
+        + re.sub(r'white-space\s*:\s*nowrap\s*;?', 'white-space: normal;', m.group(2), flags=re.IGNORECASE)
+            .replace('display: inline-block;', 'display: inline;')
+        + m.group(3),
+        html_content,
+        flags=re.IGNORECASE
+    )
+
     return html_content
 
 
@@ -695,7 +915,7 @@ def generate_combined_deposits_table(estimate, invoice=None):
 
 def generate_pdf_from_html(html_content):
     """
-    Generate a PDF from HTML content using xhtml2pdf
+    Generate a PDF from HTML content using WeasyPrint
     """
     # Pre-process HTML to ensure images are base64 encoded for PDF generation
     html_content = convert_images_to_base64(html_content)
@@ -733,12 +953,7 @@ def generate_pdf_from_html(html_content):
         # No HTML structure, wrap it
         html_content = f'<html><head>{css_reset}</head><body>{html_content}</body></html>'
 
-    result = BytesIO()
-    pisa_status = pisa.CreatePDF(html_content, dest=result)
-    if pisa_status.err:
-        logger.error(f"Error generating PDF: {pisa_status.err}")
-        return None
-    return result.getvalue()
+    return render_pdf_with_weasyprint(html_content)
 
 
 def generate_invoice_pdf(invoice):
