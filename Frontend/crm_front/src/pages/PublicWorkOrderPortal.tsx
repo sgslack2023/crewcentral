@@ -230,7 +230,7 @@ const PublicWorkOrderPortal: React.FC = () => {
                                 <Col span={12}>
                                     <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>Pickup Date</Text>
                                     <Paragraph style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                                        {workOrder.estimate_details.pickup_date ? dayjs(workOrder.estimate_details.pickup_date).format('MMM D, YYYY') : 'TBD'}
+                                        {workOrder.estimate_details.pickup_date ? dayjs(workOrder.estimate_details.pickup_date, 'YYYY-MM-DD').format('MMM D, YYYY') : 'TBD'}
                                     </Paragraph>
                                     {workOrder.estimate_details.pickup_time_window_display && (
                                         <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -242,7 +242,7 @@ const PublicWorkOrderPortal: React.FC = () => {
                                 <Col span={12}>
                                     <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>Delivery Date</Text>
                                     <Paragraph style={{ fontSize: '14px', fontWeight: 600, marginTop: '4px' }}>
-                                        {workOrder.estimate_details.delivery_date ? dayjs(workOrder.estimate_details.delivery_date).format('MMM D, YYYY') : 'TBD'}
+                                        {workOrder.estimate_details.delivery_date ? dayjs(workOrder.estimate_details.delivery_date, 'YYYY-MM-DD').format('MMM D, YYYY') : 'TBD'}
                                     </Paragraph>
                                     {workOrder.estimate_details.delivery_time_window_display && (
                                         <Text type="secondary" style={{ fontSize: '12px' }}>

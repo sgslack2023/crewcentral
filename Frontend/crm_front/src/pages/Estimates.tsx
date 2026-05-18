@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Tag, notification, Space, Modal, List } from 'antd';
+import dayjs from 'dayjs';
 import {
   EyeOutlined,
   EditOutlined,
@@ -530,8 +531,8 @@ const Estimates: React.FC = () => {
       width: 140,
       render: (value: any, record: EstimateProps) => {
         if (!record.pickup_date_from && !record.pickup_date_to) return <span style={{ color: '#9ca3af' }}>-</span>;
-        const fromDate = record.pickup_date_from ? new Date(record.pickup_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
-        const toDate = record.pickup_date_to ? new Date(record.pickup_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+        const fromDate = record.pickup_date_from ? dayjs(record.pickup_date_from, 'YYYY-MM-DD').format('MMM D') : '-';
+        const toDate = record.pickup_date_to ? dayjs(record.pickup_date_to, 'YYYY-MM-DD').format('MMM D') : '-';
         return (
           <div style={{ fontSize: '13px', color: '#6b7280' }}>
             <div>📤 {fromDate}</div>
@@ -546,8 +547,8 @@ const Estimates: React.FC = () => {
       width: 140,
       render: (value: any, record: EstimateProps) => {
         if (!record.delivery_date_from && !record.delivery_date_to) return <span style={{ color: '#9ca3af' }}>-</span>;
-        const fromDate = record.delivery_date_from ? new Date(record.delivery_date_from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
-        const toDate = record.delivery_date_to ? new Date(record.delivery_date_to).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+        const fromDate = record.delivery_date_from ? dayjs(record.delivery_date_from, 'YYYY-MM-DD').format('MMM D') : '-';
+        const toDate = record.delivery_date_to ? dayjs(record.delivery_date_to, 'YYYY-MM-DD').format('MMM D') : '-';
         return (
           <div style={{ fontSize: '13px', color: '#6b7280' }}>
             <div>📥 {fromDate}</div>

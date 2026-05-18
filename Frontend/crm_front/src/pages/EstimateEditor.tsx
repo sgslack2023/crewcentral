@@ -1778,16 +1778,16 @@ const EstimateEditor: React.FC = () => {
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: '2px' }}>Pickup</div>
                           <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                            {estimate.pickup_date_from ? dayjs(estimate.pickup_date_from).format('MMM D') : '—'}
-                            {estimate.pickup_date_to && ` to ${dayjs(estimate.pickup_date_to).format('MMM D')}`}
+                            {estimate.pickup_date_from ? dayjs(estimate.pickup_date_from, 'YYYY-MM-DD').format('MMM D') : '—'}
+                            {estimate.pickup_date_to && ` to ${dayjs(estimate.pickup_date_to, 'YYYY-MM-DD').format('MMM D')}`}
                           </div>
                           {estimate.pickup_time_window_display && <div style={{ fontSize: '10px', color: '#595959' }}>{estimate.pickup_time_window_display}</div>}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: '2px' }}>Delivery</div>
                           <div style={{ fontSize: '13px', fontWeight: 600 }}>
-                            {estimate.delivery_date_from ? dayjs(estimate.delivery_date_from).format('MMM D') : '—'}
-                            {estimate.delivery_date_to && ` to ${dayjs(estimate.delivery_date_to).format('MMM D')}`}
+                            {estimate.delivery_date_from ? dayjs(estimate.delivery_date_from, 'YYYY-MM-DD').format('MMM D') : '—'}
+                            {estimate.delivery_date_to && ` to ${dayjs(estimate.delivery_date_to, 'YYYY-MM-DD').format('MMM D')}`}
                           </div>
                           {estimate.delivery_time_window_display && <div style={{ fontSize: '10px', color: '#595959' }}>{estimate.delivery_time_window_display}</div>}
                         </div>

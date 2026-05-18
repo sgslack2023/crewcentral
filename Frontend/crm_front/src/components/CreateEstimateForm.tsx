@@ -1,5 +1,6 @@
 import React, { FC, useEffect, useState } from "react";
 import { Drawer, notification, Form, InputNumber, Button, Card, Select, Divider, DatePicker } from "antd";
+import dayjs from 'dayjs';
 import BlackButton from './BlackButton';
 import {
   CalculatorOutlined,
@@ -191,7 +192,7 @@ const CreateEstimateForm: FC<CreateEstimateFormProps> = ({
             </div>
             {customer?.move_date && (
               <div style={{ fontSize: '12px', color: '#999' }}>
-                Move Date: {new Date(customer.move_date).toLocaleDateString()}
+                Move Date: {dayjs(customer.move_date, 'YYYY-MM-DD').format('MMM D, YYYY')}
               </div>
             )}
           </div>

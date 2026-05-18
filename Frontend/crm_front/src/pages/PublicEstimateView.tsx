@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Tag, notification, Table, Modal, Result } from 'antd';
+import dayjs from 'dayjs';
 import {
   CheckCircleOutlined,
   DollarOutlined,
@@ -328,22 +329,14 @@ const PublicEstimateView: React.FC = () => {
                   <div>
                     <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>From</div>
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                      {new Date(estimate.pickup_date_from).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {dayjs(estimate.pickup_date_from, 'YYYY-MM-DD').format('MMMM D, YYYY')}
                     </div>
                   </div>
                   {estimate.pickup_date_to && (
                     <div>
                       <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>To</div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {new Date(estimate.pickup_date_to).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {dayjs(estimate.pickup_date_to, 'YYYY-MM-DD').format('MMMM D, YYYY')}
                       </div>
                     </div>
                   )}
@@ -360,22 +353,14 @@ const PublicEstimateView: React.FC = () => {
                   <div>
                     <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>From</div>
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                      {new Date(estimate.delivery_date_from).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {dayjs(estimate.delivery_date_from, 'YYYY-MM-DD').format('MMMM D, YYYY')}
                     </div>
                   </div>
                   {estimate.delivery_date_to && (
                     <div>
                       <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>To</div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {new Date(estimate.delivery_date_to).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })}
+                        {dayjs(estimate.delivery_date_to, 'YYYY-MM-DD').format('MMMM D, YYYY')}
                       </div>
                     </div>
                   )}

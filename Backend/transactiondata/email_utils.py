@@ -765,40 +765,6 @@ def send_estimate_email(estimate, base_url=None, backend_base_url=None):
         
         # Process and attach library documents
         process_and_attach_documents(email, attachments, customer=estimate.customer, estimate=estimate)
-        
-        # Attach PDF
-        try:
-            from .utils import generate_pdf_from_html, process_document_template
-            from masterdata.models import DocumentLibrary
-            
-            # 1. Try to find PDF template from "System Mapping" (estimate_pdf)
-            pdf_template = DocumentLibrary.objects.filter(
-                organization=estimate.organization, 
-                document_purpose='estimate_pdf', 
-                is_active=True
-            ).first()
-            
-            # 2. Fallback to estimate settings
-            if not pdf_template:
-                # Check if email_template exists on the model (it might be a dynamic attribute or missing)
-                pdf_template = getattr(estimate, 'template_used', None)
-                if not pdf_template and hasattr(estimate, 'email_template'):
-                    pdf_template = estimate.email_template
-            
-            if pdf_template:
-                 # DocumentLibrary has 'subject', EstimateTemplate does not.
-                 # Both have 'description'.
-                 p_html = pdf_template.description
-                 if not p_html and hasattr(pdf_template, 'subject'):
-                     p_html = pdf_template.subject
-                     
-                 if p_html:
-                     processed_p_html = process_document_template(p_html, estimate.customer, estimate)
-                     p_pdf_content = generate_pdf_from_html(processed_p_html)
-                     if p_pdf_content:
-                         email.attach(f"Estimate_{estimate.id}.pdf", p_pdf_content, 'application/pdf')
-        except Exception as e:
-            logger.error(f"Error attaching PDF to estimate email: {e}")
 
         email.send(fail_silently=False)
         

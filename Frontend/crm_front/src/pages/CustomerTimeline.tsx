@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Tag, notification, Timeline, Empty, Descriptions, Avatar, Space, Modal, Input, Form, Select } from 'antd';
+import dayjs from 'dayjs';
 import {
   ArrowLeftOutlined,
   ClockCircleOutlined,
@@ -423,10 +424,7 @@ const CustomerTimeline: React.FC = () => {
                             DATE
                           </div>
                           <div style={{ fontSize: '11px', color: '#111827', fontWeight: 500 }}>
-                            {new Date(customer.move_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric'
-                            })}
+                            {dayjs(customer.move_date, 'YYYY-MM-DD').format('MMM D')}
                           </div>
                         </div>
                       )}
