@@ -43,7 +43,7 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ['*','3.17.95.130','3.129.122.144']
+ALLOWED_HOSTS = ['app.balticvanlines.ca', '3.129.122.144', '3.17.95.130', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -166,11 +166,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.CustomUser'#new
 from corsheaders.defaults import default_headers
 
-CORS_ORIGIN_ALLOW_ALL=True
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ALLOWED_ORIGINS = [
+    'https://app.balticvanlines.ca',
+]
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-organization-id',
 ]
 CORS_EXPOSE_HEADERS = ['Content-Disposition']
+CSRF_TRUSTED_ORIGINS = ['https://app.balticvanlines.ca']
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
@@ -206,3 +210,8 @@ FRONTEND_URL = env('FRONTEND_URL')
 
 # Backend URL for tracking pixel
 BACKEND_URL = env('BACKEND_URL')
+
+# HTTPS Security Settings
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
